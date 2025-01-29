@@ -157,7 +157,7 @@ const getSizeFromImage = async (filePath: string) => {
   return probeImg.width
 }
 
-export const getActiveTexturepackBasePath = async () => {
+export const getActiveResourcepackBasePath = async () => {
   if (await existsAsync('/resourcepack/pack.mcmeta')) {
     return '/resourcepack'
   }
@@ -198,7 +198,7 @@ const getFilesMapFromDir = async (dir: string) => {
 }
 
 export const getResourcepackTiles = async (type: 'blocks' | 'items', existingTextures: string[]) => {
-  const basePath = await getActiveTexturepackBasePath()
+  const basePath = await getActiveResourcepackBasePath()
   if (!basePath) return
   let firstTextureSize: number | undefined
   const namespaces = await fs.promises.readdir(join(basePath, 'assets'))
@@ -282,7 +282,7 @@ const prepareBlockstatesAndModels = async () => {
   viewer.world.customBlockStates = {}
   viewer.world.customModels = {}
   const usedTextures = new Set<string>()
-  const basePath = await getActiveTexturepackBasePath()
+  const basePath = await getActiveResourcepackBasePath()
   if (!basePath) return
   if (appStatusState.status) {
     setLoadingScreenStatus('Reading resource pack blockstates and models')
@@ -361,6 +361,7 @@ export const onAppLoad = () => {
   customEvents.on('mineflayerBotCreated', () => {
     // todo also handle resourcePack
     const handleResourcePackRequest = async (packet) => {
+      console.log('Received resource pack request', packet)
       if (options.serverResourcePacks === 'never') return
       const promptMessagePacket = ('promptMessage' in packet && packet.promptMessage) ? packet.promptMessage : undefined
       const promptMessageText = promptMessagePacket ? '' : 'Do you want to use server resource pack?'
@@ -397,7 +398,7 @@ export const onAppLoad = () => {
 }
 
 const updateAllReplacableTextures = async () => {
-  const basePath = await getActiveTexturepackBasePath()
+  const basePath = await getActiveResourcepackBasePath()
   const setCustomCss = async (path: string | null, varName: string, repeat = 1) => {
     if (path && await existsAsync(path)) {
       const contents = await fs.promises.readFile(path, 'base64')

@@ -103,6 +103,9 @@ const appConfig = defineConfig({
                         configJson.defaultProxy = ':8080'
                     }
                     fs.writeFileSync('./dist/config.json', JSON.stringify({ ...configJson, ...configLocalJson }), 'utf8')
+                    if (fs.existsSync('./generated/sounds.js')) {
+                        fs.copyFileSync('./generated/sounds.js', './dist/sounds.js')
+                    }
                     // childProcess.execSync('./scripts/prepareSounds.mjs', { stdio: 'inherit' })
                     // childProcess.execSync('tsx ./scripts/genMcDataTypes.ts', { stdio: 'inherit' })
                     // childProcess.execSync('tsx ./scripts/genPixelartTypes.ts', { stdio: 'inherit' })

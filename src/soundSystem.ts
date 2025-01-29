@@ -1,50 +1,45 @@
 import { subscribeKey } from 'valtio/utils'
 import { Vec3 } from 'vec3'
-import { versionToMajor, versionToNumber, versionsMapToMajor } from 'prismarine-viewer/viewer/prepare/utils'
+import { versionToNumber } from 'prismarine-viewer/viewer/prepare/utils'
 import { loadScript } from 'prismarine-viewer/viewer/lib/utils'
 import type { Block } from 'prismarine-block'
 import { miscUiState } from './globalState'
 import { options } from './optionsStorage'
 import { loadOrPlaySound } from './basicSounds'
-import { showNotification } from './react/NotificationProvider'
+import { createSoundMap, SoundMap } from './soundsMap'
+import { getActiveResourcepackBasePath, resourcePackState } from './resourcePack'
 
-const globalObject = window as {
-  allSoundsMap?: Record<string, Record<string, string>>,
-  allSoundsVersionedMap?: Record<string, string[]>,
+let soundMap: SoundMap | undefined
+
+const updateResourcePack = async () => {
+  if (!soundMap) return
+  soundMap.activeResourcePackBasePath = await getActiveResourcepackBasePath() ?? undefined
 }
 
 subscribeKey(miscUiState, 'gameLoaded', async () => {
-  if (!miscUiState.gameLoaded) return
-  const soundsLegacyMap = window.allSoundsVersionedMap as Record<string, string[]>
-  const { allSoundsMap } = globalObject
-  const allSoundsMeta = window.allSoundsMeta as { format: string, baseUrl: string }
-  if (!allSoundsMap) {
+  if (!miscUiState.gameLoaded || !loadedData.sounds) {
     return
   }
 
-  const allSoundsMajor = versionsMapToMajor(allSoundsMap)
-  const soundsMap = allSoundsMajor[versionToMajor(bot.version)] ?? Object.values(allSoundsMajor)[0]
-
-  if (!soundsMap || !miscUiState.gameLoaded || !loadedData.sounds) {
-    return
-  }
-
-  // const soundsPerId = Object.fromEntries(Object.entries(soundsMap).map(([id, sound]) => [+id.split(';')[0], sound]))
-  const soundsPerName = Object.fromEntries(Object.entries(soundsMap).map(([id, sound]) => [id.split(';')[1], sound]))
+  console.log(`Loading sounds for version ${bot.version}. Resourcepack state: ${JSON.stringify(resourcePackState)}`)
+  soundMap = createSoundMap(bot.version) ?? undefined
+  if (!soundMap) return
+  void updateResourcePack()
 
   const playGeneralSound = async (soundKey: string, position?: Vec3, volume = 1, pitch?: number) => {
-    if (!options.volume) return
-    const soundStaticData = soundsPerName[soundKey]?.split(';')
-    if (!soundStaticData) return
-    const soundVolume = +soundStaticData[0]!
-    const soundPath = soundStaticData[1]!
-    const versionedSound = getVersionedSound(bot.version, soundPath, Object.entries(soundsLegacyMap))
-    // todo test versionedSound
-    const url = allSoundsMeta.baseUrl.replace(/\/$/, '') + (versionedSound ? `/${versionedSound}` : '') + '/minecraft/sounds/' + soundPath + '.' + allSoundsMeta.format
-    const isMuted = options.mutedSounds.includes(soundKey) || options.mutedSounds.includes(soundPath) || options.volume === 0
+    if (!options.volume || !soundMap) return
+    const soundData = await soundMap.getSoundUrl(soundKey, volume)
+    if (!soundData) return
+
+    const isMuted = options.mutedSounds.includes(soundKey) || options.volume === 0
     if (position) {
       if (!isMuted) {
-        viewer.playSound(position, url, soundVolume * Math.max(Math.min(volume, 1), 0) * (options.volume / 100), Math.max(Math.min(pitch ?? 1, 2), 0.5))
+        viewer.playSound(
+          position,
+          soundData.url,
+          soundData.volume * (options.volume / 100),
+          Math.max(Math.min(pitch ?? 1, 2), 0.5)
+        )
       }
       if (getDistance(bot.entity.position, position) < 4 * 16) {
         lastPlayedSounds.lastServerPlayed[soundKey] ??= { count: 0, last: 0 }
@@ -53,7 +48,7 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
       }
     } else {
       if (!isMuted) {
-        await loadOrPlaySound(url, volume)
+        await loadOrPlaySound(soundData.url, volume)
       }
       lastPlayedSounds.lastClientPlayed.push(soundKey)
       if (lastPlayedSounds.lastClientPlayed.length > 10) {
@@ -61,84 +56,38 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
       }
     }
   }
+
   const playHardcodedSound = async (soundKey: string, position?: Vec3, volume = 1, pitch?: number) => {
     await playGeneralSound(soundKey, position, volume, pitch)
   }
+
   bot.on('soundEffectHeard', async (soundId, position, volume, pitch) => {
     await playHardcodedSound(soundId, position, volume, pitch)
   })
+
   bot.on('hardcodedSoundEffectHeard', async (soundIdNum, soundCategory, position, volume, pitch) => {
     const fixOffset = versionToNumber('1.20.4') === versionToNumber(bot.version) ? -1 : 0
     const soundKey = loadedData.sounds[soundIdNum + fixOffset]?.name
     if (soundKey === undefined) return
     await playGeneralSound(soundKey, position, volume, pitch)
   })
-  // workaround as mineflayer doesn't support soundEvent
+
   bot._client.on('sound_effect', async (packet) => {
     const soundResource = packet['soundEvent']?.resource as string | undefined
     if (packet.soundId !== 0 || !soundResource) return
     const pos = new Vec3(packet.x / 8, packet.y / 8, packet.z / 8)
     await playHardcodedSound(soundResource.replace('minecraft:', ''), pos, packet.volume, packet.pitch)
   })
+
   bot.on('entityHurt', async (entity) => {
     if (entity.id === bot.entity.id) {
       await playHardcodedSound('entity.player.hurt')
     }
   })
 
-  const useBlockSound = (blockName: string, category: string, fallback: string) => {
-    blockName = {
-      // todo somehow generated, not full
-      grass_block: 'grass',
-      tall_grass: 'grass',
-      fern: 'grass',
-      large_fern: 'grass',
-      dead_bush: 'grass',
-      seagrass: 'grass',
-      tall_seagrass: 'grass',
-      kelp: 'grass',
-      kelp_plant: 'grass',
-      sugar_cane: 'grass',
-      bamboo: 'grass',
-      vine: 'grass',
-      nether_sprouts: 'grass',
-      nether_wart: 'grass',
-      twisting_vines: 'grass',
-      weeping_vines: 'grass',
-
-      cobblestone: 'stone',
-      stone_bricks: 'stone',
-      mossy_stone_bricks: 'stone',
-      cracked_stone_bricks: 'stone',
-      chiseled_stone_bricks: 'stone',
-      stone_brick_slab: 'stone',
-      stone_brick_stairs: 'stone',
-      stone_brick_wall: 'stone',
-      polished_granite: 'stone',
-    }[blockName] ?? blockName
-    const key = 'block.' + blockName + '.' + category
-    return soundsPerName[key] ? key : fallback
-  }
-
-  const getStepSound = (blockUnder: Block) => {
-    // const soundsMap = globalObject.allSoundsMap?.[bot.version]
-    // if (!soundsMap) return
-    // let soundResult = 'block.stone.step'
-    // for (const x of Object.keys(soundsMap).map(n => n.split(';')[1])) {
-    //   const match = /block\.(.+)\.step/.exec(x)
-    //   const block = match?.[1]
-    //   if (!block) continue
-    //   if (loadedData.blocksByName[block]?.name === blockUnder.name) {
-    //     soundResult = x
-    //     break
-    //   }
-    // }
-    return useBlockSound(blockUnder.name, 'step', 'block.stone.step')
-  }
-
   let lastStepSound = 0
   const movementHappening = async () => {
-    if (!bot.player) return // no info yet
+    if (!bot.player || !soundMap) return // no info yet
     const VELOCITY_THRESHOLD = 0.1
     const { x, z, y } = bot.player.entity.velocity
     if (bot.entity.onGround && Math.abs(x) < VELOCITY_THRESHOLD && (Math.abs(z) > VELOCITY_THRESHOLD || Math.abs(y) > VELOCITY_THRESHOLD)) {
@@ -146,9 +95,9 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
       if (Date.now() - lastStepSound > 300) {
         const blockUnder = bot.world.getBlock(bot.entity.position.offset(0, -1, 0))
         if (blockUnder) {
-          const stepSound = getStepSound(blockUnder)
+          const stepSound = soundMap.getStepSound(blockUnder.name)
           if (stepSound) {
-            await playHardcodedSound(stepSound, undefined, 0.6)// todo not sure why 0.6
+            await playHardcodedSound(stepSound, undefined, 0.6)
             lastStepSound = Date.now()
           }
         }
@@ -157,8 +106,8 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
   }
 
   const playBlockBreak = async (blockName: string, position?: Vec3) => {
-    const sound = useBlockSound(blockName, 'break', 'block.stone.break')
-
+    if (!soundMap) return
+    const sound = soundMap.getBreakSound(blockName)
     await playHardcodedSound(sound, position, 0.6, 1)
   }
 
@@ -200,8 +149,8 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
       if (effectId === 1010) {
         console.log('play record', data)
       }
-      // todo add support for all current world events
     })
+
     let diggingBlock: Block | null = null
     customEvents.on('digStart', () => {
       diggingBlock = bot.blockAtCursor(5)
@@ -214,40 +163,14 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
   }
 
   registerEvents()
-
-  // 1.20+ soundEffectHeard is broken atm
-  // bot._client.on('packet', (data, { name }, buffer) => {
-  //   if (name === 'sound_effect') {
-  //     console.log(data, buffer)
-  //   }
-  // })
 })
 
-// todo
-// const music = {
-//   activated: false,
-//   playing: '',
-//   activate () {
-//     const gameMusic = Object.entries(globalObject.allSoundsMap?.[bot.version] ?? {}).find(([id, sound]) => sound.includes('music.game'))
-//     if (!gameMusic) return
-//     const soundPath = gameMusic[0].split(';')[1]
-//     const next = () => {}
-//   }
-// }
-
-const getVersionedSound = (version: string, item: string, itemsMapSortedEntries: Array<[string, string[]]>) => {
-  const verNumber = versionToNumber(version)
-  for (const [itemsVer, items] of itemsMapSortedEntries) {
-    // 1.18 < 1.18.1
-    // 1.13 < 1.13.2
-    if (items.includes(item) && verNumber <= versionToNumber(itemsVer)) {
-      return itemsVer
-    }
-  }
-}
+subscribeKey(resourcePackState, 'resourcePackInstalled', async () => {
+  await updateResourcePack()
+})
 
 export const downloadSoundsIfNeeded = async () => {
-  if (!globalObject.allSoundsMap) {
+  if (!window.allSoundsMap) {
     try {
       await loadScript('./sounds.js')
     } catch (err) {
