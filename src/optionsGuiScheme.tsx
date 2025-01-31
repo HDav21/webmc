@@ -355,33 +355,38 @@ export const guiOptionsScheme: {
       touchButtonsSize: {
         min: 40,
         disableIf: [
-          'touchControlsType',
-          'joystick-buttons'
+          'touchMovementType',
+          'modern'
         ],
       },
       touchButtonsOpacity: {
         min: 10,
         max: 90,
         disableIf: [
-          'touchControlsType',
-          'joystick-buttons'
+          'touchMovementType',
+          'modern'
         ],
       },
       touchButtonsPosition: {
         max: 80,
         disableIf: [
-          'touchControlsType',
-          'joystick-buttons'
+          'touchMovementType',
+          'modern'
         ],
       },
-      touchControlsType: {
-        values: [['classic', 'Classic'], ['joystick-buttons', 'New']],
+      touchMovementType: {
+        text: 'Movement Controls',
+        values: [['modern', 'Modern'], ['classic', 'Classic']],
+      },
+      touchInteractionType: {
+        text: 'Interaction Controls',
+        values: [['classic', 'Classic'], ['buttons', 'Buttons']],
       },
     },
     {
       custom () {
-        const { touchControlsType } = useSnapshot(options)
-        return <Button label='Setup Touch Buttons' onClick={() => showModal({ reactType: 'touch-buttons-setup' })} inScreen disabled={touchControlsType !== 'joystick-buttons'} />
+        const { touchInteractionType, touchMovementType } = useSnapshot(options)
+        return <Button label='Setup Touch Buttons' onClick={() => showModal({ reactType: 'touch-buttons-setup' })} inScreen disabled={touchInteractionType === 'classic' && touchMovementType === 'classic'} />
       },
     },
     {

@@ -8,11 +8,8 @@ import './globalDomListeners'
 import './mineflayer/maps'
 import './mineflayer/cameraShake'
 import initCollisionShapes from './getCollisionInteractionShapes'
-import { onGameLoad } from './inventoryWindows'
-import { supportedVersions } from 'minecraft-protocol'
 import protocolMicrosoftAuth from 'minecraft-protocol/src/client/microsoftAuth'
 import microsoftAuthflow from './microsoftAuthflow'
-import nbt from 'prismarine-nbt'
 
 import 'core-js/features/array/at'
 import 'core-js/features/promise/with-resolvers'
@@ -24,7 +21,7 @@ import PrismarineItem from 'prismarine-item'
 
 import { options, watchValue } from './optionsStorage'
 import './reactUi'
-import { contro, lockUrl, onBotCreate } from './controls'
+import { lockUrl, onBotCreate } from './controls'
 import './dragndrop'
 import { possiblyCleanHandle, resetStateAfterDisconnect } from './browserfs'
 import { watchOptionsAfterViewerInit, watchOptionsAfterWorldViewInit } from './watchOptions'
@@ -40,7 +37,7 @@ import { Vec3 } from 'vec3'
 import worldInteractions from './worldInteractions'
 
 import * as THREE from 'three'
-import MinecraftData, { versionsByMinecraftVersion } from 'minecraft-data'
+import MinecraftData from 'minecraft-data'
 import debug from 'debug'
 import { defaultsDeep } from 'lodash-es'
 import initializePacketsReplay from './packetsReplay'
@@ -57,11 +54,8 @@ import {
   showModal
 } from './globalState'
 
-
 import {
-  pointerLock,
-  toMajorVersion,
-  setLoadingScreenStatus
+  pointerLock, setLoadingScreenStatus
 } from './utils'
 import { isCypress } from './standaloneUtils'
 
@@ -76,7 +70,6 @@ import dayCycle from './dayCycle'
 import { onAppLoad, resourcepackReload } from './resourcePack'
 import { ConnectPeerOptions, connectToPeer } from './localServerMultiplayer'
 import CustomChannelClient from './customClient'
-import { loadScript } from 'prismarine-viewer/viewer/lib/utils'
 import { registerServiceWorker } from './serviceWorker'
 import { appStatusState, lastConnectOptions } from './react/AppStatusProvider'
 
@@ -84,9 +77,7 @@ import { fsState } from './loadSave'
 import { watchFov } from './rendererUtils'
 import { loadInMemorySave } from './react/SingleplayerProvider'
 
-import { downloadSoundsIfNeeded } from './sounds/botSoundSystem'
 import { ua } from './react/utils'
-import { handleMovementStickDelta, joystickPointer } from './react/TouchAreasControls'
 import { possiblyHandleStateVariable } from './googledrive'
 import flyingSquidEvents from './flyingSquidEvents'
 import { hideNotification, notificationProxy, showNotification } from './react/NotificationProvider'
@@ -105,6 +96,7 @@ import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import './mobileShim'
 import { parseFormattedMessagePacket } from './botUtils'
 import { getViewerVersionData, getWsProtocolStream } from './viewerConnector'
+import { updateCursor } from './cameraRotationControls'
 
 window.debug = debug
 window.THREE = THREE
@@ -200,37 +192,6 @@ viewer.entities.entitiesOptions = {
 }
 watchOptionsAfterViewerInit()
 
-let mouseMovePostHandle = (e) => { }
-let lastMouseMove: number
-const updateCursor = () => {
-  worldInteractions.update()
-}
-function onCameraMove (e) {
-  if (e.type !== 'touchmove' && !pointerLock.hasPointerLock) return
-  e.stopPropagation?.()
-  const now = performance.now()
-  // todo: limit camera movement for now to avoid unexpected jumps
-  if (now - lastMouseMove < 4) return
-  lastMouseMove = now
-  let { mouseSensX, mouseSensY } = options
-  if (mouseSensY === -1) mouseSensY = mouseSensX
-  mouseMovePostHandle({
-    x: e.movementX * mouseSensX * 0.0001,
-    y: e.movementY * mouseSensY * 0.0001
-  })
-  updateCursor()
-}
-window.addEventListener('mousemove', onCameraMove, { capture: true })
-contro.on('stickMovement', ({ stick, vector }) => {
-  if (!isGameActive(true)) return
-  if (stick !== 'right') return
-  let { x, z } = vector
-  if (Math.abs(x) < 0.18) x = 0
-  if (Math.abs(z) < 0.18) z = 0
-  onCameraMove({ movementX: x * 10, movementY: z * 10, type: 'touchmove' })
-  miscUiState.usingGamepadInput = true
-})
-
 function hideCurrentScreens () {
   activeModalStacks['main-menu'] = [...activeModalStack]
   insertActiveModalStack('', [])
@@ -285,7 +246,7 @@ const cleanConnectIp = (host: string | undefined, defaultPort: string | undefine
   }
 }
 
-async function connect (connectOptions: ConnectOptions) {
+export async function connect (connectOptions: ConnectOptions) {
   if (miscUiState.gameLoaded) return
   miscUiState.hasErrors = false
   lastConnectOptions.value = connectOptions
@@ -745,144 +706,6 @@ async function connect (connectOptions: ConnectOptions) {
 
     setLoadingScreenStatus('Setting callbacks')
 
-    const maxPitch = 0.5 * Math.PI
-    const minPitch = -0.5 * Math.PI
-    mouseMovePostHandle = ({ x, y }) => {
-      viewer.world.lastCamUpdate = Date.now()
-      bot.entity.pitch -= y
-      bot.entity.pitch = Math.max(minPitch, Math.min(maxPitch, bot.entity.pitch))
-      bot.entity.yaw -= x
-    }
-
-    function changeCallback () {
-      if (notificationProxy.id === 'pointerlockchange') {
-        hideNotification()
-      }
-      if (renderer.xr.isPresenting) return // todo
-      if (!pointerLock.hasPointerLock && activeModalStack.length === 0) {
-        showModal({ reactType: 'pause-screen' })
-      }
-    }
-
-    registerListener(document, 'pointerlockchange', changeCallback, false)
-
-    const cameraControlEl = document.querySelector('#ui-root')
-
-    /** after what time of holding the finger start breaking the block */
-    const touchStartBreakingBlockMs = 500
-    let virtualClickActive = false
-    let virtualClickTimeout
-    let screenTouches = 0
-    let capturedPointer: { id; x; y; sourceX; sourceY; activateCameraMove; time } | undefined
-    registerListener(document, 'pointerdown', (e) => {
-      const usingJoystick = options.touchControlsType === 'joystick-buttons'
-      const clickedEl = e.composedPath()[0]
-      if (!isGameActive(true) || !miscUiState.currentTouch || clickedEl !== cameraControlEl || e.pointerId === undefined) {
-        return
-      }
-      screenTouches++
-      if (screenTouches === 3) {
-        // todo needs fixing!
-        // window.dispatchEvent(new MouseEvent('mousedown', { button: 1 }))
-      }
-      if (usingJoystick) {
-        if (!joystickPointer.pointer && e.clientX < window.innerWidth / 2) {
-          joystickPointer.pointer = {
-            pointerId: e.pointerId,
-            x: e.clientX,
-            y: e.clientY
-          }
-          return
-        }
-      }
-      if (capturedPointer) {
-        return
-      }
-      cameraControlEl.setPointerCapture(e.pointerId)
-      capturedPointer = {
-        id: e.pointerId,
-        x: e.clientX,
-        y: e.clientY,
-        sourceX: e.clientX,
-        sourceY: e.clientY,
-        activateCameraMove: false,
-        time: Date.now()
-      }
-      if (options.touchControlsType !== 'joystick-buttons') {
-        virtualClickTimeout ??= setTimeout(() => {
-          virtualClickActive = true
-          document.dispatchEvent(new MouseEvent('mousedown', { button: 0 }))
-        }, touchStartBreakingBlockMs)
-      }
-    })
-    registerListener(document, 'pointermove', (e) => {
-      if (e.pointerId === undefined) return
-      const supportsPressure = (e as any).pressure !== undefined && (e as any).pressure !== 0 && (e as any).pressure !== 0.5 && (e as any).pressure !== 1 && (e.pointerType === 'touch' || e.pointerType === 'pen')
-      if (e.pointerId === joystickPointer.pointer?.pointerId) {
-        handleMovementStickDelta(e)
-        if (supportsPressure && (e as any).pressure > 0.5) {
-          bot.setControlState('sprint', true)
-          // todo
-        }
-        return
-      }
-      if (e.pointerId !== capturedPointer?.id) return
-      window.scrollTo(0, 0)
-      e.preventDefault()
-      e.stopPropagation()
-
-      const allowedJitter = 1.1
-      if (supportsPressure) {
-        bot.setControlState('jump', (e as any).pressure > 0.5)
-      }
-      const xDiff = Math.abs(e.pageX - capturedPointer.sourceX) > allowedJitter
-      const yDiff = Math.abs(e.pageY - capturedPointer.sourceY) > allowedJitter
-      if (!capturedPointer.activateCameraMove && (xDiff || yDiff)) capturedPointer.activateCameraMove = true
-      if (capturedPointer.activateCameraMove) {
-        clearTimeout(virtualClickTimeout)
-      }
-      onCameraMove({ movementX: e.pageX - capturedPointer.x, movementY: e.pageY - capturedPointer.y, type: 'touchmove' })
-      capturedPointer.x = e.pageX
-      capturedPointer.y = e.pageY
-    }, { passive: false })
-
-    const pointerUpHandler = (e: PointerEvent) => {
-      if (e.pointerId === undefined) return
-      if (e.pointerId === joystickPointer.pointer?.pointerId) {
-        handleMovementStickDelta()
-        joystickPointer.pointer = null
-        return
-      }
-      if (e.pointerId !== capturedPointer?.id) return
-      clearTimeout(virtualClickTimeout)
-      virtualClickTimeout = undefined
-
-      if (options.touchControlsType !== 'joystick-buttons') {
-        if (virtualClickActive) {
-          // button 0 is left click
-          document.dispatchEvent(new MouseEvent('mouseup', { button: 0 }))
-          virtualClickActive = false
-        } else if (!capturedPointer.activateCameraMove && (Date.now() - capturedPointer.time < touchStartBreakingBlockMs)) {
-          document.dispatchEvent(new MouseEvent('mousedown', { button: 2 }))
-          worldInteractions.update()
-          document.dispatchEvent(new MouseEvent('mouseup', { button: 2 }))
-        }
-      }
-      capturedPointer = undefined
-      screenTouches--
-    }
-    registerListener(document, 'pointerup', pointerUpHandler)
-    registerListener(document, 'pointercancel', pointerUpHandler)
-    registerListener(document, 'lostpointercapture', pointerUpHandler)
-
-    registerListener(document, 'contextmenu', (e) => e.preventDefault(), false)
-
-    registerListener(document, 'blur', (e) => {
-      bot.clearControlStates()
-    }, false)
-
-    console.log('Done!')
-
     if (appStatusState.isError) return
     setTimeout(() => {
       // todo
@@ -906,7 +729,7 @@ async function connect (connectOptions: ConnectOptions) {
       // todo might not emit as servers simply don't send chunk if it's empty
       if (!viewer.world.allChunksFinished || done) return
       done = true
-      console.log('All done and ready! In', (Date.now() - start) / 1000, 's')
+      console.log('All chunks done and ready! Time from renderer open to ready', (Date.now() - start) / 1000, 's')
       viewer.render() // ensure the last state is rendered
       document.dispatchEvent(new Event('cypress-world-ready'))
     })

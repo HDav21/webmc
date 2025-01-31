@@ -97,6 +97,10 @@ export const openOptionsMenu = (group: OptionsGroupType) => {
   showModal({ reactType: `options-${group}` })
 }
 
+subscribe(activeModalStack, () => {
+  document.body.style.setProperty('--has-modals-z', activeModalStack.length ? '-1' : null)
+})
+
 // ---
 
 export const currentContextMenu = proxy({ items: [] as ContextMenuItem[] | null, x: 0, y: 0 })
