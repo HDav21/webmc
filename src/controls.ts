@@ -7,7 +7,7 @@ import { ControMax } from 'contro-max/build/controMax'
 import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types'
 import { stringStartsWith } from 'contro-max/build/stringUtils'
 import { UserOverrideCommand, UserOverridesConfig } from 'contro-max/build/types/store'
-import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, loadedGameState, hideModal } from './globalState'
+import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, hideModal, hideAllModals } from './globalState'
 import { goFullscreen, pointerLock, reloadChunks } from './utils'
 import { options } from './optionsStorage'
 import { openPlayerInventory } from './inventoryWindows'
@@ -19,7 +19,7 @@ import { showOptionsModal } from './react/SelectOption'
 import widgets from './react/widgets'
 import { getItemFromBlock } from './chatUtils'
 import { gamepadUiCursorState, moveGamepadCursorByPx } from './react/GamepadUiCursor'
-import { completeTexturePackInstall, resourcePackState } from './resourcePack'
+import { completeTexturePackInstall, copyServerResourcePackToRegular, resourcePackState } from './resourcePack'
 import { showNotification } from './react/NotificationProvider'
 import { lastConnectOptions } from './react/AppStatusProvider'
 
@@ -450,7 +450,12 @@ contro.on('release', ({ command }) => {
 
 // hard-coded keybindings
 
-export const f3Keybinds = [
+export const f3Keybinds: Array<{
+  key?: string,
+  action: () => void,
+  mobileTitle: string
+  enabled?: () => boolean
+}> = [
   {
     key: 'KeyA',
     action () {
@@ -496,9 +501,9 @@ export const f3Keybinds = [
     key: 'KeyT',
     async action () {
       // TODO!
-      if (resourcePackState.resourcePackInstalled || loadedGameState.usingServerResourcePack) {
+      if (resourcePackState.resourcePackInstalled || gameAdditionalState.usingServerResourcePack) {
         showNotification('Reloading textures...')
-        await completeTexturePackInstall('default', 'default', loadedGameState.usingServerResourcePack)
+        await completeTexturePackInstall('default', 'default', gameAdditionalState.usingServerResourcePack)
       }
     },
     mobileTitle: 'Reload Textures'
@@ -539,7 +544,15 @@ export const f3Keybinds = [
       const proxyPing = await bot['pingProxy']()
       void showOptionsModal(`${username}: last known total latency (ping): ${playerPing}. Connected to ${lastConnectOptions.value?.proxy} with current ping ${proxyPing}. Player UUID: ${uuid}`, [])
     },
-    mobileTitle: 'Show Proxy & Ping Details'
+    mobileTitle: 'Show Proxy & Ping Details',
+    enabled: () => !!lastConnectOptions.value?.proxy
+  },
+  {
+    action () {
+      void copyServerResourcePackToRegular()
+    },
+    mobileTitle: 'Copy Server Resource Pack',
+    enabled: () => !!gameAdditionalState.usingServerResourcePack
   }
 ]
 
@@ -548,7 +561,7 @@ document.addEventListener('keydown', (e) => {
   if (!isGameActive(false)) return
   if (hardcodedPressedKeys.has('F3')) {
     const keybind = f3Keybinds.find((v) => v.key === e.code)
-    if (keybind) {
+    if (keybind && (keybind.enabled?.() ?? true)) {
       keybind.action()
       e.stopPropagation()
     }
@@ -740,19 +753,12 @@ window.addEventListener('keydown', (e) => {
   if (activeModalStack.length) {
     const hideAll = e.ctrlKey || e.metaKey
     if (hideAll) {
-      while (activeModalStack.length > 0) {
-        hideCurrentModal(undefined, () => {
-          if (!activeModalStack.length) {
-            pointerLock.justHitEscape = true
-          }
-        })
-      }
+      hideAllModals()
     } else {
-      hideCurrentModal(undefined, () => {
-        if (!activeModalStack.length) {
-          pointerLock.justHitEscape = true
-        }
-      })
+      hideCurrentModal()
+    }
+    if (activeModalStack.length === 0) {
+      pointerLock.justHitEscape = true
     }
   } else if (pointerLock.hasPointerLock) {
     document.exitPointerLock?.()

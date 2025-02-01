@@ -31,7 +31,7 @@ jobs:
       - uses: cypress-io/github-action@v5
         with:
           install: false
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: cypress-images
@@ -49,7 +49,7 @@ jobs:
 
       - name: Install pnpm
         run: npm install -g pnpm@9.0.4
-        
+
       - name: Run pnpm dedupe
         run: pnpm dedupe
 
