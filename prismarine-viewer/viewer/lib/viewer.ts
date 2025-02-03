@@ -3,7 +3,6 @@ import * as THREE from 'three'
 import { Vec3 } from 'vec3'
 import { generateSpiralMatrix } from 'flying-squid/dist/utils'
 import worldBlockProvider from 'mc-assets/dist/worldBlockProvider'
-import stevePng from 'mc-assets/dist/other-textures/latest/entity/player/wide/steve.png'
 import { Entities } from './entities'
 import { Primitives } from './primitives'
 import { WorldRendererThree } from './worldrendererThree'
@@ -11,6 +10,7 @@ import { WorldRendererCommon, WorldRendererConfig, defaultWorldRendererConfig } 
 import { getThreeBlockModelGroup, renderBlockThree, setBlockPosition } from './mesher/standaloneRenderer'
 import { addNewStat } from './ui/newStats'
 import { getMyHand } from './hand'
+import { IPlayerState, BasePlayerState } from './basePlayerState'
 
 export class Viewer {
   scene: THREE.Scene
@@ -21,14 +21,11 @@ export class Viewer {
   // primitives: Primitives
   domElement: HTMLCanvasElement
   playerHeight = 1.62
-  isSneaking = false
   threeJsWorld: WorldRendererThree
   cameraObjectOverride?: THREE.Object3D // for xr
   audioListener: THREE.AudioListener
   renderingUntilNoUpdates = false
   processEntityOverrides = (e, overrides) => overrides
-
-  getMineflayerBot (): void | Record<string, any> {} // to be overridden
 
   get camera () {
     return this.world.camera
@@ -38,14 +35,14 @@ export class Viewer {
     this.world.camera = camera
   }
 
-  constructor (public renderer: THREE.WebGLRenderer, worldConfig = defaultWorldRendererConfig) {
+  constructor (public renderer: THREE.WebGLRenderer, worldConfig = defaultWorldRendererConfig, public playerState: IPlayerState = new BasePlayerState()) {
     // https://discourse.threejs.org/t/updates-to-color-management-in-three-js-r152/50791
     THREE.ColorManagement.enabled = false
     renderer.outputColorSpace = THREE.LinearSRGBColorSpace
 
     this.scene = new THREE.Scene()
     this.scene.matrixAutoUpdate = false // for perf
-    this.threeJsWorld = new WorldRendererThree(this.scene, this.renderer, worldConfig)
+    this.threeJsWorld = new WorldRendererThree(this.scene, this.renderer, worldConfig, this.playerState)
     this.setWorld()
     this.resetScene()
     this.entities = new Entities(this)
@@ -161,8 +158,8 @@ export class Viewer {
 
   setFirstPersonCamera (pos: Vec3 | null, yaw: number, pitch: number) {
     const cam = this.cameraObjectOverride || this.camera
-    let yOffset = this.getMineflayerBot()?.entity?.eyeHeight ?? this.playerHeight
-    if (this.isSneaking) yOffset -= 0.3
+    const yOffset = this.playerState.getEyeHeight()
+    // if (this.playerState.isSneaking()) yOffset -= 0.3
 
     this.world.camera = cam as THREE.PerspectiveCamera
 

@@ -12,6 +12,7 @@ import { disposeObject } from './threeJsUtils'
 import HoldingBlock, { HandItemBlock } from './holdingBlock'
 import { addNewStat } from './ui/newStats'
 import { MesherGeometryOutput } from './mesher/shared'
+import { IPlayerState } from './basePlayerState'
 
 export class WorldRendererThree extends WorldRendererCommon {
   interactionLines: null | { blockPos; mesh } = null
@@ -34,12 +35,12 @@ export class WorldRendererThree extends WorldRendererCommon {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).blocksCount, 0)
   }
 
-  constructor (public scene: THREE.Scene, public renderer: THREE.WebGLRenderer, public config: WorldRendererConfig) {
+  constructor (public scene: THREE.Scene, public renderer: THREE.WebGLRenderer, public config: WorldRendererConfig, public playerState: IPlayerState) {
     super(config)
     this.rendererDevice = `${WorldRendererThree.getRendererInfo(this.renderer)} powered by three.js r${THREE.REVISION}`
     this.starField = new StarField(scene)
-    this.holdingBlock = new HoldingBlock()
-    this.holdingBlockLeft = new HoldingBlock()
+    this.holdingBlock = new HoldingBlock(playerState)
+    this.holdingBlockLeft = new HoldingBlock(playerState)
     this.holdingBlockLeft.rightSide = false
 
     this.renderUpdateEmitter.on('itemsTextureDownloaded', () => {

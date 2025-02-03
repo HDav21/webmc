@@ -102,6 +102,7 @@ import { getViewerVersionData, getWsProtocolStream } from './viewerConnector'
 import { appQueryParams, appQueryParamsArray } from './appParams'
 import { updateCursor } from './cameraRotationControls'
 import { pingServerVersion } from './mineflayer/minecraft-protocol-extra'
+import { playerState, PlayerStateManager } from './mineflayer/playerState'
 
 window.debug = debug
 window.THREE = THREE
@@ -154,9 +155,8 @@ if (isIphone) {
 }
 
 // Create viewer
-const viewer: import('prismarine-viewer/viewer/lib/viewer').Viewer = new Viewer(renderer)
+const viewer: import('prismarine-viewer/viewer/lib/viewer').Viewer = new Viewer(renderer, undefined, playerState)
 window.viewer = viewer
-viewer.getMineflayerBot = () => bot
 // todo unify
 viewer.entities.getItemUv = (idOrName: number | string) => {
   try {
@@ -930,3 +930,6 @@ if (initialLoader) {
 window.pageLoaded = true
 
 void possiblyHandleStateVariable()
+
+// Initialize PlayerStateManager and make it globally available
+;(window as any).PlayerStateManager = PlayerStateManager
