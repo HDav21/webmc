@@ -12,10 +12,75 @@ export type HandItemBlock = {
   id?: number
 }
 
+class AnimationController {
+  private currentAnimation: tweenJs.Group | null = null
+  private isAnimating = false
+  private cancelRequested = false
+  private completionCallbacks: Array<() => void> = []
+
+  async startAnimation (createAnimation: () => tweenJs.Group): Promise<void> {
+    if (this.isAnimating) {
+      await this.cancelCurrentAnimation()
+    }
+
+    return new Promise((resolve) => {
+      this.isAnimating = true
+      this.cancelRequested = false
+      this.currentAnimation = createAnimation()
+
+      this.completionCallbacks.push(() => {
+        this.isAnimating = false
+        this.currentAnimation = null
+        resolve()
+      })
+    })
+  }
+
+  async cancelCurrentAnimation (): Promise<void> {
+    if (!this.isAnimating) return
+
+    return new Promise((resolve) => {
+      this.cancelRequested = true
+      this.completionCallbacks.push(() => {
+        resolve()
+      })
+    })
+  }
+
+  forceFinish () {
+    if (!this.isAnimating) return
+
+    if (this.currentAnimation) {
+      this.currentAnimation.removeAll()
+      this.currentAnimation = null
+    }
+
+    this.isAnimating = false
+    this.cancelRequested = false
+
+    const callbacks = [...this.completionCallbacks]
+    this.completionCallbacks = []
+    for (const cb of callbacks) cb()
+  }
+
+  update () {
+    if (this.currentAnimation) {
+      this.currentAnimation.update()
+    }
+  }
+
+  get isActive () {
+    return this.isAnimating
+  }
+
+  get shouldCancel () {
+    return this.cancelRequested
+  }
+}
+
 export default class HoldingBlock {
   // TODO refactor with the tree builder for better visual understanding
   holdingBlock: THREE.Object3D | undefined = undefined
-  swingAnimation: tweenJs.Group | undefined = undefined
   blockSwapAnimation: {
     tween: tweenJs.Group
     hidden: boolean
@@ -34,6 +99,8 @@ export default class HoldingBlock {
 
   debug = {} as Record<string, any>
 
+  private readonly swingController = new AnimationController()
+
   constructor () {
     this.initCameraGroup()
   }
@@ -42,16 +109,14 @@ export default class HoldingBlock {
     this.cameraGroup = new THREE.Mesh()
   }
 
-  startSwing () {
-    this.nextIterStopCallbacks = undefined // forget about cancelling
-    if (this.isSwinging) return
-    this.swingAnimation = new tweenJs.Group()
-    this.isSwinging = true
-    const cube = this.cameraGroup.children[0]
-    if (cube) {
+  async startSwing () {
+    if (this.swingController.isActive) return
+
+    await this.swingController.startAnimation(() => {
+      const group = new tweenJs.Group()
       // const DURATION = 1000 * 0.35 / 2
-      const DURATION = 1000 * 0.35 / 3
       // const DURATION = 1000
+      const DURATION = 1000 * 0.35 / 2
       const { position, rotation, object } = this.getFinalSwingPositionRotation()
       const initialPos = {
         x: object.position.x,
@@ -63,27 +128,36 @@ export default class HoldingBlock {
         y: object.rotation.y,
         z: object.rotation.z
       }
-      const mainAnim = new tweenJs.Tween(object.position, this.swingAnimation).to(position, DURATION).yoyo(true).repeat(Infinity).start()
+
+      const mainAnim = new tweenJs.Tween(object.position, group)
+        .to(position, DURATION)
+        // .easing(tweenJs.Easing.Quadratic.Out)
+        .yoyo(true)
+        .repeat(Infinity)
+        .start()
+
       let i = 0
       mainAnim.onRepeat(() => {
         i++
-        if (this.nextIterStopCallbacks && i % 2 === 0) {
-          for (const callback of this.nextIterStopCallbacks) {
-            callback()
+        if (i % 2 === 0) {
+          if (this.swingController.shouldCancel) {
+            object.position.set(initialPos.x, initialPos.y, initialPos.z)
+            // object.rotation.set(initialRot.x, initialRot.y, initialRot.z)
+            Object.assign(object.rotation, initialRot)
+            this.swingController.forceFinish()
           }
-          this.nextIterStopCallbacks = undefined
-          this.isSwinging = false
-          this.swingAnimation!.removeAll()
-          this.swingAnimation = undefined
-          // todo refactor to be more generic for animations
-          object.position.set(initialPos.x, initialPos.y, initialPos.z)
-          // object.rotation.set(initialRot.x, initialRot.y, initialRot.z)
-          Object.assign(object.rotation, initialRot)
         }
       })
 
-      new tweenJs.Tween(object.rotation, this.swingAnimation).to(rotation, DURATION).yoyo(true).repeat(Infinity).start()
-    }
+      new tweenJs.Tween(object.rotation, group)
+        .to(rotation, DURATION)
+        // .easing(tweenJs.Easing.Quadratic.Out)
+        .yoyo(true)
+        .repeat(Infinity)
+        .start()
+
+      return group
+    })
   }
 
   getFinalSwingPositionRotation (origPosition?: THREE.Vector3) {
@@ -140,19 +214,12 @@ export default class HoldingBlock {
   }
 
   async stopSwing () {
-    if (!this.isSwinging) return
-    // might never resolve!
-    /* return */void new Promise<void>((resolve) => {
-      this.nextIterStopCallbacks ??= []
-      this.nextIterStopCallbacks.push(() => {
-        resolve()
-      })
-    })
+    await this.swingController.cancelCurrentAnimation()
   }
 
   render (originalCamera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer, ambientLight: THREE.AmbientLight, directionalLight: THREE.DirectionalLight) {
     if (!this.lastHeldItem) return
-    this.swingAnimation?.update()
+    this.swingController.update()
     this.blockSwapAnimation?.tween.update()
 
     const scene = new THREE.Scene()
@@ -249,17 +316,18 @@ export default class HoldingBlock {
 
   async initHandObject (material: THREE.Material, blockstatesModels: any, blocksAtlases: any, handItem?: HandItemBlock) {
     let animatingCurrent = false
-    if (!this.swingAnimation && !this.blockSwapAnimation && this.isDifferentItem(handItem)) {
+    if (!this.swingController.isActive && !this.blockSwapAnimation && this.isDifferentItem(handItem)) {
       animatingCurrent = true
       await this.playBlockSwapAnimation()
       this.holdingBlock?.removeFromParent()
       this.holdingBlock = undefined
     }
+
     this.lastHeldItem = handItem
     if (!handItem) {
       this.holdingBlock?.removeFromParent()
       this.holdingBlock = undefined
-      this.swingAnimation = undefined
+      this.swingController.forceFinish()
       this.blockSwapAnimation = undefined
       return
     }

@@ -73,7 +73,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   changeHandSwingingState (isAnimationPlaying: boolean, isLeft = false) {
     const holdingBlock = isLeft ? this.holdingBlockLeft : this.holdingBlock
     if (isAnimationPlaying) {
-      holdingBlock.startSwing()
+      void holdingBlock.startSwing()
     } else {
       void holdingBlock.stopSwing()
     }
