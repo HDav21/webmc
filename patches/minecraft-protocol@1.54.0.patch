@@ -32,12 +32,12 @@ index f14269bea055d4329cd729271e7406ec4b344de7..00f5482eb6e3c911381ca9a728b1b4aa
 @@ -363,7 +363,7 @@ module.exports = function (client, options) {
      }
    }
-
+ 
 -  client._signedChat = (message, options = {}) => {
 +  client._signedChat = async (message, options = {}) => {
      options.timestamp = options.timestamp || BigInt(Date.now())
      options.salt = options.salt || 1n
-
+ 
 @@ -405,7 +405,7 @@ module.exports = function (client, options) {
          message,
          timestamp: options.timestamp,
@@ -71,7 +71,7 @@ index b9d21bab9faccd5dbf1975fc423fc55c73e906c5..99ffd76527b410e3a393181beb260108
 +        //   clearTimeout(loginTimeout)
 +        // })
        }
-
+ 
        function onJoinServerResponse (err) {
 diff --git a/src/client.js b/src/client.js
 index 74749698f8cee05b5dc749c271544f78d06645b0..e77e0a3f41c1ee780c3abbd54b0801d248c2a07c 100644
@@ -111,7 +111,7 @@ index 74749698f8cee05b5dc749c271544f78d06645b0..e77e0a3f41c1ee780c3abbd54b0801d2
    }
 @@ -168,7 +176,10 @@ class Client extends EventEmitter {
      }
-
+ 
      const onFatalError = (err) => {
 -      this.emit('error', err)
 +      // todo find out what is trying to write after client disconnect
@@ -120,7 +120,7 @@ index 74749698f8cee05b5dc749c271544f78d06645b0..e77e0a3f41c1ee780c3abbd54b0801d2
 +      }
        endSocket()
      }
-
+ 
 @@ -197,6 +208,8 @@ class Client extends EventEmitter {
      serializer -> framer -> socket -> splitter -> deserializer */
      if (this.serializer) {
@@ -131,7 +131,7 @@ index 74749698f8cee05b5dc749c271544f78d06645b0..e77e0a3f41c1ee780c3abbd54b0801d2
        if (this.socket) this.socket.end()
      }
 @@ -238,8 +251,11 @@ class Client extends EventEmitter {
-
+ 
    write (name, params) {
      if (!this.serializer.writable) { return }
 -    debug('writing packet ' + this.state + '.' + name)
@@ -143,3 +143,4 @@ index 74749698f8cee05b5dc749c271544f78d06645b0..e77e0a3f41c1ee780c3abbd54b0801d2
 +    this.emit('writePacket', name, params)
      this.serializer.write({ name, params })
    }
+ 
