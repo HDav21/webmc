@@ -86,7 +86,7 @@ import { saveToBrowserMemory } from './react/PauseScreen'
 import { ViewerWrapper } from 'prismarine-viewer/viewer/lib/viewerWrapper'
 import './devReload'
 import './water'
-import { ConnectOptions, downloadNeededDataOnConnect, getVersionAutoSelect } from './connect'
+import { ConnectOptions, downloadMcData, getVersionAutoSelect, downloadOtherGameData } from './connect'
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { updateAuthenticatedAccountData, updateLoadedServerData } from './react/ServersListProvider'
@@ -363,7 +363,10 @@ export async function connect (connectOptions: ConnectOptions) {
     const serverOptions = defaultsDeep({}, connectOptions.serverOverrides ?? {}, options.localServerOptions, defaultServerOptions)
     Object.assign(serverOptions, connectOptions.serverOverridesFlat ?? {})
     setLoadingScreenStatus('Downloading minecraft data')
-    await window._LOAD_MC_DATA()
+    await Promise.all([
+      window._LOAD_MC_DATA(), // download mc data before we can use minecraft-data at all
+      downloadOtherGameData()
+    ])
     setLoadingScreenStatus(loggingInMsg)
     const downloadMcData = async (version: string) => {
       if (connectOptions.authenticatedAccount && (versionToNumber(version) < versionToNumber('1.19.4') || versionToNumber(version) >= versionToNumber('1.21'))) {
@@ -371,7 +374,7 @@ export async function connect (connectOptions: ConnectOptions) {
         throw new Error('Microsoft authentication is only supported on 1.19.4 - 1.20.6 (at least for now)')
       }
 
-      await downloadNeededDataOnConnect(version)
+      await downloadMcData(version)
       try {
         await resourcepackReload(version)
       } catch (err) {
@@ -465,6 +468,10 @@ export async function connect (connectOptions: ConnectOptions) {
       await downloadMcData(version)
       setLoadingScreenStatus(`Connecting to WebSocket server ${connectOptions.viewerWsConnect}`)
       clientDataStream = await getWsProtocolStream(connectOptions.viewerWsConnect)
+    }
+
+    if (connectOptions.botVersion) {
+      miscUiState.loadedDataVersion = connectOptions.botVersion
     }
 
     bot = mineflayer.createBot({

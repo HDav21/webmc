@@ -36,21 +36,29 @@ export const getVersionAutoSelect = (autoVersionSelect = options.serversAutoVers
   return autoVersionSelect
 }
 
-export const downloadNeededDataOnConnect = async (version: string) => {
-  // todo expose cache
-  // const initialDataVersion = Object.keys(minecraftInitialDataJson)[0]!
-  // if (version === initialDataVersion) {
-  //   // ignore cache hit
-  //   versionsByMinecraftVersion.pc[initialDataVersion]!.dataVersion!++
-  // }
-  setLoadingScreenStatus(`Loading data for ${version}`)
-  if (!document.fonts.check('1em mojangles')) {
+export const downloadMcData = async (version: string) => {
+  // setLoadingScreenStatus(`Loading data for ${version}`)
+  // // todo expose cache
+  // // const initialDataVersion = Object.keys(minecraftInitialDataJson)[0]!
+  // // if (version === initialDataVersion) {
+  // //   // ignore cache hit
+  // //   versionsByMinecraftVersion.pc[initialDataVersion]!.dataVersion!++
+  // // }
+
+  // await window._MC_DATA_RESOLVER.promise // ensure data is loaded
+  // miscUiState.loadedDataVersion = version
+}
+
+const loadFonts = async () => {
+  const FONT_FAMILY = 'mojangles'
+  if (!document.fonts.check(`1em ${FONT_FAMILY}`)) {
     // todo instead re-render signs on load
-    await document.fonts.load('1em mojangles').catch(() => {
+    await document.fonts.load(`1em ${FONT_FAMILY}`).catch(() => {
       console.error('Failed to load font, signs wont be rendered correctly')
     })
   }
-  await window._MC_DATA_RESOLVER.promise // ensure data is loaded
-  await downloadSoundsIfNeeded()
-  miscUiState.loadedDataVersion = version
+}
+
+export const downloadOtherGameData = async () => {
+  await Promise.all([loadFonts(), downloadSoundsIfNeeded()])
 }
