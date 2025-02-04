@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - name: Set Docker image name
+        run: echo "DOCKER_IMAGE=ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
       - name: Install Global Dependencies
         run: npm install --global vercel pnpm@9.0.4
       - name: Write Release Info
