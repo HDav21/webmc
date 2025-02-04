@@ -1,13 +1,22 @@
-name: Vercel Deploy Next
-env:
-  SSH_HOST: ${{ secrets.SSH_HOST }}
-  SSH_USER: root
-  SSH_PASS: ${{ secrets.SSH_PASS }}
-  APP_DOCKER_PORT: 8080  # Add your app's Docker port here
+name: Deploy to Host
+
 on:
   push:
     branches:
       - next
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  SSH_HOST: ${{ secrets.SSH_HOST }}
+  SSH_USER: root
+  SSH_PASS: ${{ secrets.SSH_PASS }}
+  PORT: 8080
+  DOCKER_IMAGE: ghcr.io/${{ github.repository }}
+  APP_NAME: webmc
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -23,30 +32,23 @@ jobs:
           echo "{\"latestTag\": \"$(git rev-parse --short $GITHUB_SHA)\"}" > assets/release.json
       - name: Create config.local.json
         run: echo '${{ vars.CONFIG }}' > config.local.json
-      - name: Build Docker image
-        run: docker build -t webmc:latest .
-      - name: Save Docker image to tar
-        run: docker save webmc:latest -o webmc.tar
-      - name: Verify Docker image tar
-        run: |
-          ls -l webmc.tar
-          chmod +r webmc.tar
-      - name: Upload Docker image to Droplet
-        uses: appleboy/scp-action@v0.1.7
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v6.5.0
         with:
-          host: ${{ env.SSH_HOST }}
-          username: ${{ env.SSH_USER }}
-          password: ${{ env.SSH_PASS }}
-          port: 22
-          source: "./webmc.tar"
-          target: "/root/webmc.tar"
+          context: .
+          push: true
+          tags: |
+            ${{ env.DOCKER_IMAGE }}:latest
+
       - name: Deploy to Droplet
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.DROPLET_HOST }}
+          host: ${{ secrets.SSH_HOST }}
           username: root
-          key: ${{ secrets.DROPLET_SSH_KEY }}
+          password: ${{ secrets.SSH_PASS }}
           script: |
+            # Check if Docker is installed, and install it if not
             if ! command -v docker &> /dev/null
             then
               echo "Docker not found, installing..."
@@ -58,25 +60,26 @@ jobs:
               echo "Docker is already installed"
             fi
 
-            echo "Loading Docker image..."
-            docker load -i /root/webmc.tar
+            echo "Logging into GitHub Container Registry..."
+            docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
 
-            echo "Stopping existing container (if any)..."
-            docker stop webmc || true
+            echo "Pulling the new Docker images..."
+            docker pull ${{ env.DOCKER_IMAGE }}:latest
 
-            echo "Removing existing 'webmc-previous' container (if any)..."
-            docker rm webmc-previous || true
-
-            echo "Renaming current 'webmc' container to 'webmc-previous'..."
-            docker rename webmc webmc-previous || true
-
-            echo "Pruning dangling images..."
-            docker image prune -f
-
-            echo "Removing old images except 'latest' and 'previous'..."
-            docker images webmc --format "{{.Repository}}:{{.Tag}}" | grep -v ":latest$" | grep -v ":previous$" | xargs -r docker rmi -f || true
+            echo "Stopping and removing existing containers..."
+            docker stop ${{ env.APP_NAME }} || true
+            docker rm ${{ env.APP_NAME }} || true
 
             echo "Running the new container..."
-            docker run -d -p 80:${{ env.APP_DOCKER_PORT }} --name webmc -e PORT=${{ env.APP_DOCKER_PORT }} --restart always webmc:latest
+            docker run -d \
+              --name ${{ env.APP_NAME }} \
+              -p 80:${{ env.PORT }} \
+              -e PORT=${{ env.PORT }} \
+              --restart always \
+              ${{ env.DOCKER_IMAGE }}:latest
+
+            # Keep only the last 3 versions of images
+            echo "Cleaning up old images..."
+            docker image ls ${{ env.DOCKER_IMAGE }} --format "{{.ID}}" | tail -n +4 | xargs -r docker image rm -f
 
             echo "Deployment completed successfully."
