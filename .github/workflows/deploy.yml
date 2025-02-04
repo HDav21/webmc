@@ -59,7 +59,7 @@ jobs:
             fi
 
             echo "Loading Docker image..."
-            docker load -i /root/webmc.tar
+            docker load -i /root/webmc.tar/webmc.tar
 
             echo "Stopping existing container (if any)..."
             docker stop webmc || true
