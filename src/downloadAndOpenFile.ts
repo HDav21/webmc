@@ -1,6 +1,6 @@
 import prettyBytes from 'pretty-bytes'
 import { openWorldFromHttpDir, openWorldZip } from './browserfs'
-import { getResourcePackNames, installTexturePack, resourcePackState, updateTexturePackInstalledState } from './resourcePack'
+import { getResourcePackNames, installResourcepackPack, resourcePackState, updateTexturePackInstalledState } from './resourcePack'
 import { setLoadingScreenStatus } from './utils'
 import { appQueryParams, appQueryParamsArray } from './appParams'
 
@@ -74,7 +74,7 @@ const inner = async () => {
   })).arrayBuffer()
   if (texturepack) {
     const name = mapUrl.slice(mapUrl.lastIndexOf('/') + 1).slice(-30)
-    await installTexturePack(buffer, name)
+    await installResourcepackPack(buffer, name)
   } else {
     await openWorldZip(buffer)
   }

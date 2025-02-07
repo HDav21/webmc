@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import * as tweenJs from '@tweenjs/tween.js'
 import worldBlockProvider from 'mc-assets/dist/worldBlockProvider'
 import { GUI } from 'lil-gui'
+import { BlockModel } from 'mc-assets'
 import { getThreeBlockModelGroup, renderBlockThree, setBlockPosition } from './mesher/standaloneRenderer'
 import { getMyHand } from './hand'
 import { IPlayerState } from './basePlayerState'
@@ -9,6 +10,7 @@ import { IPlayerState } from './basePlayerState'
 export type HandItemBlock = {
   name?
   properties?
+  fullItem?
   type: 'block' | 'item' | 'hand'
   id?: number
 }
@@ -322,7 +324,7 @@ export default class HoldingBlock {
     this.handAnimator?.update()
   }
 
-  async initHandObject (material: THREE.Material, blockstatesModels: any, blocksAtlases: any, handItem?: HandItemBlock) {
+  async initHandObject (handItem?: HandItemBlock) {
     let animatingCurrent = false
     if (!this.swingController.isActive && !this.blockSwapAnimation && this.isDifferentItem(handItem)) {
       animatingCurrent = true
@@ -339,20 +341,20 @@ export default class HoldingBlock {
       this.blockSwapAnimation = undefined
       return
     }
-    const blockProvider = worldBlockProvider(blockstatesModels, blocksAtlases, 'latest')
     let blockInner
-    if (handItem.type === 'block') {
-      const models = blockProvider.getAllResolvedModels0_1({
-        name: handItem.name,
-        properties: handItem.properties ?? {}
-      }, true)
-      blockInner = getThreeBlockModelGroup(material, models, undefined, 'plains', loadedData)
-    } else if (handItem.type === 'item') {
-      const { mesh: itemMesh } = viewer.entities.getItemMesh({
+    if (handItem.type === 'item' || handItem.type === 'block') {
+      const { mesh: itemMesh, isBlock } = viewer.entities.getItemMesh({
+        ...handItem.fullItem,
         itemId: handItem.id,
       })!
-      itemMesh.position.set(0.5, 0.5, 0.5)
-      blockInner = itemMesh
+      if (isBlock) {
+        blockInner = itemMesh
+        handItem.type = 'block'
+      } else {
+        itemMesh.position.set(0.5, 0.5, 0.5)
+        blockInner = itemMesh
+        handItem.type = 'item'
+      }
     } else {
       blockInner = await getMyHand()
     }
@@ -699,4 +701,13 @@ class HandAnimator {
   isCurrentlySwinging () {
     return this.isAnimating
   }
+}
+
+export const getBlockMeshFromModel = (material: THREE.Material, model: BlockModel, name: string) => {
+  const blockProvider = worldBlockProvider(viewer.world.blockstatesModels, viewer.world.blocksAtlasParser!.atlas, 'latest')
+  const worldRenderModel = blockProvider.transformModel(model, {
+    name,
+    properties: {}
+  })
+  return getThreeBlockModelGroup(material, [[worldRenderModel]], undefined, 'plains', loadedData)
 }

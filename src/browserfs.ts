@@ -7,7 +7,7 @@ import * as browserfs from 'browserfs'
 import { options, resetOptions } from './optionsStorage'
 
 import { fsState, loadSave } from './loadSave'
-import { installTexturePack, installTexturePackFromHandle, updateTexturePackInstalledState } from './resourcePack'
+import { installResourcepackPack, installTexturePackFromHandle, updateTexturePackInstalledState } from './resourcePack'
 import { miscUiState } from './globalState'
 import { setLoadingScreenStatus } from './utils'
 const { GoogleDriveFileSystem } = require('google-drive-browserfs/src/backends/GoogleDrive') // disable type checking
@@ -632,7 +632,7 @@ export const openFilePicker = (specificCase?: 'resourcepack') => {
         if (!doContinue) return
       }
       if (specificCase === 'resourcepack') {
-        void installTexturePack(file).catch((err) => {
+        void installResourcepackPack(file).catch((err) => {
           setLoadingScreenStatus(err.message, true)
         })
       } else {

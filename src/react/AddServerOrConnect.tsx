@@ -177,7 +177,13 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
           />
         </div>
 
-        <InputWithLabel label="Proxy Override" value={proxyOverride} disabled={lockConnect && (qsParamProxy !== null || !!placeholders?.proxyOverride)} onChange={({ target: { value } }) => setProxyOverride(value)} placeholder={placeholders?.proxyOverride} />
+        <InputWithLabel
+          label="Proxy Override"
+          value={proxyOverride}
+          disabled={lockConnect && (qsParamProxy !== null || !!placeholders?.proxyOverride) || serverIp.startsWith('ws://') || serverIp.startsWith('wss://')}
+          onChange={({ target: { value } }) => setProxyOverride(value)}
+          placeholder={serverIp.startsWith('ws://') || serverIp.startsWith('wss://') ? 'Not needed for websocket servers' : placeholders?.proxyOverride}
+        />
         <InputWithLabel
           label="Username Override"
           value={usernameOverride}

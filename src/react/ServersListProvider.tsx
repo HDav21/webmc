@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useUtilsEffect } from '@zardoy/react-util'
 import { useSnapshot } from 'valtio'
-import { ConnectOptions } from '../connect'
+import { ConnectOptions, downloadAllMinecraftData, getVersionAutoSelect } from '../connect'
 import { activeModalStack, hideCurrentModal, miscUiState, showModal } from '../globalState'
 import supportedVersions from '../supportedVersions.mjs'
 import { appQueryParams } from '../appParams'
 import { fetchServerStatus, isServerValid } from '../api/mcStatusApi'
+import { pingServerVersion } from '../mineflayer/minecraft-protocol-extra'
+import { getServerInfo } from '../mineflayer/mc-protocol'
 import ServersList from './ServersList'
 import AddServerOrConnect, { BaseServerInfo } from './AddServerOrConnect'
 import { useDidUpdateEffect } from './utils'
@@ -207,13 +209,26 @@ const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersL
             try {
               lastRequestStart = Date.now()
               if (signal.aborted) return
-              const data = await fetchServerStatus(server.ip/* , signal */) // DONT ADD SIGNAL IT WILL CRUSH JS RUNTIME
+              const isWebSocket = server.ip.startsWith('ws://') || server.ip.startsWith('wss://')
+              let data
+              if (isWebSocket) {
+                const pingResult = await getServerInfo(server.ip, undefined, undefined, true)
+                data = {
+                  formattedText: `${pingResult.version} server with a direct websocket connection`,
+                  textNameRight: `ws ${pingResult.latency}ms`,
+                  offline: false
+                }
+              } else {
+                data = await fetchServerStatus(server.ip/* , signal */) // DONT ADD SIGNAL IT WILL CRUSH JS RUNTIME
+              }
               if (data) {
                 setAdditionalData(old => ({
                   ...old,
                   [server.ip]: data
                 }))
               }
+            } catch (err) {
+              console.warn('Failed to fetch server status', err)
             } finally {
               activeRequests.delete(request)
               resolve()

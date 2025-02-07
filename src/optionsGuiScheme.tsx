@@ -9,7 +9,7 @@ import { OptionMeta, OptionSlider } from './react/OptionsItems'
 import Slider from './react/Slider'
 import { getScreenRefreshRate, setLoadingScreenStatus } from './utils'
 import { openFilePicker, resetLocalStorageWithoutWorld } from './browserfs'
-import { completeTexturePackInstall, getResourcePackNames, resourcePackState, uninstallTexturePack } from './resourcePack'
+import { completeTexturePackInstall, getResourcePackNames, resourcePackState, uninstallResourcePack } from './resourcePack'
 import { downloadPacketsReplay, packetsReplaceSessionState } from './packetsReplay'
 import { showOptionsModal } from './react/SelectOption'
 import supportedVersions from './supportedVersions.mjs'
@@ -184,7 +184,7 @@ export const guiOptionsScheme: {
               if (choice === 'Uninstall') {
               // todo make hidable
                 setLoadingScreenStatus('Uninstalling texturepack')
-                await uninstallTexturePack()
+                await uninstallResourcePack()
                 setLoadingScreenStatus(undefined)
               }
             } else {

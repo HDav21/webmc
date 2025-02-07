@@ -1,8 +1,7 @@
 //@ts-check
 
 import { proxy, ref, subscribe } from 'valtio'
-import { WorldWarp } from 'flying-squid/dist/lib/modules/warps'
-import { pointerLock } from './utils'
+import type { WorldWarp } from 'flying-squid/dist/lib/modules/warps'
 import type { OptionsGroupType } from './optionsGuiScheme'
 
 // todo: refactor structure with support of hideNext=false
@@ -25,16 +24,6 @@ export const insertActiveModalStack = (name: string, newModalStack = activeModal
 export const activeModalStacks: Record<string, Modal[]> = {}
 
 window.activeModalStack = activeModalStack
-
-subscribe(activeModalStack, () => {
-  if (activeModalStack.length === 0) {
-    if (isGameActive(false)) {
-      void pointerLock.requestPointerLock()
-    }
-  } else {
-    document.exitPointerLock?.()
-  }
-})
 
 /**
  * @returns true if operation was successful
@@ -164,10 +153,10 @@ export const gameAdditionalState = proxy({
   isSneaking: false,
   isZooming: false,
   warps: [] as WorldWarp[],
+  noConnection: false,
+  poorConnection: false,
 
   usingServerResourcePack: false,
 })
 
 window.gameAdditionalState = gameAdditionalState
-
-// todo restore auto-save on interval for player data! (or implement it in flying squid since there is already auto-save for world)
