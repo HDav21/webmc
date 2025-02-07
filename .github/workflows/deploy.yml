@@ -24,7 +24,7 @@ jobs:
       - name: Create config.local.json
         run: echo '${{ vars.CONFIG }}' > config.local.json
       - name: Build Docker image
-        run: docker build -t webmc:latest --build-arg DOWNLOAD_SOUNDS=true --build-arg DISABLE_SERVICE_WORKER=true --build-arg RESOURCE_PACK_UPLOAD_PATH=${{ secrets.RESOURCE_PACK_UPLOAD_PATH }} .
+        run: docker build -t webmc:latest --build-arg DOWNLOAD_SOUNDS=true --build-arg DISABLE_SERVICE_WORKER=true .
       - name: Save Docker image to tar
         run: docker save webmc:latest -o webmc.tar
       - name: Verify Docker image tar
@@ -83,6 +83,7 @@ jobs:
               -p 80:${{ env.APP_DOCKER_PORT }} \
               --name webmc \
               -e PORT=${{ env.APP_DOCKER_PORT }} \
+              -e RESOURCE_PACK_UPLOAD_PATH=${{ secrets.RESOURCE_PACK_UPLOAD_PATH }} \
               -v /home/minecraft-web-client/public:/app/public \
               --restart always \
               webmc:latest

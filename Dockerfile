@@ -9,8 +9,6 @@ RUN npm i -g pnpm@9.0.4
 # Build arguments
 ARG DOWNLOAD_SOUNDS=false
 ARG DISABLE_SERVICE_WORKER=false
-ARG RESOURCE_PACK_UPLOAD_PATH
-ENV RESOURCE_PACK_UPLOAD_PATH=$RESOURCE_PACK_UPLOAD_PATH
 # TODO need flat --no-root-optional
 RUN node ./scripts/dockerPrepare.mjs
 RUN pnpm i
