@@ -21,15 +21,17 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
     let virtualClickActive = false
     let virtualClickTimeout: NodeJS.Timeout | undefined
     let screenTouches = 0
-    let capturedPointer: {
-      id: number;
-      x: number;
-      y: number;
-      sourceX: number;
-      sourceY: number;
-      activateCameraMove: boolean;
-      time: number
-    } | undefined
+    const capturedPointer = {
+      active: null as {
+        id: number;
+        x: number;
+        y: number;
+        sourceX: number;
+        sourceY: number;
+        activateCameraMove: boolean;
+        time: number
+      } | null
+    }
 
     const pointerDownHandler = (e: PointerEvent) => {
       const clickedEl = e.composedPath()[0]
@@ -52,11 +54,11 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
           return
         }
       }
-      if (capturedPointer) {
+      if (capturedPointer.active) {
         return
       }
       cameraControlEl.setPointerCapture(e.pointerId)
-      capturedPointer = {
+      capturedPointer.active = {
         id: e.pointerId,
         x: e.clientX,
         y: e.clientY,
@@ -75,6 +77,8 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
 
     const pointerMoveHandler = (e: PointerEvent) => {
       if (e.pointerId === undefined) return
+      const scale = window.visualViewport?.scale || 1
+
       const supportsPressure = (e as any).pressure !== undefined &&
         (e as any).pressure !== 0 &&
         (e as any).pressure !== 0.5 &&
@@ -88,7 +92,7 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
         }
         return
       }
-      if (e.pointerId !== capturedPointer?.id) return
+      if (e.pointerId !== capturedPointer.active?.id) return
       // window.scrollTo(0, 0)
       e.preventDefault()
       e.stopPropagation()
@@ -97,23 +101,34 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
       if (supportsPressure) {
         bot.setControlState('jump', (e as any).pressure > 0.5)
       }
-      const xDiff = Math.abs(e.pageX - capturedPointer.sourceX) > allowedJitter
-      const yDiff = Math.abs(e.pageY - capturedPointer.sourceY) > allowedJitter
-      if (!capturedPointer.activateCameraMove && (xDiff || yDiff)) {
-        capturedPointer.activateCameraMove = true
+
+      // Adjust coordinates for scale
+      const currentX = e.clientX / scale
+      const currentY = e.clientY / scale
+      const sourceX = capturedPointer.active.sourceX / scale
+      const sourceY = capturedPointer.active.sourceY / scale
+      const lastX = capturedPointer.active.x / scale
+      const lastY = capturedPointer.active.y / scale
+
+      const xDiff = Math.abs(currentX - sourceX) > allowedJitter
+      const yDiff = Math.abs(currentY - sourceY) > allowedJitter
+
+      if (!capturedPointer.active.activateCameraMove && (xDiff || yDiff)) {
+        capturedPointer.active.activateCameraMove = true
       }
-      if (capturedPointer.activateCameraMove) {
+      if (capturedPointer.active.activateCameraMove) {
         clearTimeout(virtualClickTimeout)
       }
 
       onCameraMove({
-        movementX: e.pageX - capturedPointer.x,
-        movementY: e.pageY - capturedPointer.y,
+        movementX: (currentX - lastX),
+        movementY: (currentY - lastY),
         type: 'touchmove',
         stopPropagation: () => e.stopPropagation()
       } as CameraMoveEvent)
-      capturedPointer.x = e.pageX
-      capturedPointer.y = e.pageY
+
+      capturedPointer.active.x = e.clientX
+      capturedPointer.active.y = e.clientY
     }
 
     const pointerUpHandler = (e: PointerEvent) => {
@@ -123,7 +138,7 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
         joystickPointer.pointer = null
         return
       }
-      if (e.pointerId !== capturedPointer?.id) return
+      if (e.pointerId !== capturedPointer.active?.id) return
       clearTimeout(virtualClickTimeout)
       virtualClickTimeout = undefined
 
@@ -131,14 +146,16 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
         // button 0 is left click
         document.dispatchEvent(new MouseEvent('mouseup', { button: 0 }))
         virtualClickActive = false
-      } else if (!capturedPointer.activateCameraMove && (Date.now() - capturedPointer.time < touchStartBreakingBlockMs)) {
+      } else if (!capturedPointer.active.activateCameraMove && (Date.now() - capturedPointer.active.time < touchStartBreakingBlockMs)) {
         document.dispatchEvent(new MouseEvent('mousedown', { button: 2 }))
         worldInteractions.update()
         document.dispatchEvent(new MouseEvent('mouseup', { button: 2 }))
       }
 
-      capturedPointer = undefined
-      screenTouches--
+      if (screenTouches > 0) {
+        screenTouches--
+      }
+      capturedPointer.active = null
     }
 
     const contextMenuHandler = (e: Event) => {
@@ -156,6 +173,57 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
     cameraControlEl.addEventListener('lostpointercapture', pointerUpHandler, { signal })
     cameraControlEl.addEventListener('contextmenu', contextMenuHandler, { signal })
     window.addEventListener('blur', blurHandler, { signal })
+
+    // Add zoom detection and reset
+    const detectAndResetZoom = () => {
+      const { visualViewport } = window
+      if (!visualViewport) return
+
+      if (visualViewport.scale !== 1) {
+        // Reset zoom by updating viewport meta tag
+        const viewport = document.querySelector('meta[name=viewport]')
+        if (viewport) {
+          viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
+          // Force re-layout
+          setTimeout(() => {
+            viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
+          }, 300)
+        }
+      }
+    }
+
+    // Listen for zoom changes
+    window.visualViewport?.addEventListener('resize', detectAndResetZoom, { signal })
+    detectAndResetZoom()
+
+    // Prevent zoom gestures
+    document.addEventListener('gesturestart', (e) => e.preventDefault(), { signal })
+    document.addEventListener('gesturechange', (e) => e.preventDefault(), { signal })
+    document.addEventListener('gestureend', (e) => e.preventDefault(), { signal })
+
+
+    // Debug method to simulate zoom
+    window.debugSimulateZoom = (scale = 1.1, x = 0, y = 0) => {
+      const viewport = document.querySelector('meta[name=viewport]')
+      if (viewport) {
+        viewport.setAttribute('content', `width=device-width, initial-scale=${scale}, user-scalable=no, viewport-fit=cover, transform-origin: ${x}px ${y}px`)
+      }
+      // This will trigger the visualViewport resize event
+      setTimeout(() => {
+        window.visualViewport?.dispatchEvent(new Event('resize'))
+      }, 100)
+    }
+
+    // Debug method to reset zoom
+    window.debugResetZoom = () => {
+      const viewport = document.querySelector('meta[name=viewport]')
+      if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
+      }
+      setTimeout(() => {
+        window.visualViewport?.dispatchEvent(new Event('resize'))
+      }, 100)
+    }
   }, [])
 
   return (

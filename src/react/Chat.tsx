@@ -184,7 +184,7 @@ export default ({
   const updateFilteredCompleteItems = (sourceItems: string[]) => {
     const newCompleteItems = sourceItems.filter(item => {
       // this regex is imporatnt is it controls the word matching
-      const compareableParts = item.split(/[_:]/)
+      const compareableParts = item.split(/[[\]{},_:]/)
       const lastWord = chatInput.current.value.slice(0, chatInput.current.selectionEnd ?? chatInput.current.value.length).split(' ').at(-1)!
       return [item, ...compareableParts].some(compareablePart => compareablePart.startsWith(lastWord))
     })

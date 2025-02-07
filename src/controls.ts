@@ -52,10 +52,10 @@ export const contro = new ControMax({
       swapHands: ['KeyF'],
       zoom: ['KeyC'],
       selectItem: ['KeyH'], // default will be removed
-      rotateCameraLeft: ['ArrowLeft'],
-      rotateCameraRight: ['ArrowRight'],
-      rotateCameraUp: ['ArrowUp'],
-      rotateCameraDown: ['ArrowDown']
+      rotateCameraLeft: [null],
+      rotateCameraRight: [null],
+      rotateCameraUp: [null],
+      rotateCameraDown: [null]
     },
     ui: {
       toggleFullscreen: ['F11'],

@@ -153,6 +153,8 @@ export const gameAdditionalState = proxy({
   isSneaking: false,
   isZooming: false,
   warps: [] as WorldWarp[],
+  noConnection: false,
+  poorConnection: false,
 
   usingServerResourcePack: false,
 })

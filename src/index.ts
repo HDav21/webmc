@@ -5,11 +5,13 @@ import './globals'
 import './devtools'
 import './entities'
 import './globalDomListeners'
-import { getServerInfo } from './mineflayer/mc-protocol'
 import './mineflayer/maps'
 import './mineflayer/cameraShake'
 import './shims/patchShims'
-import { onGameLoad } from './inventoryWindows'
+import './mineflayer/java-tester/index'
+import { getServerInfo } from './mineflayer/mc-protocol'
+import { onGameLoad, renderSlot } from './inventoryWindows'
+import { RenderItem } from './mineflayer/items'
 import initCollisionShapes from './getCollisionInteractionShapes'
 import protocolMicrosoftAuth from 'minecraft-protocol/src/client/microsoftAuth'
 import microsoftAuthflow from './microsoftAuthflow'
@@ -159,35 +161,48 @@ const viewer: import('prismarine-viewer/viewer/lib/viewer').Viewer = new Viewer(
 window.viewer = viewer
 viewer.getMineflayerBot = () => bot
 // todo unify
-viewer.entities.getItemUv = (idOrName: number | string) => {
+viewer.entities.getItemUv = (item) => {
+  const idOrName = item.itemId ?? item.blockId
   try {
     const name = typeof idOrName === 'number' ? loadedData.items[idOrName]?.name : idOrName
-    // TODO
-    if (!viewer.world.itemsAtlasParser) throw new Error('itemsAtlasParser not loaded yet')
-    const itemsRenderer = new ItemsRenderer('latest', viewer.world.blockstatesModels, viewer.world.itemsAtlasParser, viewer.world.blocksAtlasParser)
-    const textureInfo = itemsRenderer.getItemTexture(name)
-    if (!textureInfo) throw new Error(`Texture not found for item ${name}`)
-    const tex = 'type' in textureInfo ? textureInfo : textureInfo.left
-    const [x, y, w, h] = tex.slice
-    const textureThree = tex.type === 'blocks' ? viewer.world.material.map! : viewer.entities.itemsTexture!
+    if (!name) throw new Error(`Item not found: ${idOrName}`)
+
+    const renderInfo = renderSlot({
+      name,
+      nbt: null,
+      ...item
+    })
+
+    if (!renderInfo) throw new Error(`Failed to get render info for item ${name}`)
+
+    const textureThree = renderInfo.texture === 'blocks' ? viewer.world.material.map! : viewer.entities.itemsTexture!
     const img = textureThree.image
-    const [u, v, su, sv] = [x / img.width, y / img.height, (w / img.width), (h / img.height)]
-    const uvInfo = {
-      u,
-      v,
-      su,
-      sv
+
+    if (renderInfo.blockData) {
+      return {
+        resolvedModel: renderInfo.blockData.resolvedModel,
+        modelName: renderInfo.modelName!
+      }
     }
-    return {
-      ...uvInfo,
-      texture: textureThree
+    if (renderInfo.slice) {
+      // Get slice coordinates from either block or item texture
+      const [x, y, w, h] = renderInfo.slice
+      const [u, v, su, sv] = [x / img.width, y / img.height, (w / img.width), (h / img.height)]
+      return {
+        u, v, su, sv,
+        texture: textureThree
+      }
     }
+
+    throw new Error(`Invalid render info for item ${name}`)
   } catch (err) {
     reportError?.(err)
+    // Return default UV coordinates for missing texture
     return {
       u: 0,
       v: 0,
-      size: 16 / viewer.world.material.map!.image.width,
+      su: 16 / viewer.world.material.map!.image.width,
+      sv: 16 / viewer.world.material.map!.image.width,
       texture: viewer.world.material.map!
     }
   }
@@ -668,6 +683,7 @@ export async function connect (connectOptions: ConnectOptions) {
       endReason = 'Connection with server lost'
     }
     setLoadingScreenStatus(`You have been disconnected from the server. End reason: ${endReason}`, true)
+    appStatusState.showReconnect = true
     onPossibleErrorDisconnect()
     destroyAll()
     if (isCypress()) throw new Error(`disconnected: ${endReason}`)
@@ -803,24 +819,33 @@ export async function connect (connectOptions: ConnectOptions) {
   }
 }
 
+const reconnectOptions = sessionStorage.getItem('reconnectOptions') ? JSON.parse(sessionStorage.getItem('reconnectOptions')!) : undefined
+
 listenGlobalEvents()
 watchValue(miscUiState, async s => {
   if (s.appLoaded) { // fs ready
-    if (appQueryParams.singleplayer === '1' || appQueryParams.sp === '1') {
-      loadSingleplayer({}, {
-        worldFolder: undefined,
-        ...appQueryParams.version ? { version: appQueryParams.version } : {}
-      })
-    }
-    if (appQueryParams.loadSave) {
-      const savePath = `/data/worlds/${appQueryParams.loadSave}`
-      try {
-        await fs.promises.stat(savePath)
-      } catch (err) {
-        alert(`Save ${savePath} not found`)
-        return
+    if (reconnectOptions) {
+      sessionStorage.removeItem('reconnectOptions')
+      if (Date.now() - reconnectOptions.timestamp < 1000 * 60 * 2) {
+        void connect(reconnectOptions.value)
       }
-      await loadInMemorySave(savePath)
+    } else {
+      if (appQueryParams.singleplayer === '1' || appQueryParams.sp === '1') {
+        loadSingleplayer({}, {
+          worldFolder: undefined,
+          ...appQueryParams.version ? { version: appQueryParams.version } : {}
+        })
+      }
+      if (appQueryParams.loadSave) {
+        const savePath = `/data/worlds/${appQueryParams.loadSave}`
+        try {
+          await fs.promises.stat(savePath)
+        } catch (err) {
+          alert(`Save ${savePath} not found`)
+          return
+        }
+        await loadInMemorySave(savePath)
+      }
     }
   }
 })
@@ -867,84 +892,86 @@ void window.fetch('config.json').then(async res => res.json()).then(c => c, (err
 })
 
 // qs open actions
-downloadAndOpenFile().then((downloadAction) => {
-  if (downloadAction) return
-  if (appQueryParams.reconnect && process.env.NODE_ENV === 'development') {
-    const lastConnect = JSON.parse(localStorage.lastConnectOptions ?? {})
-    void connect({
-      botVersion: appQueryParams.version ?? undefined,
-      ...lastConnect,
-      ip: appQueryParams.ip || undefined
-    })
-    return
-  }
-  if (appQueryParams.ip || appQueryParams.proxy) {
-    const waitAppConfigLoad = !appQueryParams.proxy
-    const openServerEditor = () => {
-      hideModal()
-      showModal({ reactType: 'editServer' })
-    }
-    showModal({ reactType: 'empty' })
-    if (waitAppConfigLoad) {
-      const unsubscribe = subscribe(miscUiState, checkCanDisplay)
-      checkCanDisplay()
-      // eslint-disable-next-line no-inner-declarations
-      function checkCanDisplay () {
-        if (miscUiState.appConfig) {
-          unsubscribe()
-          openServerEditor()
-          return true
-        }
-      }
-    } else {
-      openServerEditor()
-    }
-  }
-
-  void Promise.resolve().then(() => {
-    // try to connect to peer
-    const peerId = appQueryParams.connectPeer
-    const peerOptions = {} as ConnectPeerOptions
-    if (appQueryParams.server) {
-      peerOptions.server = appQueryParams.server
-    }
-    const version = appQueryParams.peerVersion
-    if (peerId) {
-      let username: string | null = options.guestUsername
-      if (options.askGuestName) username = prompt('Enter your username', username)
-      if (!username) return
-      options.guestUsername = username
+if (!reconnectOptions) {
+  downloadAndOpenFile().then((downloadAction) => {
+    if (downloadAction) return
+    if (appQueryParams.reconnect && process.env.NODE_ENV === 'development') {
+      const lastConnect = JSON.parse(localStorage.lastConnectOptions ?? {})
       void connect({
-        username,
-        botVersion: version || undefined,
-        peerId,
-        peerOptions
+        botVersion: appQueryParams.version ?? undefined,
+        ...lastConnect,
+        ip: appQueryParams.ip || undefined
+      })
+      return
+    }
+    if (appQueryParams.ip || appQueryParams.proxy) {
+      const waitAppConfigLoad = !appQueryParams.proxy
+      const openServerEditor = () => {
+        hideModal()
+        showModal({ reactType: 'editServer' })
+      }
+      showModal({ reactType: 'empty' })
+      if (waitAppConfigLoad) {
+        const unsubscribe = subscribe(miscUiState, checkCanDisplay)
+        checkCanDisplay()
+        // eslint-disable-next-line no-inner-declarations
+        function checkCanDisplay () {
+          if (miscUiState.appConfig) {
+            unsubscribe()
+            openServerEditor()
+            return true
+          }
+        }
+      } else {
+        openServerEditor()
+      }
+    }
+
+    void Promise.resolve().then(() => {
+      // try to connect to peer
+      const peerId = appQueryParams.connectPeer
+      const peerOptions = {} as ConnectPeerOptions
+      if (appQueryParams.server) {
+        peerOptions.server = appQueryParams.server
+      }
+      const version = appQueryParams.peerVersion
+      if (peerId) {
+        let username: string | null = options.guestUsername
+        if (options.askGuestName) username = prompt('Enter your username', username)
+        if (!username) return
+        options.guestUsername = username
+        void connect({
+          username,
+          botVersion: version || undefined,
+          peerId,
+          peerOptions
+        })
+      }
+    })
+
+    if (appQueryParams.serversList) {
+      showModal({ reactType: 'serversList' })
+    }
+
+    const viewerWsConnect = appQueryParams.viewerConnect
+    if (viewerWsConnect) {
+      void connect({
+        username: `viewer-${Math.random().toString(36).slice(2, 10)}`,
+        viewerWsConnect,
       })
     }
-  })
 
-  if (appQueryParams.serversList) {
-    showModal({ reactType: 'serversList' })
-  }
-
-  const viewerWsConnect = appQueryParams.viewerConnect
-  if (viewerWsConnect) {
-    void connect({
-      username: `viewer-${Math.random().toString(36).slice(2, 10)}`,
-      viewerWsConnect,
-    })
-  }
-
-  if (appQueryParams.modal) {
-    const modals = appQueryParams.modal.split(',')
-    for (const modal of modals) {
-      showModal({ reactType: modal })
+    if (appQueryParams.modal) {
+      const modals = appQueryParams.modal.split(',')
+      for (const modal of modals) {
+        showModal({ reactType: modal })
+      }
     }
-  }
-}, (err) => {
-  console.error(err)
-  alert(`Failed to download file: ${err}`)
-})
+  }, (err) => {
+    console.error(err)
+    alert(`Failed to download file: ${err}`)
+  })
+}
 
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
 const initialLoader = document.querySelector('.initial-loader') as HTMLElement | null
@@ -954,4 +981,6 @@ if (initialLoader) {
 }
 window.pageLoaded = true
 
-void possiblyHandleStateVariable()
+if (!reconnectOptions) {
+  void possiblyHandleStateVariable()
+}

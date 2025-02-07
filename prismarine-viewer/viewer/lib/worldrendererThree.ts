@@ -67,7 +67,7 @@ export class WorldRendererThree extends WorldRendererCommon {
       holdingBlock.toBeRenderedItem = item
       return
     }
-    void holdingBlock.initHandObject(this.material, this.blockstatesModels, this.blocksAtlases, item)
+    void holdingBlock.initHandObject(item)
   }
 
   changeHandSwingingState (isAnimationPlaying: boolean, isLeft = false) {
