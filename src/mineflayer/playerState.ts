@@ -1,11 +1,25 @@
+import { EventEmitter } from 'events'
 import { Vec3 } from 'vec3'
-import { IPlayerState, MovementState } from 'prismarine-viewer/viewer/lib/basePlayerState'
+import { IPlayerState, ItemSpecificContextProperties, MovementState, PlayerStateEvents } from 'prismarine-viewer/viewer/lib/basePlayerState'
+import { HandItemBlock } from 'prismarine-viewer/viewer/lib/holdingBlock'
+import TypedEmitter from 'typed-emitter'
+import { ItemSelector } from 'mc-assets/dist/itemsDefinitions'
 import { gameAdditionalState } from '../globalState'
 
 export class PlayerStateManager implements IPlayerState {
+  private static instance: PlayerStateManager
+  readonly events = new EventEmitter() as TypedEmitter<PlayerStateEvents>
+
+  // Movement and physics state
   private lastVelocity = new Vec3(0, 0, 0)
   private movementState: MovementState = 'NOT_MOVING'
-  private static instance: PlayerStateManager
+
+  // Held item state
+  private heldItem?: HandItemBlock
+  private offHandItem?: HandItemBlock
+  private itemUsageTicks = 0
+  private isUsingItem = false
+  private ready = false
 
   static getInstance (): PlayerStateManager {
     if (!this.instance) {
@@ -15,21 +29,37 @@ export class PlayerStateManager implements IPlayerState {
   }
 
   private constructor () {
-    // Initialize state tracking
     this.updateState = this.updateState.bind(this)
     customEvents.on('mineflayerBotCreated', () => {
-      this.botCreated()
+      bot.on('inject_allowed', () => {
+        if (this.ready) return
+        this.ready = true
+        this.botCreated()
+      })
     })
   }
 
   private botCreated () {
+    // Movement tracking
     bot.on('move', this.updateState)
+
+    // Item tracking
+    bot.on('heldItemChanged', () => {
+      return this.updateHeldItem(false)
+    })
+    bot.inventory.on('updateSlot', (index) => {
+      if (index === 45) this.updateHeldItem(true)
+    })
+    bot.on('physicsTick', () => {
+      if (this.isUsingItem) this.itemUsageTicks++
+    })
+
+    // Initial held items setup
+    this.updateHeldItem(false)
+    this.updateHeldItem(true)
   }
 
-  getEyeHeight (): number {
-    return bot.controlState.sneak ? 1.27 : bot.entity?.['eyeHeight'] ?? 1.62
-  }
-
+  // #region Movement and Physics State
   private updateState () {
     if (!bot.player?.entity) return
 
@@ -38,22 +68,16 @@ export class PlayerStateManager implements IPlayerState {
     const VELOCITY_THRESHOLD = 0.01
     const SPRINTING_VELOCITY = 0.18
 
-    // Store velocity for comparison
     this.lastVelocity = velocity
 
-    // Determine movement state
-    if (!isOnGround) {
-      // Keep current state if in air
-      return
-    }
+    if (!isOnGround) return // Keep current state if in air
 
     if (gameAdditionalState.isSneaking) {
       this.movementState = 'SNEAKING'
     } else if (Math.abs(velocity.x) > VELOCITY_THRESHOLD || Math.abs(velocity.z) > VELOCITY_THRESHOLD) {
-      this.movementState = 'WALKING'
-      if (Math.abs(velocity.x) > SPRINTING_VELOCITY || Math.abs(velocity.z) > SPRINTING_VELOCITY) {
-        this.movementState = 'SPRINTING'
-      }
+      this.movementState = Math.abs(velocity.x) > SPRINTING_VELOCITY || Math.abs(velocity.z) > SPRINTING_VELOCITY
+        ? 'SPRINTING'
+        : 'WALKING'
     } else {
       this.movementState = 'NOT_MOVING'
     }
@@ -65,6 +89,10 @@ export class PlayerStateManager implements IPlayerState {
 
   getVelocity (): Vec3 {
     return this.lastVelocity
+  }
+
+  getEyeHeight (): number {
+    return bot.controlState.sneak ? 1.27 : bot.entity?.['eyeHeight'] ?? 1.62
   }
 
   isOnGround (): boolean {
@@ -82,6 +110,66 @@ export class PlayerStateManager implements IPlayerState {
   isSprinting (): boolean {
     return gameAdditionalState.isSprinting
   }
+  // #endregion
+
+  // #region Held Item State
+  private updateHeldItem (isLeftHand: boolean) {
+    const newItem = isLeftHand ? bot.inventory.slots[45] : bot.heldItem
+    if (!newItem) {
+      if (isLeftHand) {
+        this.offHandItem = undefined
+      } else {
+        this.heldItem = undefined
+      }
+      this.events.emit('heldItemChanged', undefined, isLeftHand)
+      return
+    }
+
+    const block = loadedData.blocksByName[newItem.name]
+    const blockProperties = block ? new window.PrismarineBlock(block.id, 'void', newItem.metadata).getProperties() : {}
+    const item: HandItemBlock = {
+      name: newItem.name,
+      properties: blockProperties,
+      id: newItem.type,
+      type: block ? 'block' : 'item',
+      fullItem: newItem,
+    }
+
+    if (isLeftHand) {
+      this.offHandItem = item
+    } else {
+      this.heldItem = item
+    }
+    this.events.emit('heldItemChanged', item, isLeftHand)
+  }
+
+  startUsingItem () {
+    this.isUsingItem = true
+    this.itemUsageTicks = 0
+  }
+
+  stopUsingItem () {
+    this.isUsingItem = false
+    this.itemUsageTicks = 0
+  }
+
+  getItemUsageTicks (): number {
+    return this.itemUsageTicks
+  }
+
+  getHeldItem (isLeftHand = false): HandItemBlock | undefined {
+    return isLeftHand ? this.offHandItem : this.heldItem
+  }
+
+  getItemSelector (specificProperties: ItemSpecificContextProperties, item?: import('prismarine-item').Item): ItemSelector['properties'] {
+    return {
+      ...specificProperties,
+      'minecraft:date': new Date(),
+      // "minecraft:context_dimension": bot.entityp,
+      'minecraft:time': bot.time.timeOfDay / 24_000,
+    }
+  }
+  // #endregion
 }
 
 export const playerState = PlayerStateManager.getInstance()

@@ -67,6 +67,7 @@ import { isCypress } from './standaloneUtils'
 import {
   removePanorama
 } from './panorama'
+import { getItemDefinition } from 'mc-assets/dist/itemsDefinitions'
 
 import { startLocalServer, unsupportedLocalServerFeatures } from './createLocalServer'
 import defaultServerOptions from './defaultLocalServerOptions'
@@ -166,6 +167,15 @@ viewer.entities.getItemUv = (item) => {
   try {
     const name = typeof idOrName === 'number' ? loadedData.items[idOrName]?.name : idOrName
     if (!name) throw new Error(`Item not found: ${idOrName}`)
+
+    const itemSelector = playerState.getItemSelector({
+      'minecraft:display_context': 'firstperson',
+    })
+    const model = getItemDefinition(viewer.world.itemsDefinitionsStore, {
+      name,
+      version: viewer.world.texturesVersion!,
+      properties: itemSelector
+    })?.model ?? name
 
     const renderInfo = renderSlot({
       name,

@@ -1,11 +1,11 @@
 import * as THREE from 'three'
 import * as tweenJs from '@tweenjs/tween.js'
 import worldBlockProvider from 'mc-assets/dist/worldBlockProvider'
-import { GUI } from 'lil-gui'
 import { BlockModel } from 'mc-assets'
 import { getThreeBlockModelGroup, renderBlockThree, setBlockPosition } from './mesher/standaloneRenderer'
 import { getMyHand } from './hand'
 import { IPlayerState } from './basePlayerState'
+import { DebugGui } from './DebugGui'
 
 export type HandItemBlock = {
   name?
@@ -13,72 +13,6 @@ export type HandItemBlock = {
   fullItem?
   type: 'block' | 'item' | 'hand'
   id?: number
-}
-
-class AnimationController {
-  private currentAnimation: tweenJs.Group | null = null
-  private isAnimating = false
-  private cancelRequested = false
-  private completionCallbacks: Array<() => void> = []
-
-  async startAnimation (createAnimation: () => tweenJs.Group): Promise<void> {
-    if (this.isAnimating) {
-      await this.cancelCurrentAnimation()
-    }
-
-    return new Promise((resolve) => {
-      this.isAnimating = true
-      this.cancelRequested = false
-      this.currentAnimation = createAnimation()
-
-      this.completionCallbacks.push(() => {
-        this.isAnimating = false
-        this.currentAnimation = null
-        resolve()
-      })
-    })
-  }
-
-  async cancelCurrentAnimation (): Promise<void> {
-    if (!this.isAnimating) return
-
-    return new Promise((resolve) => {
-      this.cancelRequested = true
-      this.completionCallbacks.push(() => {
-        resolve()
-      })
-    })
-  }
-
-  forceFinish () {
-    if (!this.isAnimating) return
-
-    if (this.currentAnimation) {
-      this.currentAnimation.removeAll()
-      this.currentAnimation = null
-    }
-
-    this.isAnimating = false
-    this.cancelRequested = false
-
-    const callbacks = [...this.completionCallbacks]
-    this.completionCallbacks = []
-    for (const cb of callbacks) cb()
-  }
-
-  update () {
-    if (this.currentAnimation) {
-      this.currentAnimation.update()
-    }
-  }
-
-  get isActive () {
-    return this.isAnimating
-  }
-
-  get shouldCancel () {
-    return this.cancelRequested
-  }
 }
 
 export default class HoldingBlock {
@@ -95,19 +29,33 @@ export default class HoldingBlock {
   camera = new THREE.PerspectiveCamera(75, 1, 0.1, 100)
   stopUpdate = false
   lastHeldItem: HandItemBlock | undefined
-  toBeRenderedItem: HandItemBlock | undefined
   isSwinging = false
   nextIterStopCallbacks: Array<() => void> | undefined
-  rightSide = true
+  offHand = false
   idleAnimator: HandIdleAnimator | undefined
+  ready = false
 
-  debug = {} as Record<string, any>
-
-  private readonly swingController = new AnimationController()
-  handAnimator: HandAnimator
+  swingAnimator: HandSwingAnimator | undefined
 
   constructor (public playerState: IPlayerState) {
     this.initCameraGroup()
+
+    this.playerState.events.on('heldItemChanged', (_, isOffHand) => {
+      if (this.offHand !== isOffHand) return
+      this.updateItem()
+    })
+  }
+
+  updateItem () {
+    if (!this.ready || !this.playerState.getHeldItem) return
+    const item = this.playerState.getHeldItem(this.offHand)
+    if (item) {
+      void this.setNewItem(item)
+    } else {
+      void this.setNewItem({
+        type: 'hand',
+      })
+    }
   }
 
   initCameraGroup () {
@@ -115,54 +63,7 @@ export default class HoldingBlock {
   }
 
   async startSwing () {
-    if (this.swingController.isActive) return
-
-    await this.swingController.startAnimation(() => {
-      const group = new tweenJs.Group()
-      // const DURATION = 1000 * 0.35 / 2
-      // const DURATION = 1000
-      const DURATION = 1000 * 0.35 / 2
-      const { position, rotation, object } = this.getFinalSwingPositionRotation()
-      const initialPos = {
-        x: object.position.x,
-        y: object.position.y,
-        z: object.position.z
-      }
-      const initialRot = {
-        x: object.rotation.x,
-        y: object.rotation.y,
-        z: object.rotation.z
-      }
-
-      const mainAnim = new tweenJs.Tween(object.position, group)
-        .to(position, DURATION)
-        // .easing(tweenJs.Easing.Quadratic.Out)
-        .yoyo(true)
-        .repeat(Infinity)
-        .start()
-
-      let i = 0
-      mainAnim.onRepeat(() => {
-        i++
-        if (i % 2 === 0) {
-          if (this.swingController.shouldCancel) {
-            object.position.set(initialPos.x, initialPos.y, initialPos.z)
-            // object.rotation.set(initialRot.x, initialRot.y, initialRot.z)
-            Object.assign(object.rotation, initialRot)
-            this.swingController.forceFinish()
-          }
-        }
-      })
-
-      new tweenJs.Tween(object.rotation, group)
-        .to(rotation, DURATION)
-        // .easing(tweenJs.Easing.Quadratic.Out)
-        .yoyo(true)
-        .repeat(Infinity)
-        .start()
-
-      return group
-    })
+    this.swingAnimator?.startSwing()
   }
 
   getFinalSwingPositionRotation (origPosition?: THREE.Vector3) {
@@ -219,12 +120,12 @@ export default class HoldingBlock {
   }
 
   async stopSwing () {
-    await this.swingController.cancelCurrentAnimation()
+    this.swingAnimator?.stopSwing()
   }
 
   render (originalCamera: THREE.PerspectiveCamera, renderer: THREE.WebGLRenderer, ambientLight: THREE.AmbientLight, directionalLight: THREE.DirectionalLight) {
     if (!this.lastHeldItem) return
-    this.swingController.update()
+    this.swingAnimator?.update()
     this.blockSwapAnimation?.tween.update()
 
     const scene = new THREE.Scene()
@@ -242,12 +143,12 @@ export default class HoldingBlock {
 
     renderer.autoClear = false
     renderer.clearDepth()
-    if (this.rightSide) {
+    if (this.offHand) {
+      renderer.setViewport(0, 0, minSize, minSize)
+    } else {
       const x = viewerSize.width - minSize
       // if (x) x -= x / 4
       renderer.setViewport(x, 0, minSize, minSize)
-    } else {
-      renderer.setViewport(0, 0, minSize, minSize)
     }
     renderer.render(scene, this.camera)
     renderer.setViewport(0, 0, viewerSize.width, viewerSize.height)
@@ -307,7 +208,7 @@ export default class HoldingBlock {
     // Adjust the position based on the aspect ratio
     const { position, scale: scaleData } = this.getHandHeld3d()
     const distance = -position.z
-    const side = this.rightSide ? 1 : -1
+    const side = this.offHand ? -1 : 1
     this.objectOuterGroup.position.set(
       distance * position.x * aspect * side,
       distance * position.y,
@@ -317,35 +218,18 @@ export default class HoldingBlock {
     // const scale = Math.min(0.8, Math.max(1, 1 * aspect))
     const scale = scaleData * 2.22 * 0.2
     this.objectOuterGroup.scale.set(scale, scale, scale)
-
-    if (!this.swingController.isActive && !this.blockSwapAnimation) {
-      this.idleAnimator?.update()
-    }
-    this.handAnimator?.update()
   }
 
-  async initHandObject (handItem?: HandItemBlock) {
-    let animatingCurrent = false
-    if (!this.swingController.isActive && !this.blockSwapAnimation && this.isDifferentItem(handItem)) {
-      animatingCurrent = true
-      await this.playBlockSwapAnimation()
-      this.holdingBlock?.removeFromParent()
-      this.holdingBlock = undefined
-    }
+  private createItemModel (handItem: HandItemBlock): THREE.Object3D | undefined {
+    if (!handItem) return undefined
 
-    this.lastHeldItem = handItem
-    if (!handItem) {
-      this.holdingBlock?.removeFromParent()
-      this.holdingBlock = undefined
-      this.swingController.forceFinish()
-      this.blockSwapAnimation = undefined
-      return
-    }
     let blockInner
     if (handItem.type === 'item' || handItem.type === 'block') {
       const { mesh: itemMesh, isBlock } = viewer.entities.getItemMesh({
         ...handItem.fullItem,
         itemId: handItem.id,
+      }, {
+        'minecraft:display_context': 'firstperson',
       })!
       if (isBlock) {
         blockInner = itemMesh
@@ -356,9 +240,61 @@ export default class HoldingBlock {
         handItem.type = 'item'
       }
     } else {
-      blockInner = await getMyHand()
+      blockInner = getMyHand()
     }
     blockInner.name = 'holdingBlock'
+    return blockInner
+  }
+
+  replaceItemModel (handItem?: HandItemBlock): void {
+    if (!handItem) {
+      this.holdingBlock?.removeFromParent()
+      this.holdingBlock = undefined
+      this.swingAnimator?.stopSwing()
+      this.swingAnimator = undefined
+      return
+    }
+
+    const blockInner = this.createItemModel(handItem)
+    if (!blockInner) return
+
+    // Update the model without changing the group structure
+    this.holdingBlock?.removeFromParent()
+    this.holdingBlock = blockInner
+    this.holdingBlockInnerGroup.add(blockInner)
+
+    const rotationDeg = this.getHandHeld3d().rotation
+    this.holdingBlock.rotation.x = THREE.MathUtils.degToRad(rotationDeg.x)
+    this.holdingBlock.rotation.y = THREE.MathUtils.degToRad(rotationDeg.y)
+    this.holdingBlock.rotation.z = THREE.MathUtils.degToRad(rotationDeg.z)
+    this.objectOuterGroup.rotation.y = THREE.MathUtils.degToRad(rotationDeg.yOuter)
+
+    this.swingAnimator = new HandSwingAnimator(this.holdingBlockInnerGroup)
+    this.swingAnimator.type = handItem?.type ?? 'hand'
+  }
+
+  async setNewItem (handItem?: HandItemBlock) {
+    let animatingCurrent = false
+    if (!this.blockSwapAnimation && this.isDifferentItem(handItem)) {
+      animatingCurrent = true
+      await this.playBlockSwapAnimation()
+      this.holdingBlock?.removeFromParent()
+      this.holdingBlock = undefined
+    }
+
+    this.lastHeldItem = handItem
+    if (!handItem) {
+      this.holdingBlock?.removeFromParent()
+      this.holdingBlock = undefined
+      this.swingAnimator?.stopSwing()
+      this.swingAnimator = undefined
+      this.blockSwapAnimation = undefined
+      return
+    }
+
+    const blockInner = this.createItemModel(handItem)
+    if (!blockInner) return
+
     const blockOuterGroup = new THREE.Group()
     this.holdingBlockInnerGroup.removeFromParent()
     this.holdingBlockInnerGroup = new THREE.Group()
@@ -379,54 +315,30 @@ export default class HoldingBlock {
 
     this.cameraGroup.add(this.objectOuterGroup)
     const rotationDeg = this.getHandHeld3d().rotation
-    let origPosition
     const setRotation = () => {
-      const final = this.getFinalSwingPositionRotation(origPosition)
-      origPosition ??= final.object.position.clone()
-      if (this.debug.displayFinal) {
-        Object.assign(final.object.position, final.position)
-        Object.assign(final.object.rotation, final.rotation)
-      } else if (this.debug.displayFinal === false) {
-        final.object.rotation.set(0, 0, 0)
-      }
-
       this.holdingBlock!.rotation.x = THREE.MathUtils.degToRad(rotationDeg.x)
       this.holdingBlock!.rotation.y = THREE.MathUtils.degToRad(rotationDeg.y)
       this.holdingBlock!.rotation.z = THREE.MathUtils.degToRad(rotationDeg.z)
       this.objectOuterGroup.rotation.y = THREE.MathUtils.degToRad(rotationDeg.yOuter)
     }
-    // const gui = new GUI()
-    // gui.add(rotationDeg, 'x', -180, 180, 0.1)
-    // gui.add(rotationDeg, 'y', -180, 180, 0.1)
-    // gui.add(rotationDeg, 'z', -180, 180, 0.1)
-    // gui.add(rotationDeg, 'yOuter', -180, 180, 0.1)
-    // Object.assign(window, { xFinal: 0, yFinal: 0, zFinal: 0, xRotationFinal: 0, yRotationFinal: 0, zRotationFinal: 0, displayFinal: true })
-    // gui.add(window, 'xFinal', -10, 10, 0.05)
-    // gui.add(window, 'yFinal', -10, 10, 0.05)
-    // gui.add(window, 'zFinal', -10, 10, 0.05)
-    // gui.add(window, 'xRotationFinal', -180, 180, 0.05)
-    // gui.add(window, 'yRotationFinal', -180, 180, 0.05)
-    // gui.add(window, 'zRotationFinal', -180, 180, 0.05)
-    // gui.add(window, 'displayFinal')
-    // gui.onChange(setRotation)
     setRotation()
 
     if (animatingCurrent) {
       await this.playBlockSwapAnimation()
     }
-    // this.idleAnimator = new HandIdleAnimator(this.holdingBlockInnerGroup, this.playerState)
-    this.handAnimator = new HandAnimator(this.holdingBlockInnerGroup)
+
+    this.swingAnimator = new HandSwingAnimator(this.holdingBlockInnerGroup)
+    this.swingAnimator.type = handItem?.type ?? 'hand'
   }
 
   getHandHeld3d () {
     const type = this.lastHeldItem?.type ?? 'hand'
-    const { debug } = this
 
     let scale = type === 'item' ? 0.68 * 1.15 : 0.45 * 1.15
 
     const position = {
-      x: debug.x ?? 0.4,
-      y: debug.y ?? -0.7,
+      x: 0.4,
+      y: -0.7,
       z: -0.45
     }
 
@@ -622,24 +534,73 @@ class HandIdleAnimator {
   }
 }
 
-class HandAnimator {
-  private readonly ANIMATION_TIME = 250 // Faster animation (was 350ms)
+class HandSwingAnimator {
   private readonly PI = Math.PI
   private animationTimer = 0
   private lastTime = 0
   private isAnimating = false
-  private defaultRotation: THREE.Euler
-  private defaultPosition: THREE.Vector3
+  private stopRequested = false
+  private readonly originalRotation: THREE.Euler
+  private readonly originalPosition: THREE.Vector3
+  private readonly originalScale: THREE.Vector3
+
+  // Debug parameters for both animation styles
+  private readonly debugParams = {
+    // Classic swing parameters
+    classicRotationMax: 60,
+    classicPositionX: 0.2,
+    classicPositionY: 0.6,
+    classicPositionZ: 0.3,
+    classicScaleReduction: 0.2,
+
+    // New swing parameters
+    newRotationX: -0.513_126_800_086_333, // Hand rotation
+    newRotationZ: 1.591_740_277_818_83, // Hand rotation
+    newRotationBlockX: -1.539_380_400_258_999_2, // Block/item rotation
+    newRotationBlockZ: 0.620_778_708_349_344, // Block/item rotation
+    newPositionX: -0.1,
+    newPositionY: -0.1,
+    newPositionZ: 0.2,
+    // Item specific position
+    newPositionItemX: -0.1,
+    newPositionItemY: -0.3,
+    newPositionItemZ: 0.648,
+
+    // Shared parameters
+    animationTime: 250,
+    animationStage: 0,
+    useClassicSwing: true
+  }
+
+  private readonly debugGui: DebugGui
+
+  public type: 'hand' | 'block' | 'item' = 'hand'
 
   constructor (public handMesh: THREE.Object3D) {
     this.handMesh = handMesh
-    // Store initial transforms to return to them
-    this.defaultRotation = handMesh.rotation.clone()
-    this.defaultPosition = handMesh.position.clone()
+    // Store initial transforms
+    this.originalRotation = handMesh.rotation.clone()
+    this.originalPosition = handMesh.position.clone()
+    this.originalScale = handMesh.scale.clone()
+
+    // Initialize debug GUI
+    this.debugGui = new DebugGui('hand_animator', this.debugParams, undefined, {
+      animationStage: {
+        min: 0,
+        max: 1,
+        step: 0.01
+      }
+    })
   }
 
   update () {
-    if (!this.isAnimating) return
+    if (!this.isAnimating && !this.debugParams.animationStage) {
+      // If not animating, ensure we're at original position
+      this.handMesh.rotation.copy(this.originalRotation)
+      this.handMesh.position.copy(this.originalPosition)
+      this.handMesh.scale.copy(this.originalScale)
+      return
+    }
 
     const now = performance.now()
     const deltaTime = (now - this.lastTime) / 1000
@@ -649,53 +610,89 @@ class HandAnimator {
     this.animationTimer += deltaTime * 1000 // Convert to ms
 
     // Calculate animation stage (0 to 1)
-    const stage = Math.min(this.animationTimer / this.ANIMATION_TIME, 1)
+    const stage = this.debugParams.animationStage || Math.min(this.animationTimer / this.debugParams.animationTime, 1)
 
     if (stage >= 1) {
-      // Animation complete, reset
-      this.isAnimating = false
+      // Animation complete
+      if (this.stopRequested) {
+        // If stop was requested, actually stop now that we've completed a swing
+        this.isAnimating = false
+        this.stopRequested = false
+        this.animationTimer = 0
+        this.handMesh.rotation.copy(this.originalRotation)
+        this.handMesh.position.copy(this.originalPosition)
+        this.handMesh.scale.copy(this.originalScale)
+        return
+      }
+      // Otherwise reset timer and continue
       this.animationTimer = 0
-      // Return to default position/rotation
-      this.handMesh.rotation.copy(this.defaultRotation)
-      this.handMesh.position.copy(this.defaultPosition)
       return
     }
 
-    // Apply swing animation
-    // First half of animation is swing forward, second half is return
-    const swingStage = stage < 0.5 ? stage * 2 : 2 - (stage * 2)
+    // Start from original transforms
+    this.handMesh.rotation.copy(this.originalRotation)
+    this.handMesh.position.copy(this.originalPosition)
+    this.handMesh.scale.copy(this.originalScale)
 
-    // Forward and down motion
-    this.handMesh.rotation.x = this.defaultRotation.x - (Math.PI / 3) * swingStage
+    if (this.debugParams.useClassicSwing) {
+      // Classic Minecraft-style swing animation
+      const rotationAngle = Math.min(90 * stage, this.debugParams.classicRotationMax)
+      this.handMesh.rotation.z += THREE.MathUtils.degToRad(rotationAngle)
 
-    // Add stronger leftward motion (was Math.PI / 6, now Math.PI / 3)
-    this.handMesh.rotation.z = this.defaultRotation.z + (Math.PI / 3) * swingStage // Changed minus to plus to swing left
+      // Complex positional movement
+      this.handMesh.position.x += Math.cos(stage * this.PI) * this.debugParams.classicPositionX - stage * 0.5
+      this.handMesh.position.y += Math.sin(stage * this.PI) * this.debugParams.classicPositionY - 0.3
+      this.handMesh.position.z += Math.sin(stage * this.PI) * this.debugParams.classicPositionZ
 
-    // Add a small forward position offset during swing, with slight leftward bias
-    const posOffset = new THREE.Vector3(-0.1, -0.1, 0.2).multiplyScalar(swingStage) // Added x offset for leftward movement
-    this.handMesh.position.copy(this.defaultPosition).add(posOffset)
+      // Scale variation
+      const scale = 1 - stage * this.debugParams.classicScaleReduction
+      this.handMesh.scale.multiplyScalar(scale)
+    } else {
+      // New smooth swing animation
+      const swingStage = stage < 0.5 ? stage * 2 : 2 - (stage * 2)
+
+      // Forward and down motion
+      const isBlock = this.type === 'block'
+      const rotX = isBlock ? this.debugParams.newRotationBlockX : this.debugParams.newRotationX
+      const rotZ = isBlock ? this.debugParams.newRotationBlockZ : this.debugParams.newRotationZ
+
+      this.handMesh.rotation.x += rotX * swingStage
+      // Add leftward motion
+      this.handMesh.rotation.z += rotZ * swingStage
+
+      // Add position offset during swing
+      const posOffset = new THREE.Vector3(
+        this.debugParams.newPositionX,
+        this.debugParams.newPositionY,
+        this.debugParams.newPositionZ
+      )
+
+      // Use item-specific position if it's an item
+      if (this.type === 'item') {
+        posOffset.set(
+          this.debugParams.newPositionItemX,
+          this.debugParams.newPositionItemY,
+          this.debugParams.newPositionItemZ
+        )
+      }
+
+      posOffset.multiplyScalar(swingStage)
+      this.handMesh.position.add(posOffset)
+    }
   }
 
   startSwing () {
     if (this.isAnimating) return
 
     this.isAnimating = true
+    this.stopRequested = false
     this.animationTimer = 0
     this.lastTime = performance.now()
-
-    // Store current transforms as default to return to
-    this.defaultRotation = this.handMesh.rotation.clone()
-    this.defaultPosition = this.handMesh.position.clone()
   }
 
   stopSwing () {
     if (!this.isAnimating) return
-
-    this.isAnimating = false
-    this.animationTimer = 0
-    // Return to default position/rotation immediately
-    this.handMesh.rotation.copy(this.defaultRotation)
-    this.handMesh.position.copy(this.defaultPosition)
+    this.stopRequested = true
   }
 
   isCurrentlySwinging () {
@@ -711,3 +708,79 @@ export const getBlockMeshFromModel = (material: THREE.Material, model: BlockMode
   })
   return getThreeBlockModelGroup(material, [[worldRenderModel]], undefined, 'plains', loadedData)
 }
+
+class AnimationController {
+  private currentAnimation: tweenJs.Group | null = null
+  private isAnimating = false
+  private cancelRequested = false
+  private completionCallbacks: Array<() => void> = []
+
+  async startAnimation (createAnimation: () => tweenJs.Group): Promise<void> {
+    if (this.isAnimating) {
+      await this.cancelCurrentAnimation()
+    }
+
+    return new Promise((resolve) => {
+      this.isAnimating = true
+      this.cancelRequested = false
+      this.currentAnimation = createAnimation()
+
+      this.completionCallbacks.push(() => {
+        this.isAnimating = false
+        this.currentAnimation = null
+        resolve()
+      })
+    })
+  }
+
+  async cancelCurrentAnimation (): Promise<void> {
+    if (!this.isAnimating) return
+
+    return new Promise((resolve) => {
+      this.cancelRequested = true
+      this.completionCallbacks.push(() => {
+        resolve()
+      })
+    })
+  }
+
+  forceFinish () {
+    if (!this.isAnimating) return
+
+    if (this.currentAnimation) {
+      this.currentAnimation.removeAll()
+      this.currentAnimation = null
+    }
+
+    this.isAnimating = false
+    this.cancelRequested = false
+
+    const callbacks = [...this.completionCallbacks]
+    this.completionCallbacks = []
+    for (const cb of callbacks) cb()
+  }
+
+  update () {
+    if (this.currentAnimation) {
+      this.currentAnimation.update()
+    }
+  }
+
+  get isActive () {
+    return this.isAnimating
+  }
+
+  get shouldCancel () {
+    return this.cancelRequested
+  }
+}
+
+// addEventListener('keydown', (e) => {
+//   if (e.key === 'r') {
+//     viewer.world.holdingBlock.handAnimator.startSwing(true)
+//   }
+// })
+
+// setTimeout(() => {
+//   window.holdingBlock = viewer.world.holdingBlock
+// })

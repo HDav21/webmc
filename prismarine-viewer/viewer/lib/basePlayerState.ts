@@ -1,6 +1,16 @@
+import { EventEmitter } from 'events'
 import { Vec3 } from 'vec3'
+import TypedEmitter from 'typed-emitter'
+import { ItemSelector } from 'mc-assets/dist/itemsDefinitions'
+import { HandItemBlock } from './holdingBlock'
 
 export type MovementState = 'NOT_MOVING' | 'WALKING' | 'SPRINTING' | 'SNEAKING'
+export type ItemSpecificContextProperties = Pick<ItemSelector['properties'], 'minecraft:using_item' | 'minecraft:use_duration' | 'minecraft:use_cycle' | 'minecraft:display_context'>
+
+
+export type PlayerStateEvents = {
+  heldItemChanged: (item: HandItemBlock | undefined, isLeftHand: boolean) => void
+}
 
 export interface IPlayerState {
   getEyeHeight(): number
@@ -9,7 +19,12 @@ export interface IPlayerState {
   isOnGround(): boolean
   isSneaking(): boolean
   isFlying(): boolean
-  isSprinting(): boolean
+  isSprinting (): boolean
+  getItemUsageTicks?(): number
+  // isUsingItem?(): boolean
+  getHeldItem?(isLeftHand: boolean): HandItemBlock | undefined
+
+  events: TypedEmitter<PlayerStateEvents>
 }
 
 export class BasePlayerState implements IPlayerState {
@@ -19,8 +34,9 @@ export class BasePlayerState implements IPlayerState {
   protected sneaking = false
   protected flying = false
   protected sprinting = false
+  readonly events = new EventEmitter() as TypedEmitter<PlayerStateEvents>
 
-  getEyeHeight(): number {
+  getEyeHeight (): number {
     return 1.62
   }
 

@@ -41,34 +41,16 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.starField = new StarField(scene)
     this.holdingBlock = new HoldingBlock(playerState)
     this.holdingBlockLeft = new HoldingBlock(playerState)
-    this.holdingBlockLeft.rightSide = false
+    this.holdingBlockLeft.offHand = false
 
     this.renderUpdateEmitter.on('itemsTextureDownloaded', () => {
-      if (this.holdingBlock.toBeRenderedItem) {
-        this.onHandItemSwitch(this.holdingBlock.toBeRenderedItem)
-        this.holdingBlock.toBeRenderedItem = undefined
-      }
-      if (this.holdingBlockLeft.toBeRenderedItem) {
-        this.onHandItemSwitch(this.holdingBlock.toBeRenderedItem, true)
-        this.holdingBlockLeft.toBeRenderedItem = undefined
-      }
+      this.holdingBlock.ready = true
+      this.holdingBlock.updateItem()
+      this.holdingBlockLeft.ready = true
+      this.holdingBlockLeft.updateItem()
     })
 
     this.addDebugOverlay()
-  }
-
-  onHandItemSwitch (item: HandItemBlock | undefined, isLeft = false) {
-    if (!isLeft) {
-      item ??= {
-        type: 'hand',
-      }
-    }
-    const holdingBlock = isLeft ? this.holdingBlockLeft : this.holdingBlock
-    if (!this.currentTextureImage) {
-      holdingBlock.toBeRenderedItem = item
-      return
-    }
-    void holdingBlock.initHandObject(item)
   }
 
   changeHandSwingingState (isAnimationPlaying: boolean, isLeft = false) {

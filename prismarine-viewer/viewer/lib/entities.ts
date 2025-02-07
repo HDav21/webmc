@@ -23,6 +23,7 @@ import { disposeObject } from './threeJsUtils'
 import { armorModels } from './entity/objModels'
 import { Viewer } from './viewer'
 import { getBlockMeshFromModel } from './holdingBlock'
+import { ItemSpecificContextProperties } from './basePlayerState'
 const { loadTexture } = globalThis.isElectron ? require('./utils.electron.js') : require('./utils')
 
 export const TWEEN_DURATION = 120
@@ -216,7 +217,7 @@ export class Entities extends EventEmitter {
   itemsTexture: THREE.Texture | null = null
   cachedMapsImages = {} as Record<number, string>
   itemFrameMaps = {} as Record<number, Array<THREE.Mesh<THREE.PlaneGeometry, THREE.MeshLambertMaterial>>>
-  getItemUv: undefined | ((item: Record<string, any>) => {
+  getItemUv: undefined | ((item: Record<string, any>, specificProps: ItemSpecificContextProperties) => {
     texture: THREE.Texture;
     u: number;
     v: number;
@@ -424,11 +425,11 @@ export class Entities extends EventEmitter {
     return typeof component === 'string' ? component : component.text ?? ''
   }
 
-  getItemMesh (item, isDropped = false) {
-    const textureUv = this.getItemUv?.(item)
+  getItemMesh (item, specificProps: ItemSpecificContextProperties) {
+    const textureUv = this.getItemUv?.(item, specificProps)
     if (textureUv && 'resolvedModel' in textureUv) {
       const mesh = getBlockMeshFromModel(this.viewer.world.material, textureUv.resolvedModel, textureUv.modelName)
-      if (isDropped) {
+      if (specificProps['minecraft:display_context'] === 'ground') {
         const SCALE = 0.5
         mesh.scale.set(SCALE, SCALE, SCALE)
         mesh.position.set(0, 0.2, 0)
@@ -524,7 +525,9 @@ export class Entities extends EventEmitter {
       if (entity.name === 'item') {
         const item = entity.metadata?.find((m: any) => typeof m === 'object' && m?.itemCount)
         if (item) {
-          const object = this.getItemMesh(item, true)
+          const object = this.getItemMesh(item, {
+            'minecraft:display_context': 'ground',
+          })
           if (object) {
             mesh = object.mesh
             mesh.scale.set(0.5, 0.5, 0.5)
@@ -758,7 +761,9 @@ export class Entities extends EventEmitter {
           mesh.scale.set(16 / 12, 16 / 12, 1)
           this.addMapModel(e, mapNumber, rotation)
         } else {
-          const itemMesh = this.getItemMesh(item)
+          const itemMesh = this.getItemMesh(item, {
+            'minecraft:display_context': 'fixed',
+          })
           if (itemMesh) {
             itemMesh.mesh.position.set(0, 0, 0.43)
             itemMesh.mesh.scale.set(0.5, 0.5, 0.5)
