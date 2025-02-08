@@ -178,9 +178,9 @@ viewer.entities.getItemUv = (item, specificProps) => {
     })?.model ?? name
 
     const renderInfo = renderSlot({
-      name: model,
+      ...item,
       nbt: null,
-      ...item
+      name: model,
     })
 
     if (!renderInfo) throw new Error(`Failed to get render info for item ${name}`)

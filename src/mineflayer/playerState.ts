@@ -7,6 +7,7 @@ import { ItemSelector } from 'mc-assets/dist/itemDefinitions'
 import { gameAdditionalState } from '../globalState'
 
 export class PlayerStateManager implements IPlayerState {
+  disableStateUpdates = false
   private static instance: PlayerStateManager
   readonly events = new EventEmitter() as TypedEmitter<PlayerStateEvents>
 
@@ -33,6 +34,7 @@ export class PlayerStateManager implements IPlayerState {
   private constructor () {
     this.updateState = this.updateState.bind(this)
     customEvents.on('mineflayerBotCreated', () => {
+      this.ready = false
       bot.on('inject_allowed', () => {
         if (this.ready) return
         this.ready = true
@@ -63,13 +65,13 @@ export class PlayerStateManager implements IPlayerState {
 
   // #region Movement and Physics State
   private updateState () {
-    if (!bot.player?.entity) return
+    if (!bot.player?.entity || this.disableStateUpdates) return
 
     const { velocity } = bot.player.entity
     const isOnGround = bot.entity.onGround
     const VELOCITY_THRESHOLD = 0.01
     const SPRINTING_VELOCITY = 0.15
-    const OFF_GROUND_THRESHOLD = 300 // ms before switching to SNEAKING when off ground
+    const OFF_GROUND_THRESHOLD = 0 // ms before switching to SNEAKING when off ground
 
     const now = performance.now()
     const deltaTime = now - this.lastUpdateTime

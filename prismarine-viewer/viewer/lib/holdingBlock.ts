@@ -6,6 +6,7 @@ import { getThreeBlockModelGroup, renderBlockThree, setBlockPosition } from './m
 import { getMyHand } from './hand'
 import { IPlayerState, MovementState } from './basePlayerState'
 import { DebugGui } from './DebugGui'
+import { SmoothSwitcher } from './smoothSwitcher'
 
 export type HandItemBlock = {
   name?
@@ -64,6 +65,8 @@ export default class HoldingBlock {
   }
 
   async startSwing () {
+    this.idleAnimator?.destroy()
+    this.idleAnimator = undefined
     this.swingAnimator?.startSwing()
   }
 
@@ -419,28 +422,14 @@ class HandIdleAnimator {
   currentState: MovementState
   targetState: MovementState
   defaultPosition: { x: number; y: number; z: number; rotationX: number; rotationY: number; rotationZ: number }
-  private idleTween: tweenJs.Tween<{ y: number; rotationZ: number }> | null = null
   private readonly idleOffset = { y: 0, rotationZ: 0 }
   private readonly tween = new tweenJs.Group()
-  private transitionTween: tweenJs.Tween<{ progress: number }> | null = null
-  private readonly transitionState = {
-    progress: 0,
-    fromState: 'NOT_MOVING' as MovementState,
-    toState: 'NOT_MOVING' as MovementState,
-    fromTime: 0,
-    toTime: 0,
-    fromOffsets: { x: 0, y: 0, z: 0, rotationZ: 0 }
-  }
+  private idleTween: tweenJs.Tween<{ y: number; rotationZ: number }> | null = null
+  private readonly stateSwitcher: SmoothSwitcher
 
   // Debug parameters
   private readonly debugParams = {
     // Transition durations for different state changes
-    transitionDurations: {
-      default: 300,
-      toSprinting: 150, // Faster transition when starting to sprint
-      fromSprinting: 400, // Slower transition when stopping sprinting
-      betweenMoving: 200 // Quick transition between walking/sprinting
-    },
     walkingSpeed: 7,
     sprintingSpeed: 10,
     walkingAmplitude: { x: 1 / 30, y: 1 / 10, rotationZ: 0.25 },
@@ -463,6 +452,25 @@ class HandIdleAnimator {
       rotationY: handMesh.rotation.y,
       rotationZ: handMesh.rotation.z
     }
+
+    // Initialize state switcher with appropriate speeds
+    this.stateSwitcher = new SmoothSwitcher(
+      {
+        x: handMesh.position.x,
+        y: handMesh.position.y,
+        z: handMesh.position.z,
+        rotationX: handMesh.rotation.x,
+        rotationY: handMesh.rotation.y,
+        rotationZ: handMesh.rotation.z
+      },
+      undefined,
+      // {
+      //   x: 2, // units per second
+      //   y: 2,
+      //   z: 2,
+      //   rotation: Math.PI // radians per second
+      // }
+    )
 
     // Initialize debug GUI
     this.debugGui = new DebugGui('idle_animator', this.debugParams)
@@ -497,85 +505,17 @@ class HandIdleAnimator {
     }
   }
 
-  private getTransitionDuration (fromState: MovementState, toState: MovementState): number {
-    if (toState === 'SPRINTING') {
-      return this.debugParams.transitionDurations.toSprinting
-    }
-    if (fromState === 'SPRINTING') {
-      return this.debugParams.transitionDurations.fromSprinting
-    }
-    if ((fromState === 'WALKING') ||
-      (toState === 'WALKING')) {
-      return this.debugParams.transitionDurations.betweenMoving
-    }
-    return this.debugParams.transitionDurations.default
-  }
-
-  private getTransitionEasing (fromState: MovementState, toState: MovementState) {
-    if (toState === 'SPRINTING') {
-      return tweenJs.Easing.Quadratic.In // Quick acceleration
-    }
-    if (fromState === 'SPRINTING') {
-      return tweenJs.Easing.Quadratic.Out // Gradual deceleration
-    }
-    return tweenJs.Easing.Quadratic.InOut // Smooth transition for other cases
-  }
-
-  private startStateTransition (fromState: MovementState, toState: MovementState) {
-    // Store current offsets as starting point
-    this.transitionState.fromOffsets = {
-      x: this.handMesh.position.x - this.defaultPosition.x,
-      y: this.handMesh.position.y - this.defaultPosition.y,
-      z: this.handMesh.position.z - this.defaultPosition.z,
-      rotationZ: this.handMesh.rotation.z - this.defaultPosition.rotationZ
-    }
-
-    this.transitionState.fromState = fromState
-    this.transitionState.toState = toState
-    this.transitionState.fromTime = this.globalTime
-    this.transitionState.toTime = this.globalTime
-
-    if (this.transitionTween) {
-      this.transitionTween.stop()
-    }
-
-    this.transitionState.progress = 0
-    this.transitionTween = new tweenJs.Tween(this.transitionState, this.tween)
-      .to({ progress: 1 }, this.getTransitionDuration(fromState, toState))
-      .easing(this.getTransitionEasing(fromState, toState))
-      .start()
-      .onComplete(() => {
-        this.currentState = toState
-        this.transitionTween = null
-
-        if (toState === 'NOT_MOVING' || toState === 'SNEAKING') {
-          this.startIdleAnimation()
-        }
-      })
-  }
-
-  setState (newState: MovementState) {
-    if (newState === this.targetState) return
-
-    this.targetState = newState
-    if (this.currentState !== newState) {
-      this.startStateTransition(this.currentState, newState)
-
-      if (this.currentState === 'NOT_MOVING' || this.currentState === 'SNEAKING') {
-        this.stopIdleAnimation()
-      }
-    }
-  }
-
-  private getStateOffsets (state: typeof this.currentState, time: number) {
+  private getStateTransform (state: MovementState, time: number) {
     switch (state) {
       case 'NOT_MOVING':
       case 'SNEAKING':
         return {
-          x: 0,
-          y: this.idleOffset.y,
-          z: 0,
-          rotationZ: this.idleOffset.rotationZ
+          x: this.defaultPosition.x,
+          y: this.defaultPosition.y,
+          z: this.defaultPosition.z,
+          rotationX: this.defaultPosition.rotationX,
+          rotationY: this.defaultPosition.rotationY,
+          rotationZ: this.defaultPosition.rotationZ
         }
       case 'WALKING':
       case 'SPRINTING': {
@@ -583,12 +523,36 @@ class HandIdleAnimator {
         const amplitude = state === 'SPRINTING' ? this.debugParams.sprintingAmplitude : this.debugParams.walkingAmplitude
 
         return {
-          x: Math.sin(time * speed) * amplitude.x,
-          y: -Math.abs(Math.cos(time * speed)) * amplitude.y,
-          z: 0,
-          rotationZ: Math.sin(time * speed) * amplitude.rotationZ
+          x: this.defaultPosition.x + Math.sin(time * speed) * amplitude.x,
+          y: this.defaultPosition.y - Math.abs(Math.cos(time * speed)) * amplitude.y,
+          z: this.defaultPosition.z,
+          rotationX: this.defaultPosition.rotationX,
+          rotationY: this.defaultPosition.rotationY,
+          // rotationZ: this.defaultPosition.rotationZ + Math.sin(time * speed) * amplitude.rotationZ
+          rotationZ: this.defaultPosition.rotationZ
         }
       }
+    }
+  }
+
+  setState (newState: MovementState) {
+    if (newState === this.targetState) return
+
+    this.targetState = newState
+    const noTransition = false
+    if (this.currentState !== newState) {
+      // Stop idle animation during state transitions
+      this.stopIdleAnimation()
+
+      // Calculate new state transform
+      if (!noTransition) {
+        this.globalTime = 0
+        const stateTransform = this.getStateTransform(newState, this.globalTime)
+
+        // Start transition to new state
+        this.stateSwitcher.transitionTo(stateTransform, newState)
+      }
+      this.currentState = newState
     }
   }
 
@@ -598,19 +562,21 @@ class HandIdleAnimator {
     this.lastTime = now
 
     // Update global time based on current state
-    switch (this.currentState) {
-      case 'NOT_MOVING':
-      case 'SNEAKING':
-        this.globalTime = Math.PI / 4
-        break
-      case 'SPRINTING':
-      case 'WALKING':
-        this.globalTime += deltaTime
-        break
+    if (!this.stateSwitcher.isTransitioning) {
+      switch (this.currentState) {
+        case 'NOT_MOVING':
+        case 'SNEAKING':
+          this.globalTime = Math.PI / 4
+          break
+        case 'SPRINTING':
+        case 'WALKING':
+          this.globalTime += deltaTime
+          break
+      }
     }
 
-    // Update tweens
-    this.tween.update()
+    // Update state switcher
+    this.stateSwitcher.update()
 
     // Check for state changes from player state
     if (this.playerState) {
@@ -620,38 +586,37 @@ class HandIdleAnimator {
       }
     }
 
-    // Calculate current position and rotation
-    if (this.transitionTween) {
-      // We're transitioning between states
-      const fromOffsets = this.getStateOffsets(this.transitionState.fromState, this.transitionState.fromTime)
-      const toOffsets = this.getStateOffsets(this.transitionState.toState, this.globalTime)
+    // If we're not transitioning between states and in a stable state that should have idle animation
+    if (!this.stateSwitcher.isTransitioning &&
+      (this.currentState === 'NOT_MOVING' || this.currentState === 'SNEAKING')) {
+      // Start idle animation if not already running
+      if (!this.idleTween?.isPlaying()) {
+        this.startIdleAnimation()
+      }
+      // Update idle animation
+      this.tween.update()
 
-      // Interpolate between states
-      const t = this.transitionState.progress
-      this.handMesh.position.x = this.defaultPosition.x + this.lerp(fromOffsets.x, toOffsets.x, t)
-      this.handMesh.position.y = this.defaultPosition.y + this.lerp(fromOffsets.y, toOffsets.y, t)
-      this.handMesh.position.z = this.defaultPosition.z + this.lerp(fromOffsets.z, toOffsets.z, t)
-      this.handMesh.rotation.x = this.defaultPosition.rotationX
-      this.handMesh.rotation.y = this.defaultPosition.rotationY
+      // Apply idle offsets
+      this.handMesh.position.y = this.defaultPosition.y + this.idleOffset.y
       this.handMesh.rotation.z = this.defaultPosition.rotationZ + this.idleOffset.rotationZ
-    } else {
-      // We're in a stable state
-      const offsets = this.getStateOffsets(this.currentState, this.globalTime)
-      this.handMesh.position.x = this.defaultPosition.x + offsets.x
-      this.handMesh.position.y = this.defaultPosition.y + offsets.y
-      this.handMesh.position.z = this.defaultPosition.z + offsets.z
-      this.handMesh.rotation.x = this.defaultPosition.rotationX
-      this.handMesh.rotation.y = this.defaultPosition.rotationY
-      this.handMesh.rotation.z = this.defaultPosition.rotationZ
     }
-  }
 
-  private lerp (a: number, b: number, t: number): number {
-    return a + (b - a) * t
+    // If we're in a movement state and not transitioning, update the movement animation
+    if (!this.stateSwitcher.isTransitioning &&
+      (this.currentState === 'WALKING' || this.currentState === 'SPRINTING')) {
+      const stateTransform = this.getStateTransform(this.currentState, this.globalTime)
+      this.handMesh.position.set(stateTransform.x, stateTransform.y, stateTransform.z)
+      this.handMesh.rotation.set(stateTransform.rotationX, stateTransform.rotationY, stateTransform.rotationZ)
+    }
   }
 
   getCurrentState () {
     return this.currentState
+  }
+
+  destroy () {
+    this.stopIdleAnimation()
+    this.stateSwitcher.forceFinish()
   }
 }
 
@@ -831,78 +796,24 @@ export const getBlockMeshFromModel = (material: THREE.Material, model: BlockMode
   return getThreeBlockModelGroup(material, [[worldRenderModel]], undefined, 'plains', loadedData)
 }
 
-class AnimationController {
-  private currentAnimation: tweenJs.Group | null = null
-  private isAnimating = false
-  private cancelRequested = false
-  private completionCallbacks: Array<() => void> = []
-
-  async startAnimation (createAnimation: () => tweenJs.Group): Promise<void> {
-    if (this.isAnimating) {
-      await this.cancelCurrentAnimation()
-    }
-
-    return new Promise((resolve) => {
-      this.isAnimating = true
-      this.cancelRequested = false
-      this.currentAnimation = createAnimation()
-
-      this.completionCallbacks.push(() => {
-        this.isAnimating = false
-        this.currentAnimation = null
-        resolve()
-      })
-    })
+addEventListener('keydown', (e) => {
+  window.playerState.disableStateUpdates = true
+  if (e.code === 'KeyR') {
+    //@ts-expect-error
+    viewer.world.holdingBlock.handAnimator.startSwing(true)
   }
-
-  async cancelCurrentAnimation (): Promise<void> {
-    if (!this.isAnimating) return
-
-    return new Promise((resolve) => {
-      this.cancelRequested = true
-      this.completionCallbacks.push(() => {
-        resolve()
-      })
-    })
+  if (e.code === 'ArrowLeft') {
+    window.playerState.movementState = 'SNEAKING'
   }
-
-  forceFinish () {
-    if (!this.isAnimating) return
-
-    if (this.currentAnimation) {
-      this.currentAnimation.removeAll()
-      this.currentAnimation = null
-    }
-
-    this.isAnimating = false
-    this.cancelRequested = false
-
-    const callbacks = [...this.completionCallbacks]
-    this.completionCallbacks = []
-    for (const cb of callbacks) cb()
+  if (e.code === 'ArrowDown') {
+    window.playerState.movementState = 'WALKING'
   }
-
-  update () {
-    if (this.currentAnimation) {
-      this.currentAnimation.update()
-    }
+  if (e.code === 'ArrowUp') {
+    window.playerState.movementState = 'SPRINTING'
   }
+})
 
-  get isActive () {
-    return this.isAnimating
-  }
-
-  get shouldCancel () {
-    return this.cancelRequested
-  }
-}
-
-// addEventListener('keydown', (e) => {
-//   if (e.key === 'r') {
-//     viewer.world.holdingBlock.handAnimator.startSwing(true)
-//   }
-// })
-
-// setTimeout(() => {
-//   window.holdingBlock = viewer.world.holdingBlock
-// })
+setTimeout(() => {
+  //@ts-expect-error
+  window.holdingBlock = viewer.world.holdingBlock
+})
