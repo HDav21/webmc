@@ -369,12 +369,12 @@ importers:
       path-exists-cli:
         specifier: ^2.0.0
         version: 2.0.0
-      prismarine-viewer:
-        specifier: link:prismarine-viewer
-        version: link:prismarine-viewer
       process:
         specifier: github:PrismarineJS/node-process
         version: https://codeload.github.com/PrismarineJS/node-process/tar.gz/380d0b4f4c86f1b65b216c311bf00431f314e88e
+      renderer:
+        specifier: link:renderer
+        version: link:renderer
       rimraf:
         specifier: ^5.0.1
         version: 5.0.1
@@ -400,7 +400,7 @@ importers:
         specifier: ^2.3.2
         version: 2.4.1
 
-  prismarine-viewer:
+  renderer:
     dependencies:
       '@tweenjs/tween.js':
         specifier: ^20.0.3
@@ -435,12 +435,12 @@ importers:
       prismarine-schematic:
         specifier: ^1.2.0
         version: 1.2.3
-      prismarine-viewer:
-        specifier: link:./
-        version: 'link:'
       process:
         specifier: ^0.11.10
         version: 0.11.10
+      renderer:
+        specifier: link:./
+        version: 'link:'
       socket.io:
         specifier: ^4.0.0
         version: 4.7.2
@@ -471,7 +471,7 @@ importers:
         specifier: ^1.2.2
         version: 1.2.2
 
-  prismarine-viewer/viewer/sign-renderer:
+  renderer/viewer/sign-renderer:
     dependencies:
       vite:
         specifier: ^4.4.9

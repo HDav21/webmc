@@ -6,7 +6,7 @@ import { generateSpiralMatrix, ViewRect } from 'flying-squid/dist/utils'
 import { Vec3 } from 'vec3'
 import { BotEvents } from 'mineflayer'
 import { getItemFromBlock } from '../../../src/chatUtils'
-import { delayedIterator } from '../../examples/shared'
+import { delayedIterator } from '../../playground/shared'
 import { chunkPos } from './simpleUtils'
 
 export type ChunkPosKey = string

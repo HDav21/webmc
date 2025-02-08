@@ -1,7 +1,7 @@
 import { Vec3 } from 'vec3'
 import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import legacyJson from '../../../../src/preflatMap.json'
-import { BlockType } from '../../../examples/shared'
+import { BlockType } from '../../../playground/shared'
 import { World, BlockModelPartsResolved, WorldBlock as Block } from './world'
 import { BlockElement, buildRotationMatrix, elemFaces, matmul3, matmulmat3, vecadd3, vecsub3 } from './modelsGeometryCommon'
 import { INVISIBLE_BLOCKS } from './worldConstants'

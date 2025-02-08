@@ -26,7 +26,7 @@
         "src",
         "cypress",
         "renderer/viewer",
-        "renderer/examples"
+        "renderer/playground"
     ],
     "exclude": [
         "node_modules"

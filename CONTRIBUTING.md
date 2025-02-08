@@ -43,10 +43,10 @@ Paths:
 
 Paths:
 
-- `renderer` - Improved and refactored version of <https://github.com/prismarineJS/renderer>. Here is everything related to rendering the game world itself (no ui at all). Two most important parts here are:
+- `renderer` - Improved and refactored version of <https://github.com/PrismarineJS/prismarine-viewer>. Here is everything related to rendering the game world itself (no ui at all). Two most important parts here are:
 - `renderer/viewer/lib/worldrenderer.ts` - adding new objects to three.js happens here (sections)
 - `renderer/viewer/lib/models.ts` - preparing data for rendering (blocks) - happens in worker: out file - `worker.js`, building - `renderer/buildWorker.mjs`
-- `renderer/examples/playground.ts` - Playground (source of <mcraft.fun/playground.html>) Use this for testing any rendering changes. You can also modify the playground code.
+- `renderer/playground/playground.ts` - Playground (source of <mcraft.fun/playground.html>) Use this for testing any rendering changes. You can also modify the playground code.
 
 ### Storybook (`.storybook`)
 
