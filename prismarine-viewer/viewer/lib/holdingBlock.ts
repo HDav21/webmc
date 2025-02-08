@@ -551,12 +551,26 @@ class HandIdleAnimator {
 
         // Start transition to new state
         this.stateSwitcher.transitionTo(stateTransform, newState)
+        // this.updated = false
       }
       this.currentState = newState
     }
   }
 
+  updated = false
   update () {
+    this.stateSwitcher.update((targetObject) => {
+      this.handMesh.position.set(targetObject.x, targetObject.y, targetObject.z)
+      this.handMesh.rotation.set(targetObject.rotationX, targetObject.rotationY, targetObject.rotationZ)
+    })
+    if (this.playerState) {
+      const newState = this.playerState.getMovementState()
+      if (newState !== this.targetState) {
+        this.setState(newState)
+      }
+    }
+    // if (this.updated || this.stateSwitcher.isTransitioning) return
+    this.updated = true
     const now = performance.now()
     const deltaTime = (now - this.lastTime) / 1000
     this.lastTime = now
@@ -576,15 +590,8 @@ class HandIdleAnimator {
     }
 
     // Update state switcher
-    this.stateSwitcher.update()
 
     // Check for state changes from player state
-    if (this.playerState) {
-      const newState = this.playerState.getMovementState()
-      if (newState !== this.targetState) {
-        this.setState(newState)
-      }
-    }
 
     // If we're not transitioning between states and in a stable state that should have idle animation
     if (!this.stateSwitcher.isTransitioning &&
@@ -607,6 +614,14 @@ class HandIdleAnimator {
       const stateTransform = this.getStateTransform(this.currentState, this.globalTime)
       this.handMesh.position.set(stateTransform.x, stateTransform.y, stateTransform.z)
       this.handMesh.rotation.set(stateTransform.rotationX, stateTransform.rotationY, stateTransform.rotationZ)
+    }
+    this.stateSwitcher.targetObject = {
+      x: this.handMesh.position.x,
+      y: this.handMesh.position.y,
+      z: this.handMesh.position.z,
+      rotationX: this.handMesh.rotation.x,
+      rotationY: this.handMesh.rotation.y,
+      rotationZ: this.handMesh.rotation.z
     }
   }
 

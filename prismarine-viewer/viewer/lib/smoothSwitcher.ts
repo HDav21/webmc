@@ -5,12 +5,12 @@ export type StateProperties = Record<string, number>
 
 // Speed in units per second for each property type
 const DEFAULT_SPEEDS = {
-  x: 300, // pixels/units per second
-  y: 300,
-  z: 300,
+  x: 3000, // pixels/units per second
+  y: 3000,
+  z: 3000,
   rotation: Math.PI, // radians per second
   scale: 1, // scale units per second
-  default: 300 // default speed for unknown properties
+  default: 3000 // default speed for unknown properties
 }
 
 export class SmoothSwitcher {
@@ -75,7 +75,7 @@ export class SmoothSwitcher {
     }
 
     // Ensure minimum duration of 50ms and maximum of 2000ms
-    return Math.min(Math.max(maxDuration, 50), 2000)
+    return Math.min(Math.max(maxDuration, 200), 2000)
   }
 
   private getPropertySpeed (property: string): number {
@@ -113,7 +113,7 @@ export class SmoothSwitcher {
     this._stableState = null
 
     const duration = this.calculateDuration(newState)
-    console.log('duration', duration)
+    // console.log('duration', duration, JSON.stringify(this.targetObject), JSON.stringify(targetState))
 
     void this.animationController.startAnimation(() => {
       const group = new tweenJs.Group()
@@ -155,8 +155,11 @@ export class SmoothSwitcher {
   /**
    * Update the animation (should be called in your render/update loop)
    */
-  update (): void {
+  update (updateFn?: (targetObject: Record<string, number>) => void): void {
     this.animationController.update()
+    if (updateFn) {
+      updateFn(this.targetObject)
+    }
   }
 
   /**
