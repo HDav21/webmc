@@ -7,7 +7,7 @@ import { options } from '../optionsStorage'
 import Chat, { Message, fadeMessage } from './Chat'
 import { useIsModalActive } from './utilsApp'
 import { hideNotification, showNotification } from './NotificationProvider'
-import { updateLoadedServerData } from './ServersListProvider'
+import { updateLoadedServerData } from './serversStorage'
 import { lastConnectOptions } from './AppStatusProvider'
 
 export default () => {

@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useUtilsEffect } from '@zardoy/react-util'
 import { useSnapshot } from 'valtio'
-import { ConnectOptions, downloadAllMinecraftData, getVersionAutoSelect } from '../connect'
+import { ConnectOptions } from '../connect'
 import { activeModalStack, hideCurrentModal, miscUiState, showModal } from '../globalState'
 import supportedVersions from '../supportedVersions.mjs'
 import { appQueryParams } from '../appParams'
 import { fetchServerStatus, isServerValid } from '../api/mcStatusApi'
-import { pingServerVersion } from '../mineflayer/minecraft-protocol-extra'
 import { getServerInfo } from '../mineflayer/mc-protocol'
 import { parseServerAddress } from '../utils'
 import ServersList from './ServersList'
@@ -15,14 +14,7 @@ import { useDidUpdateEffect } from './utils'
 import { useIsModalActive } from './utilsApp'
 import { showOptionsModal } from './SelectOption'
 import { useCopyKeybinding } from './simpleHooks'
-
-export interface StoreServerItem extends BaseServerInfo {
-  lastJoined?: number
-  description?: string
-  optionsOverride?: Record<string, any>
-  autoLogin?: Record<string, string>
-  numConnects?: number // Track number of connections
-}
+import { AuthenticatedAccount, getInitialServersList, getServerConnectionHistory, setNewServersList, StoreServerItem } from './serversStorage'
 
 type AdditionalDisplayData = {
   formattedText: string
@@ -31,63 +23,8 @@ type AdditionalDisplayData = {
   offline?: boolean
 }
 
-export interface AuthenticatedAccount {
-  // type: 'microsoft'
-  username: string
-  cachedTokens?: {
-    data: any
-    expiresOn: number
-  }
-}
-
-const getInitialServersList = () => {
-  if (localStorage['serversList']) return JSON.parse(localStorage['serversList']) as StoreServerItem[]
-
-  const servers = [] as StoreServerItem[]
-
-  const legacyServersList = localStorage['serverHistory'] ? JSON.parse(localStorage['serverHistory']) as string[] : null
-  if (legacyServersList) {
-    for (const server of legacyServersList) {
-      if (!server || localStorage['server'] === server) continue
-      servers.push({ ip: server, lastJoined: Date.now() })
-    }
-  }
-
-  if (localStorage['server']) {
-    const legacyLastJoinedServer: StoreServerItem = {
-      ip: localStorage['server'],
-      versionOverride: localStorage['version'],
-      lastJoined: Date.now()
-    }
-    servers.push(legacyLastJoinedServer)
-  }
-
-  if (servers.length === 0) { // server list is empty, let's suggest some
-    for (const server of miscUiState.appConfig?.promoteServers ?? []) {
-      servers.push({
-        ip: server.ip,
-        description: server.description,
-        versionOverride: server.version,
-      })
-    }
-  }
-
-  return servers
-}
-
 const serversListQs = appQueryParams.serversList
 const proxyQs = appQueryParams.proxy
-
-const setNewServersList = (serversList: StoreServerItem[], force = false) => {
-  if (serversListQs && !force) return
-  localStorage['serversList'] = JSON.stringify(serversList)
-
-  // cleanup legacy
-  localStorage.removeItem('serverHistory')
-  localStorage.removeItem('server')
-  localStorage.removeItem('password')
-  localStorage.removeItem('version')
-}
 
 const getInitialProxies = () => {
   const proxies = [] as string[]
@@ -99,59 +36,6 @@ const getInitialProxies = () => {
     localStorage.removeItem('proxy')
   }
   return proxies
-}
-
-export const updateLoadedServerData = (callback: (data: StoreServerItem) => StoreServerItem, index = miscUiState.loadedServerIndex) => {
-  if (!index) index = miscUiState.loadedServerIndex
-  if (!index) return
-  // function assumes component is not mounted to avoid sync issues after save
-  const servers = getInitialServersList()
-  const server = servers[index]
-  servers[index] = callback(server)
-  setNewServersList(servers)
-}
-
-export const updateAuthenticatedAccountData = (callback: (data: AuthenticatedAccount[]) => AuthenticatedAccount[]) => {
-  const accounts = JSON.parse(localStorage['authenticatedAccounts'] || '[]') as AuthenticatedAccount[]
-  const newAccounts = callback(accounts)
-  localStorage['authenticatedAccounts'] = JSON.stringify(newAccounts)
-}
-
-interface ServerConnectionHistory {
-  ip: string
-  numConnects: number
-  lastConnected: number
-  version?: string
-}
-
-export function updateServerConnectionHistory (ip: string, version?: string) {
-  try {
-    const history: ServerConnectionHistory[] = JSON.parse(localStorage.getItem('serverConnectionHistory') || '[]')
-    const existingServer = history.find(s => s.ip === ip)
-    if (existingServer) {
-      existingServer.numConnects++
-      existingServer.lastConnected = Date.now()
-      if (version) existingServer.version = version
-    } else {
-      history.push({
-        ip,
-        numConnects: 1,
-        lastConnected: Date.now(),
-        version
-      })
-    }
-    localStorage.setItem('serverConnectionHistory', JSON.stringify(history))
-  } catch (err) {
-    console.error('Failed to update server connection history:', err)
-  }
-}
-
-export function getServerConnectionHistory (): ServerConnectionHistory[] {
-  try {
-    return JSON.parse(localStorage.getItem('serverConnectionHistory') || '[]')
-  } catch {
-    return []
-  }
 }
 
 // todo move to base

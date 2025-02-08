@@ -222,13 +222,13 @@ export function getMesh (
   let textureHeight = jsonModel.textureheight ?? 64
   let textureOffset
   const useBlockTexture = texture.startsWith('block:')
-  const blocksTexture = worldRenderer.material.map!
+  const blocksTexture = worldRenderer?.material.map
   if (useBlockTexture) {
     const blockName = texture.slice(6)
     const textureInfo = worldRenderer.blocksAtlasParser!.getTextureInfo(blockName)
     if (textureInfo) {
-      textureWidth = blocksTexture.image.width
-      textureHeight = blocksTexture.image.height
+      textureWidth = blocksTexture!.image.width
+      textureHeight = blocksTexture!.image.height
       textureOffset = [textureInfo.u, textureInfo.v]
     } else {
       console.error(`Unknown block ${blockName}`)
@@ -304,7 +304,8 @@ export function getMesh (
   mesh.scale.set(1 / 16, 1 / 16, 1 / 16)
 
   if (textureOffset) {
-    const loadedTexture = blocksTexture.clone()
+    // todo dont clone
+    const loadedTexture = blocksTexture!.clone()
     loadedTexture.offset.set(textureOffset[0], textureOffset[1])
     loadedTexture.needsUpdate = true
     material.map = loadedTexture
