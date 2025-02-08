@@ -66,7 +66,7 @@ jobs:
         run: |
           mkdir -p .vercel/output/static/playground
           pnpm build-playground
-          cp -r prismarine-viewer/dist/* .vercel/output/static/playground/
+          cp -r renderer/dist/* .vercel/output/static/playground/
       - name: Write pr redirect index.html
         run: |
           mkdir -p .vercel/output/static/pr

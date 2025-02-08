@@ -1,7 +1,7 @@
 // global variables useful for debugging
 
 import fs from 'fs'
-import { WorldRendererThree } from 'prismarine-viewer/viewer/lib/worldrendererThree'
+import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
 import { getEntityCursor } from './worldInteractions'
 
 window.cursorBlockRel = (x = 0, y = 0, z = 0) => {

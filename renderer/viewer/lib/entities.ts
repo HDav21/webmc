@@ -169,7 +169,7 @@ const isFirstUpperCase = (str) => str.charAt(0) === str.charAt(0).toUpperCase()
 function getEntityMesh (entity, world, options, overrides) {
   if (entity.name) {
     try {
-      // https://github.com/PrismarineJS/prismarine-viewer/pull/410
+      // https://github.com/PrismarineJS/renderer/pull/410
       const entityName = (isFirstUpperCase(entity.name) ? snakeCase(entity.name) : entity.name).toLowerCase()
       const e = new Entity.EntityMesh('1.16.4', entityName, world, overrides)
 

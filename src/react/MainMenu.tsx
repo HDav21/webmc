@@ -1,5 +1,5 @@
 import React from 'react'
-import { openURL } from 'prismarine-viewer/viewer/lib/simpleUtils'
+import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { haveDirectoryPicker } from '../utils'
 import { ConnectOptions } from '../connect'
 import styles from './mainMenu.module.css'

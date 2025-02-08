@@ -1,7 +1,7 @@
 import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google'
 import { proxy, ref, subscribe } from 'valtio'
 import React from 'react'
-import { loadScript } from 'prismarine-viewer/viewer/lib/utils'
+import { loadScript } from 'renderer/viewer/lib/utils'
 import { loadGoogleDriveApi, loadInMemorySave } from './react/SingleplayerProvider'
 import { setLoadingScreenStatus } from './appStatus'
 import { mountGoogleDriveFolder } from './browserfs'

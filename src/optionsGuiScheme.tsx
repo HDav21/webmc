@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useSnapshot } from 'valtio'
-import { openURL } from 'prismarine-viewer/viewer/lib/simpleUtils'
+import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { noCase } from 'change-case'
 import { gameAdditionalState, miscUiState, openOptionsMenu, showModal } from './globalState'
 import { AppOptions, options } from './optionsStorage'

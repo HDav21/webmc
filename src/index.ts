@@ -35,7 +35,7 @@ import downloadAndOpenFile from './downloadAndOpenFile'
 import fs from 'fs'
 import net from 'net'
 import mineflayer from 'mineflayer'
-import { WorldDataEmitter, Viewer } from 'prismarine-viewer/viewer'
+import { WorldDataEmitter, Viewer } from 'renderer/viewer'
 import pathfinder from 'mineflayer-pathfinder'
 import { Vec3 } from 'vec3'
 
@@ -88,14 +88,14 @@ import { possiblyHandleStateVariable } from './googledrive'
 import flyingSquidEvents from './flyingSquidEvents'
 import { hideNotification, notificationProxy, showNotification } from './react/NotificationProvider'
 import { saveToBrowserMemory } from './react/PauseScreen'
-import { ViewerWrapper } from 'prismarine-viewer/viewer/lib/viewerWrapper'
+import { ViewerWrapper } from 'renderer/viewer/lib/viewerWrapper'
 import './devReload'
 import './water'
 import { ConnectOptions, downloadMcDataOnConnect, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/ServersListProvider'
-import { versionToNumber } from 'prismarine-viewer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/prepare/utils'
 import packetsPatcher from './packetsPatcher'
 import { mainMenuState } from './react/MainMenuRenderApp'
 import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
@@ -159,7 +159,7 @@ if (isIphone) {
 }
 
 // Create viewer
-const viewer: import('prismarine-viewer/viewer/lib/viewer').Viewer = new Viewer(renderer)
+const viewer: import('renderer/viewer/lib/viewer').Viewer = new Viewer(renderer)
 window.viewer = viewer
 viewer.getMineflayerBot = () => bot
 // todo unify
