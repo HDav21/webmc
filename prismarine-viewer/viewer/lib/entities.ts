@@ -202,6 +202,7 @@ export type SceneEntity = THREE.Object3D & {
     animation?: PlayerAnimation
   }
   username?: string
+  uuid?: string
   additionalCleanup?: () => void
 }
 
@@ -285,18 +286,18 @@ export class Entities extends EventEmitter {
   // fixme workaround
   defaultSteveTexture
 
-  usernamePerSkinUrlsCache = {} as Record<string, { skinUrl?: string, capeUrl?: string }>
+  uuidPerSkinUrlsCache = {} as Record<string, { skinUrl?: string, capeUrl?: string }>
 
   // true means use default skin url
-  updatePlayerSkin (entityId: string | number, username: string | undefined, skinUrl: string | true, capeUrl: string | true | undefined = undefined) {
-    if (username) {
-      if (typeof skinUrl === 'string' || typeof capeUrl === 'string') this.usernamePerSkinUrlsCache[username] = {}
-      if (typeof skinUrl === 'string') this.usernamePerSkinUrlsCache[username].skinUrl = skinUrl
-      if (typeof capeUrl === 'string') this.usernamePerSkinUrlsCache[username].capeUrl = capeUrl
+  updatePlayerSkin (entityId: string | number, username: string | undefined, uuid: string | undefined, skinUrl: string | true, capeUrl: string | true | undefined = undefined) {
+    if (uuid) {
+      if (typeof skinUrl === 'string' || typeof capeUrl === 'string') this.uuidPerSkinUrlsCache[uuid] = {}
+      if (typeof skinUrl === 'string') this.uuidPerSkinUrlsCache[uuid].skinUrl = skinUrl
+      if (typeof capeUrl === 'string') this.uuidPerSkinUrlsCache[uuid].capeUrl = capeUrl
       if (skinUrl === true) {
-        skinUrl = this.usernamePerSkinUrlsCache[username]?.skinUrl ?? skinUrl
+        skinUrl = this.uuidPerSkinUrlsCache[uuid]?.skinUrl ?? skinUrl
       }
-      capeUrl ??= this.usernamePerSkinUrlsCache[username]?.capeUrl
+      capeUrl ??= this.uuidPerSkinUrlsCache[uuid]?.capeUrl
     }
 
     let playerObject = this.getPlayerObject(entityId)
@@ -612,7 +613,7 @@ export class Entities extends EventEmitter {
       this.emit('add', entity)
 
       if (isPlayerModel) {
-        this.updatePlayerSkin(entity.id, '', overrides?.texture || stevePng)
+        this.updatePlayerSkin(entity.id, entity.username, entity.uuid, overrides?.texture || stevePng)
       }
       this.setDebugMode(this.debugMode, group)
       this.setRendering(this.rendering, group)
@@ -906,15 +907,38 @@ function addArmorModel (entityMesh: THREE.Object3D, slotType: string, item: Item
     return
   }
   const itemParts = item.name.split('_')
-  const armorMaterial = itemParts[0]
-  if (!armorMaterial) {
+  let texturePath
+  const isPlayerHead = slotType === 'head' && item.name === 'player_head'
+  if (isPlayerHead) {
     removeArmorModel(entityMesh, slotType)
-    return
+    if (item.nbt) {
+      const itemNbt = nbt.simplify(item.nbt)
+      try {
+        let textureData
+        if (itemNbt.SkullOwner) {
+          textureData = itemNbt.SkullOwner.Properties.textures[0]?.Value
+        } else {
+          textureData = itemNbt['minecraft:profile']?.Properties?.find(p => p.name === 'textures')?.value
+        }
+        if (textureData) {
+          const decodedData = JSON.parse(Buffer.from(textureData, 'base64').toString())
+          texturePath = decodedData.textures?.SKIN?.url
+        }
+      } catch (err) {
+        console.error('Error decoding player head texture:', err)
+      }
+    } else {
+      texturePath = stevePng
+    }
   }
-  // TODO: Support resource pack
-  // TODO: Support mirroring on certain parts of the model
-  const texturePath = armorModels[`${armorMaterial}Layer${layer}${overlay ? 'Overlay' : ''}`]
+  const armorMaterial = itemParts[0]
+  if (!texturePath) {
+    // TODO: Support resource pack
+    // TODO: Support mirroring on certain parts of the model
+    texturePath = armorModels[`${armorMaterial}Layer${layer}${overlay ? 'Overlay' : ''}`]
+  }
   if (!texturePath || !armorModels.armorModel[slotType]) {
+    removeArmorModel(entityMesh, slotType)
     return
   }
 
@@ -935,7 +959,9 @@ function addArmorModel (entityMesh: THREE.Object3D, slotType: string, item: Item
     mesh = getMesh(viewer.world, texturePath, armorModels.armorModel[slotType])
     mesh.name = meshName
     material = mesh.material
-    material.side = THREE.DoubleSide
+    if (!isPlayerHead) {
+      material.side = THREE.DoubleSide
+    }
   }
   if (armorMaterial === 'leather' && !overlay) {
     const color = (item.nbt?.value as any)?.display?.value?.color?.value

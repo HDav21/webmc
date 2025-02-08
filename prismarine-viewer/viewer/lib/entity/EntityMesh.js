@@ -239,22 +239,30 @@ export function getMesh(worldRenderer, texture, jsonModel, overrides = {}) {
   mesh.scale.set(1 / 16, 1 / 16, 1 / 16)
 
   if (textureOffset) {
-    texture = worldRenderer.material.map.clone()
-    texture.offset.set(textureOffset[0], textureOffset[1])
-    texture.needsUpdate = true
-    material.map = texture
+    const loadedTexture = worldRenderer.material.map.clone()
+    loadedTexture.offset.set(textureOffset[0], textureOffset[1])
+    loadedTexture.needsUpdate = true
+    material.map = loadedTexture
   } else {
-    loadTexture(texture.endsWith('.png') || texture.startsWith('data:image/') ? texture : texture + '.png', texture => {
+    loadTexture(texture, loadedTexture => {
       if (material.map) {
         // texture is already loaded
         return
       }
-      texture.magFilter = THREE.NearestFilter
-      texture.minFilter = THREE.NearestFilter
-      texture.flipY = false
-      texture.wrapS = THREE.RepeatWrapping
-      texture.wrapT = THREE.RepeatWrapping
-      material.map = texture
+      loadedTexture.magFilter = THREE.NearestFilter
+      loadedTexture.minFilter = THREE.NearestFilter
+      loadedTexture.flipY = false
+      loadedTexture.wrapS = THREE.RepeatWrapping
+      loadedTexture.wrapT = THREE.RepeatWrapping
+      material.map = loadedTexture
+      const actualWidth = loadedTexture.image?.width
+      if (actualWidth && textureWidth !== actualWidth) {
+        loadedTexture.repeat.x = textureWidth / actualWidth
+      }
+      const actualHeight = loadedTexture.image?.height
+      if (actualHeight && textureHeight !== actualHeight) {
+        loadedTexture.repeat.y = textureHeight / actualHeight
+      }
     })
   }
 
@@ -419,7 +427,11 @@ export class EntityMesh {
       const texture = overrides.textures?.[name] ?? e.textures[name]
       if (!texture) continue
       // console.log(JSON.stringify(jsonModel, null, 2))
-      const mesh = getMesh(worldRenderer, texture, jsonModel, overrides)
+      const mesh = getMesh(worldRenderer,
+        texture.endsWith('.png') || texture.startsWith('data:image/') || texture.startsWith('block:')
+          ? texture : texture + '.png',
+        jsonModel,
+        overrides)
       mesh.name = `geometry_${name}`
       this.mesh.add(mesh)
 
