@@ -61,7 +61,6 @@ export const watchFov = () => {
   subscribeKey(gameAdditionalState, 'isSprinting', updateFov)
   subscribeKey(gameAdditionalState, 'isZooming', updateFov)
   subscribeKey(gameAdditionalState, 'isSneaking', () => {
-    viewer.isSneaking = gameAdditionalState.isSneaking
     viewer.setFirstPersonCamera(bot.entity.position, bot.entity.yaw, bot.entity.pitch)
   })
 }

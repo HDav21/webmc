@@ -42,14 +42,14 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.rendererDevice = `${WorldRendererThree.getRendererInfo(this.renderer)} powered by three.js r${THREE.REVISION}`
     this.starField = new StarField(scene)
     this.holdingBlock = new HoldingBlock(playerState)
-    this.holdingBlockLeft = new HoldingBlock(playerState)
-    this.holdingBlockLeft.offHand = true
+    // this.holdingBlockLeft = new HoldingBlock(playerState)
+    // this.holdingBlockLeft.offHand = true
 
     this.renderUpdateEmitter.on('itemsTextureDownloaded', () => {
       this.holdingBlock.ready = true
       this.holdingBlock.updateItem()
-      this.holdingBlockLeft.ready = true
-      this.holdingBlockLeft.updateItem()
+      // this.holdingBlockLeft.ready = true
+      // this.holdingBlockLeft.updateItem()
     })
 
     this.addDebugOverlay()
@@ -237,7 +237,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.renderer.render(this.scene, cam)
     if (this.config.displayHand) {
       this.holdingBlock.render(this.camera, this.renderer, viewer.ambientLight, viewer.directionalLight)
-      this.holdingBlockLeft.render(this.camera, this.renderer, viewer.ambientLight, viewer.directionalLight)
+      // this.holdingBlockLeft.render(this.camera, this.renderer, viewer.ambientLight, viewer.directionalLight)
     }
   }
 

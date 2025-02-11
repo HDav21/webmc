@@ -23,11 +23,24 @@ export interface IPlayerState {
   getItemUsageTicks?(): number
   // isUsingItem?(): boolean
   getHeldItem?(isLeftHand: boolean): HandItemBlock | undefined
+  username?: string
+  onlineMode?: boolean
 
   events: TypedEmitter<PlayerStateEvents>
+
+  reactive: {
+    playerSkin: string | undefined
+  }
 }
 
 export class BasePlayerState implements IPlayerState {
+  getItemUsageTicks? (): number {
+    throw new Error('Method not implemented.')
+  }
+  getHeldItem? (isLeftHand: boolean): HandItemBlock | undefined {
+    throw new Error('Method not implemented.')
+  }
+  reactive: { playerSkin: string | undefined }
   protected movementState: MovementState = 'NOT_MOVING'
   protected velocity = new Vec3(0, 0, 0)
   protected onGround = true

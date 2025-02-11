@@ -754,6 +754,8 @@ export async function connect (connectOptions: ConnectOptions) {
     customEvents.emit('gameLoaded')
     if (p2pConnectTimeout) clearTimeout(p2pConnectTimeout)
 
+    playerState.onlineMode = !!connectOptions.authenticatedAccount
+
     setLoadingScreenStatus('Placing blocks (starting viewer)')
     localStorage.lastConnectOptions = JSON.stringify(connectOptions)
     connectOptions.onSuccessfulPlay?.()

@@ -1,9 +1,10 @@
 import { EventEmitter } from 'events'
 import { Vec3 } from 'vec3'
-import { IPlayerState, ItemSpecificContextProperties, MovementState, PlayerStateEvents } from 'prismarine-viewer/viewer/lib/basePlayerState'
-import { HandItemBlock } from 'prismarine-viewer/viewer/lib/holdingBlock'
+import { IPlayerState, ItemSpecificContextProperties, MovementState, PlayerStateEvents } from 'renderer/viewer/lib/basePlayerState'
+import { HandItemBlock } from 'renderer/viewer/lib/holdingBlock'
 import TypedEmitter from 'typed-emitter'
 import { ItemSelector } from 'mc-assets/dist/itemDefinitions'
+import { proxy } from 'valtio'
 import { gameAdditionalState } from '../globalState'
 
 export class PlayerStateManager implements IPlayerState {
@@ -23,6 +24,14 @@ export class PlayerStateManager implements IPlayerState {
   private itemUsageTicks = 0
   private isUsingItem = false
   private ready = false
+  onlineMode = false
+  get username () {
+    return bot.player?.username ?? ''
+  }
+
+  reactive = proxy({
+    playerSkin: undefined as string | undefined,
+  })
 
   static getInstance (): PlayerStateManager {
     if (!this.instance) {

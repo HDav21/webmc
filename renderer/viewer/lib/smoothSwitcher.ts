@@ -2,6 +2,8 @@ import * as tweenJs from '@tweenjs/tween.js'
 import { AnimationController } from './animationController'
 
 export type StateProperties = Record<string, number>
+export type StateGetterFn = () => StateProperties
+export type StateSetterFn = (property: string, value: number) => void
 
 // Speed in units per second for each property type
 const DEFAULT_SPEEDS = {
@@ -14,23 +16,17 @@ const DEFAULT_SPEEDS = {
 }
 
 export class SmoothSwitcher {
-  private readonly propertyKeys: string[]
   private readonly animationController = new AnimationController()
-  private readonly currentState: StateProperties = {}
+  // private readonly currentState: StateProperties = {}
   private readonly defaultState: StateProperties
-  private _stableState: StateProperties | null = null
   private readonly speeds: Record<string, number>
   public stateName = ''
 
   constructor (
-    public targetObject: Record<string, number>,
-    propertyKeys?: string[],
+    public getState: StateGetterFn,
+    public setState: StateSetterFn,
     speeds?: Partial<Record<string, number>>
   ) {
-    // If no property keys provided, use all numeric properties from the target object
-    this.propertyKeys = propertyKeys ?? Object.entries(targetObject)
-      .filter(([_, value]) => typeof value === 'number')
-      .map(([key]) => key)
 
     // Initialize speeds with defaults and overrides
     this.speeds = { ...DEFAULT_SPEEDS }
@@ -39,24 +35,7 @@ export class SmoothSwitcher {
     }
 
     // Store initial values
-    this.defaultState = this.captureCurrentState()
-    this._stableState = { ...this.defaultState }
-
-    // Initialize current state
-    for (const key of this.propertyKeys) {
-      this.currentState[key] = targetObject[key]
-    }
-  }
-
-  /**
-   * Captures the current state of the target object
-   */
-  private captureCurrentState (): StateProperties {
-    const state: StateProperties = {}
-    for (const key of this.propertyKeys) {
-      state[key] = this.targetObject[key]
-    }
-    return state
+    this.defaultState = this.getState()
   }
 
   /**
@@ -64,9 +43,10 @@ export class SmoothSwitcher {
    */
   private calculateDuration (newState: Partial<StateProperties>): number {
     let maxDuration = 0
+    const currentState = this.getState()
 
     for (const [key, targetValue] of Object.entries(newState)) {
-      const currentValue = this.currentState[key]
+      const currentValue = currentState[key]
       const diff = Math.abs(targetValue! - currentValue)
       const speed = this.getPropertySpeed(key)
       const duration = (diff / speed) * 1000 // Convert to milliseconds
@@ -108,29 +88,23 @@ export class SmoothSwitcher {
       this.animationController.forceFinish()
     }
 
-    // Merge current state with new state
-    const targetState = { ...this.currentState, ...newState }
-    this._stableState = null
+    const state = this.getState()
 
     const duration = this.calculateDuration(newState)
-    // console.log('duration', duration, JSON.stringify(this.targetObject), JSON.stringify(targetState))
+    // console.log('duration', duration, JSON.stringify(state), JSON.stringify(newState))
 
     void this.animationController.startAnimation(() => {
       const group = new tweenJs.Group()
-      new tweenJs.Tween(this.targetObject, group)
-        .to(targetState, duration)
+      new tweenJs.Tween(state, group)
+        .to(newState, duration)
         .easing(easing)
-        .onUpdate(() => {
-          // Apply current state to target object
-          // for (const key of this.propertyKeys) {
-          //   if (key in this.currentState) {
-          //     this.targetObject[key] = this.currentState[key]
-          //   }
-          // }
+        .onUpdate((obj) => {
+          for (const key of Object.keys(obj)) {
+            this.setState(key, obj[key])
+          }
         })
         .onComplete(() => {
           this.animationController.forceFinish()
-          this._stableState = { ...this.currentState }
           this.stateName = stateName ?? ''
         })
         .start()
@@ -145,21 +119,12 @@ export class SmoothSwitcher {
     this.startTransition(this.defaultState)
   }
 
-  /**
-   * Get the current stable state (null if transitioning)
-   */
-  get stableState (): StateProperties | null {
-    return this._stableState
-  }
 
   /**
    * Update the animation (should be called in your render/update loop)
    */
-  update (updateFn?: (targetObject: Record<string, number>) => void): void {
+  update (): void {
     this.animationController.update()
-    if (updateFn) {
-      updateFn(this.targetObject)
-    }
   }
 
   /**
@@ -167,7 +132,6 @@ export class SmoothSwitcher {
    */
   forceFinish (): void {
     this.animationController.forceFinish()
-    this._stableState = { ...this.currentState }
   }
 
   /**
@@ -181,7 +145,7 @@ export class SmoothSwitcher {
    * Get the current value of a property
    */
   getCurrentValue (property: string): number {
-    return this.currentState[property]
+    return this.getState()[property]
   }
 
   /**

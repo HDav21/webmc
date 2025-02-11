@@ -7,6 +7,8 @@ import { getMyHand } from './hand'
 import { IPlayerState, MovementState } from './basePlayerState'
 import { DebugGui } from './DebugGui'
 import { SmoothSwitcher } from './smoothSwitcher'
+import { watchProperty } from './utils/proxy'
+import { disposeObject } from './threeJsUtils'
 
 export type HandItemBlock = {
   name?
@@ -14,6 +16,77 @@ export type HandItemBlock = {
   fullItem?
   type: 'block' | 'item' | 'hand'
   id?: number
+}
+
+const rotationPositionData = {
+  itemRight: {
+    'rotation': [
+      0,
+      -90,
+      25
+    ],
+    'translation': [
+      1.13,
+      3.2,
+      1.13
+    ],
+    'scale': [
+      0.68,
+      0.68,
+      0.68
+    ]
+  },
+  itemLeft: {
+    'rotation': [
+      0,
+      90,
+      -25
+    ],
+    'translation': [
+      1.13,
+      3.2,
+      1.13
+    ],
+    'scale': [
+      0.68,
+      0.68,
+      0.68
+    ]
+  },
+  blockRight: {
+    'rotation': [
+      0,
+      45,
+      0
+    ],
+    'translation': [
+      0,
+      0,
+      0
+    ],
+    'scale': [
+      0.4,
+      0.4,
+      0.4
+    ]
+  },
+  blockLeft: {
+    'rotation': [
+      0,
+      225,
+      0
+    ],
+    'translation': [
+      0,
+      0,
+      0
+    ],
+    'scale': [
+      0.4,
+      0.4,
+      0.4
+    ]
+  }
 }
 
 export default class HoldingBlock {
@@ -32,20 +105,37 @@ export default class HoldingBlock {
   lastHeldItem: HandItemBlock | undefined
   isSwinging = false
   nextIterStopCallbacks: Array<() => void> | undefined
-  offHand = false
   idleAnimator: HandIdleAnimator | undefined
   ready = false
   lastUpdate = 0
+  playerHand: THREE.Object3D | undefined
 
   swingAnimator: HandSwingAnimator | undefined
 
-  constructor (public playerState: IPlayerState) {
+  constructor (public playerState: IPlayerState, public offHand = false) {
     this.initCameraGroup()
 
     this.playerState.events.on('heldItemChanged', (_, isOffHand) => {
       if (this.offHand !== isOffHand) return
       this.updateItem()
     })
+
+    if (!this.offHand) {
+      // watch over my hand
+      watchProperty(
+        async () => {
+          return getMyHand(this.playerState.reactive.playerSkin, this.playerState.onlineMode ? this.playerState.username : undefined)
+        },
+        this.playerState.reactive,
+        'playerSkin',
+        (newHand) => {
+          this.playerHand = newHand
+        },
+        (oldHand) => {
+          disposeObject(oldHand, true)
+        }
+      )
+    }
   }
 
   updateItem () {
@@ -237,7 +327,7 @@ export default class HoldingBlock {
 
   private async createItemModel (handItem: HandItemBlock): Promise<{ model: THREE.Object3D; type: 'hand' | 'block' | 'item' } | undefined> {
     this.lastUpdate = performance.now()
-    if (!handItem) return undefined
+    if (!handItem || (handItem.type === 'hand' && !this.playerHand)) return undefined
 
     let blockInner: THREE.Object3D
     if (handItem.type === 'item' || handItem.type === 'block') {
@@ -258,7 +348,7 @@ export default class HoldingBlock {
         handItem.type = 'item'
       }
     } else {
-      blockInner = await getMyHand()
+      blockInner = this.playerHand!
     }
     blockInner.name = 'holdingBlock'
 
@@ -455,21 +545,32 @@ class HandIdleAnimator {
 
     // Initialize state switcher with appropriate speeds
     this.stateSwitcher = new SmoothSwitcher(
-      {
-        x: handMesh.position.x,
-        y: handMesh.position.y,
-        z: handMesh.position.z,
-        rotationX: handMesh.rotation.x,
-        rotationY: handMesh.rotation.y,
-        rotationZ: handMesh.rotation.z
+      () => {
+        return {
+          x: this.handMesh.position.x,
+          y: this.handMesh.position.y,
+          z: this.handMesh.position.z,
+          rotationX: this.handMesh.rotation.x,
+          rotationY: this.handMesh.rotation.y,
+          rotationZ: this.handMesh.rotation.z
+        }
       },
-      undefined,
-      // {
-      //   x: 2, // units per second
-      //   y: 2,
-      //   z: 2,
-      //   rotation: Math.PI // radians per second
-      // }
+      (property, value) => {
+        switch (property) {
+          case 'x': this.handMesh.position.x = value; break
+          case 'y': this.handMesh.position.y = value; break
+          case 'z': this.handMesh.position.z = value; break
+          case 'rotationX': this.handMesh.rotation.x = value; break
+          case 'rotationY': this.handMesh.rotation.y = value; break
+          case 'rotationZ': this.handMesh.rotation.z = value; break
+        }
+      },
+      {
+        x: 2, // units per second
+        y: 2,
+        z: 2,
+        rotation: Math.PI // radians per second
+      }
     )
 
     // Initialize debug GUI
@@ -546,7 +647,7 @@ class HandIdleAnimator {
 
       // Calculate new state transform
       if (!noTransition) {
-        this.globalTime = 0
+        // this.globalTime = 0
         const stateTransform = this.getStateTransform(newState, this.globalTime)
 
         // Start transition to new state
@@ -559,18 +660,8 @@ class HandIdleAnimator {
 
   updated = false
   update () {
-    this.stateSwitcher.update((targetObject) => {
-      this.handMesh.position.set(targetObject.x, targetObject.y, targetObject.z)
-      this.handMesh.rotation.set(targetObject.rotationX, targetObject.rotationY, targetObject.rotationZ)
-    })
-    if (this.playerState) {
-      const newState = this.playerState.getMovementState()
-      if (newState !== this.targetState) {
-        this.setState(newState)
-      }
-    }
-    // if (this.updated || this.stateSwitcher.isTransitioning) return
-    this.updated = true
+    this.stateSwitcher.update()
+
     const now = performance.now()
     const deltaTime = (now - this.lastTime) / 1000
     this.lastTime = now
@@ -589,9 +680,13 @@ class HandIdleAnimator {
       }
     }
 
-    // Update state switcher
-
     // Check for state changes from player state
+    if (this.playerState) {
+      const newState = this.playerState.getMovementState()
+      if (newState !== this.targetState) {
+        this.setState(newState)
+      }
+    }
 
     // If we're not transitioning between states and in a stable state that should have idle animation
     if (!this.stateSwitcher.isTransitioning &&
@@ -612,16 +707,13 @@ class HandIdleAnimator {
     if (!this.stateSwitcher.isTransitioning &&
       (this.currentState === 'WALKING' || this.currentState === 'SPRINTING')) {
       const stateTransform = this.getStateTransform(this.currentState, this.globalTime)
-      this.handMesh.position.set(stateTransform.x, stateTransform.y, stateTransform.z)
-      this.handMesh.rotation.set(stateTransform.rotationX, stateTransform.rotationY, stateTransform.rotationZ)
-    }
-    this.stateSwitcher.targetObject = {
-      x: this.handMesh.position.x,
-      y: this.handMesh.position.y,
-      z: this.handMesh.position.z,
-      rotationX: this.handMesh.rotation.x,
-      rotationY: this.handMesh.rotation.y,
-      rotationZ: this.handMesh.rotation.z
+      Object.assign(this.handMesh.position, stateTransform)
+      Object.assign(this.handMesh.rotation, {
+        x: stateTransform.rotationX,
+        y: stateTransform.rotationY,
+        z: stateTransform.rotationZ
+      })
+      // this.stateSwitcher.transitionTo(stateTransform, this.currentState)
     }
   }
 
