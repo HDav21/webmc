@@ -34,6 +34,13 @@ All components that are in [Storybook](https://mcraft.fun/storybook) are publish
 - Controls -> **Raw Input** -> **On** - This will make the controls more precise (UPD: already enabled by default)
 - Interface -> **Chat Select** -> **On** - To select chat messages (UPD: already enabled by default)
 
+### Browser Notes
+
+These browsers have issues with capturing pointer:
+
+**Opera Mini**: Disable *mouse gestures* in browsre settings to avoid opening new tab on right click hold
+**Vivaldi**: Disable Controls -> *Raw Input* in game settings if experiencing issues
+
 ### World Loading
 
 Zip files and folders are supported. Just drag and drop them into the browser window. You can open folders in readonly and read-write mode. New chunks may be generated incorrectly for now.

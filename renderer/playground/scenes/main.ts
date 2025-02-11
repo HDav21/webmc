@@ -222,7 +222,7 @@ class MainScene extends BasePlaygroundScene {
     })
 
     const zip = new JSZip()
-    zip.file('description.txt', 'Generated with prismarine-viewer')
+    zip.file('description.txt', 'Generated with mcraft.fun/playground')
 
     const end = async () => {
       // download zip file

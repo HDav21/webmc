@@ -9,7 +9,7 @@ import { options, resetOptions } from './optionsStorage'
 import { fsState, loadSave } from './loadSave'
 import { installResourcepackPack, installTexturePackFromHandle, updateTexturePackInstalledState } from './resourcePack'
 import { miscUiState } from './globalState'
-import { setLoadingScreenStatus } from './utils'
+import { setLoadingScreenStatus } from './appStatus'
 const { GoogleDriveFileSystem } = require('google-drive-browserfs/src/backends/GoogleDrive') // disable type checking
 
 browserfs.install(window)

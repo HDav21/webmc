@@ -270,10 +270,32 @@ export class Entities extends EventEmitter {
 
   render () {
     const dt = this.clock.getDelta()
+    const botPos = this.viewer.world.viewerPosition
+    const VISIBLE_DISTANCE = 8 * 8
+
     for (const entityId of Object.keys(this.entities)) {
-      const playerObject = this.getPlayerObject(entityId)
+      const entity = this.entities[entityId]
+      const playerObject = entity.playerObject as PlayerObjectType | undefined
+
+      // Update animations
       if (playerObject?.animation) {
         playerObject.animation.update(playerObject, dt)
+      }
+
+      // Update visibility based on distance and chunk load status
+      if (botPos && entity.position) {
+        const dx = entity.position.x - botPos.x
+        const dy = entity.position.y - botPos.y
+        const dz = entity.position.z - botPos.z
+        const distanceSquared = dx * dx + dy * dy + dz * dz
+
+        // Get chunk coordinates
+        const chunkX = Math.floor(entity.position.x / 16)
+        const chunkZ = Math.floor(entity.position.z / 16)
+        const chunkKey = `${chunkX},${chunkZ}`
+
+        // Entity is visible if within 16 blocks OR in a finished chunk
+        entity.visible = distanceSquared < VISIBLE_DISTANCE || this.viewer.world.finishedChunks[chunkKey]
       }
     }
   }
@@ -891,7 +913,7 @@ function getGeneralEntitiesMetadata (entity: { name; metadata }): Partial<UnionT
     get (target, p, receiver) {
       if (typeof p !== 'string' || !entityData) return
       const index = entityData.metadataKeys?.indexOf(p)
-      return entity.metadata[index ?? -1]
+      return entity.metadata?.[index ?? -1]
     },
   })
 }

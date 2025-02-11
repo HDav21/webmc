@@ -1,4 +1,4 @@
-import { BlockType } from '../../../examples/shared'
+import { BlockType } from '../../../playground/shared'
 
 export const defaultMesherConfig = {
   version: '',

@@ -1,8 +1,8 @@
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import { subscribe, useSnapshot } from 'valtio'
 import { useUtilsEffect } from '@zardoy/react-util'
 import { options } from '../optionsStorage'
-import { activeModalStack, isGameActive, miscUiState } from '../globalState'
+import { activeModalStack, gameAdditionalState, isGameActive, miscUiState } from '../globalState'
 import worldInteractions from '../worldInteractions'
 import { onCameraMove, CameraMoveEvent } from '../cameraRotationControls'
 import { pointerLock } from '../utils'
@@ -11,8 +11,17 @@ import { handleMovementStickDelta, joystickPointer } from './TouchAreasControls'
 /** after what time of holding the finger start breaking the block */
 const touchStartBreakingBlockMs = 500
 
-function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
+function GameInteractionOverlayInner ({
+  zIndex,
+  setJoystickOrigin,
+  updateJoystick
+}: {
+  zIndex: number,
+  setJoystickOrigin: (e: PointerEvent | null) => void
+  updateJoystick: (e: PointerEvent) => void
+}) {
   const overlayRef = useRef<HTMLDivElement>(null)
+
 
   useUtilsEffect(({ signal }) => {
     if (!overlayRef.current) return
@@ -46,11 +55,7 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
       if (usingModernMovement) {
         if (!joystickPointer.pointer && e.clientX < window.innerWidth / 2) {
           cameraControlEl.setPointerCapture(e.pointerId)
-          joystickPointer.pointer = {
-            pointerId: e.pointerId,
-            x: e.clientX,
-            y: e.clientY
-          }
+          setJoystickOrigin(e)
           return
         }
       }
@@ -86,7 +91,7 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
         (e.pointerType === 'touch' || e.pointerType === 'pen')
 
       if (e.pointerId === joystickPointer.pointer?.pointerId) {
-        handleMovementStickDelta(e)
+        updateJoystick(e)
         if (supportsPressure && (e as any).pressure > 0.5) {
           bot.setControlState('sprint', true)
         }
@@ -134,8 +139,7 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
     const pointerUpHandler = (e: PointerEvent) => {
       if (e.pointerId === undefined) return
       if (e.pointerId === joystickPointer.pointer?.pointerId) {
-        handleMovementStickDelta()
-        joystickPointer.pointer = null
+        setJoystickOrigin(null)
         return
       }
       if (e.pointerId !== capturedPointer.active?.id) return
@@ -224,11 +228,17 @@ function GameInteractionOverlayInner ({ zIndex }: { zIndex: number }) {
         window.visualViewport?.dispatchEvent(new Event('resize'))
       }, 100)
     }
-  }, [])
+
+    signal.addEventListener('abort', () => {
+      setJoystickOrigin(null)
+    })
+  }, [setJoystickOrigin])
 
   return (
     <OverlayElement divRef={overlayRef} zIndex={zIndex} />
   )
+
+
 }
 
 const OverlayElement = ({ divRef, zIndex }: { divRef: React.RefObject<HTMLDivElement>, zIndex: number }) => {
@@ -251,13 +261,37 @@ const OverlayElement = ({ divRef, zIndex }: { divRef: React.RefObject<HTMLDivEle
 export default function GameInteractionOverlay ({ zIndex }: { zIndex: number }) {
   const modalStack = useSnapshot(activeModalStack)
   const { currentTouch } = useSnapshot(miscUiState)
+
+  const setJoystickOrigin = useRef((e: PointerEvent | null) => {
+    if (!e) {
+      handleMovementStickDelta()
+      joystickPointer.pointer = null
+      return
+    }
+
+    joystickPointer.pointer = {
+      pointerId: e.pointerId,
+      x: e.clientX,
+      y: e.clientY
+    }
+  }).current
+
+  const updateJoystick = useRef((e: PointerEvent) => {
+    handleMovementStickDelta(e)
+  }).current
+
   if (modalStack.length > 0 || !currentTouch) return null
-  return <GameInteractionOverlayInner zIndex={zIndex} />
+  return <GameInteractionOverlayInner
+    zIndex={zIndex}
+    setJoystickOrigin={setJoystickOrigin}
+    updateJoystick={updateJoystick}
+  />
+
 }
 
 subscribe(activeModalStack, () => {
   if (activeModalStack.length === 0) {
-    if (isGameActive(false)) {
+    if (isGameActive(false) && !gameAdditionalState.viewerConnection) {
       void pointerLock.requestPointerLock()
     }
   } else {

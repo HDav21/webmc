@@ -38,6 +38,7 @@ type Props = {
   // width?: number
   allowSelection?: boolean
   inputDisabled?: string
+  placeholder?: string
 }
 
 export const chatInputValueGlobal = proxy({
@@ -64,7 +65,8 @@ export default ({
   onClose,
   usingTouch,
   allowSelection,
-  inputDisabled
+  inputDisabled,
+  placeholder
 }: Props) => {
   const sendHistoryRef = useRef(JSON.parse(window.sessionStorage.chatHistory || '[]'))
 
@@ -271,7 +273,7 @@ export default ({
               aria-autocomplete="both"
               onChange={onMainInputChange}
               disabled={!!inputDisabled}
-              placeholder={inputDisabled}
+              placeholder={inputDisabled || placeholder}
               onKeyDown={(e) => {
                 if (e.code === 'ArrowUp') {
                   if (chatHistoryPos.current === 0) return
