@@ -3,9 +3,9 @@ import { join, dirname, basename } from 'path'
 import fs from 'fs'
 import JSZip from 'jszip'
 import { proxy, subscribe } from 'valtio'
-import { WorldRendererThree } from 'prismarine-viewer/viewer/lib/worldrendererThree'
+import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
 import { collectFilesToCopy, copyFilesAsyncWithProgress, mkdirRecursive, removeFileRecursiveAsync } from './browserfs'
-import { setLoadingScreenStatus } from './utils'
+import { setLoadingScreenStatus } from './appStatus'
 import { showNotification } from './react/NotificationProvider'
 import { options } from './optionsStorage'
 import { showOptionsModal } from './react/SelectOption'
@@ -401,7 +401,10 @@ export const onAppLoad = () => {
           cancel: !forced,
           minecraftJsonMessage: promptMessagePacket,
         })
-      if (!choice) return
+      if (!choice) {
+        bot.denyResourcePack()
+        return
+      }
       await new Promise(resolve => {
         setTimeout(resolve, 500)
       })

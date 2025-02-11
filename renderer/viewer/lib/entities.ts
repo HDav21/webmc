@@ -201,6 +201,7 @@ export type SceneEntity = THREE.Object3D & {
     animation?: PlayerAnimation
   }
   username?: string
+  uuid?: string
   additionalCleanup?: () => void
 }
 
@@ -268,10 +269,32 @@ export class Entities extends EventEmitter {
 
   render () {
     const dt = this.clock.getDelta()
+    const botPos = this.viewer.world.viewerPosition
+    const VISIBLE_DISTANCE = 8 * 8
+
     for (const entityId of Object.keys(this.entities)) {
-      const playerObject = this.getPlayerObject(entityId)
+      const entity = this.entities[entityId]
+      const playerObject = entity.playerObject as PlayerObjectType | undefined
+
+      // Update animations
       if (playerObject?.animation) {
         playerObject.animation.update(playerObject, dt)
+      }
+
+      // Update visibility based on distance and chunk load status
+      if (botPos && entity.position) {
+        const dx = entity.position.x - botPos.x
+        const dy = entity.position.y - botPos.y
+        const dz = entity.position.z - botPos.z
+        const distanceSquared = dx * dx + dy * dy + dz * dz
+
+        // Get chunk coordinates
+        const chunkX = Math.floor(entity.position.x / 16)
+        const chunkZ = Math.floor(entity.position.z / 16)
+        const chunkKey = `${chunkX},${chunkZ}`
+
+        // Entity is visible if within 16 blocks OR in a finished chunk
+        entity.visible = distanceSquared < VISIBLE_DISTANCE || this.viewer.world.finishedChunks[chunkKey]
       }
     }
   }
@@ -284,18 +307,18 @@ export class Entities extends EventEmitter {
   // fixme workaround
   defaultSteveTexture
 
-  usernamePerSkinUrlsCache = {} as Record<string, { skinUrl?: string, capeUrl?: string }>
+  uuidPerSkinUrlsCache = {} as Record<string, { skinUrl?: string, capeUrl?: string }>
 
   // true means use default skin url
-  updatePlayerSkin (entityId: string | number, username: string | undefined, skinUrl: string | true, capeUrl: string | true | undefined = undefined) {
-    if (username) {
-      if (typeof skinUrl === 'string' || typeof capeUrl === 'string') this.usernamePerSkinUrlsCache[username] = {}
-      if (typeof skinUrl === 'string') this.usernamePerSkinUrlsCache[username].skinUrl = skinUrl
-      if (typeof capeUrl === 'string') this.usernamePerSkinUrlsCache[username].capeUrl = capeUrl
+  updatePlayerSkin (entityId: string | number, username: string | undefined, uuid: string | undefined, skinUrl: string | true, capeUrl: string | true | undefined = undefined) {
+    if (uuid) {
+      if (typeof skinUrl === 'string' || typeof capeUrl === 'string') this.uuidPerSkinUrlsCache[uuid] = {}
+      if (typeof skinUrl === 'string') this.uuidPerSkinUrlsCache[uuid].skinUrl = skinUrl
+      if (typeof capeUrl === 'string') this.uuidPerSkinUrlsCache[uuid].capeUrl = capeUrl
       if (skinUrl === true) {
-        skinUrl = this.usernamePerSkinUrlsCache[username]?.skinUrl ?? skinUrl
+        skinUrl = this.uuidPerSkinUrlsCache[uuid]?.skinUrl ?? skinUrl
       }
-      capeUrl ??= this.usernamePerSkinUrlsCache[username]?.capeUrl
+      capeUrl ??= this.uuidPerSkinUrlsCache[uuid]?.capeUrl
     }
 
     let playerObject = this.getPlayerObject(entityId)
@@ -609,7 +632,7 @@ export class Entities extends EventEmitter {
       this.emit('add', entity)
 
       if (isPlayerModel) {
-        this.updatePlayerSkin(entity.id, '', overrides?.texture || stevePng)
+        this.updatePlayerSkin(entity.id, entity.username, entity.uuid, overrides?.texture || stevePng)
       }
       this.setDebugMode(this.debugMode, group)
       this.setRendering(this.rendering, group)
@@ -885,7 +908,7 @@ function getGeneralEntitiesMetadata (entity: { name; metadata }): Partial<UnionT
     get (target, p, receiver) {
       if (typeof p !== 'string' || !entityData) return
       const index = entityData.metadataKeys?.indexOf(p)
-      return entity.metadata[index ?? -1]
+      return entity.metadata?.[index ?? -1]
     },
   })
 }
@@ -901,15 +924,38 @@ function addArmorModel (entityMesh: THREE.Object3D, slotType: string, item: Item
     return
   }
   const itemParts = item.name.split('_')
-  const armorMaterial = itemParts[0]
-  if (!armorMaterial) {
+  let texturePath
+  const isPlayerHead = slotType === 'head' && item.name === 'player_head'
+  if (isPlayerHead) {
     removeArmorModel(entityMesh, slotType)
-    return
+    if (item.nbt) {
+      const itemNbt = nbt.simplify(item.nbt)
+      try {
+        let textureData
+        if (itemNbt.SkullOwner) {
+          textureData = itemNbt.SkullOwner.Properties.textures[0]?.Value
+        } else {
+          textureData = itemNbt['minecraft:profile']?.Properties?.find(p => p.name === 'textures')?.value
+        }
+        if (textureData) {
+          const decodedData = JSON.parse(Buffer.from(textureData, 'base64').toString())
+          texturePath = decodedData.textures?.SKIN?.url
+        }
+      } catch (err) {
+        console.error('Error decoding player head texture:', err)
+      }
+    } else {
+      texturePath = stevePng
+    }
   }
-  // TODO: Support resource pack
-  // TODO: Support mirroring on certain parts of the model
-  const texturePath = armorModels[`${armorMaterial}Layer${layer}${overlay ? 'Overlay' : ''}`]
+  const armorMaterial = itemParts[0]
+  if (!texturePath) {
+    // TODO: Support resource pack
+    // TODO: Support mirroring on certain parts of the model
+    texturePath = armorModels[`${armorMaterial}Layer${layer}${overlay ? 'Overlay' : ''}`]
+  }
   if (!texturePath || !armorModels.armorModel[slotType]) {
+    removeArmorModel(entityMesh, slotType)
     return
   }
 
@@ -930,7 +976,9 @@ function addArmorModel (entityMesh: THREE.Object3D, slotType: string, item: Item
     mesh = getMesh(viewer.world, texturePath, armorModels.armorModel[slotType])
     mesh.name = meshName
     material = mesh.material
-    material.side = THREE.DoubleSide
+    if (!isPlayerHead) {
+      material.side = THREE.DoubleSide
+    }
   }
   if (armorMaterial === 'leather' && !overlay) {
     const color = (item.nbt?.value as any)?.display?.value?.color?.value

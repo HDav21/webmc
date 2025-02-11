@@ -1,7 +1,7 @@
 import prettyBytes from 'pretty-bytes'
 import { openWorldFromHttpDir, openWorldZip } from './browserfs'
 import { getResourcePackNames, installResourcepackPack, resourcePackState, updateTexturePackInstalledState } from './resourcePack'
-import { setLoadingScreenStatus } from './utils'
+import { setLoadingScreenStatus } from './appStatus'
 import { appQueryParams, appQueryParamsArray } from './appParams'
 
 export const getFixedFilesize = (bytes: number) => {

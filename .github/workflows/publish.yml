@@ -35,7 +35,7 @@ jobs:
         run: |
           mkdir -p .vercel/output/static/playground
           pnpm build-playground
-          cp -r prismarine-viewer/dist/* .vercel/output/static/playground/
+          cp -r renderer/dist/* .vercel/output/static/playground/
       - name: Download Generated Sounds map
         run: node scripts/downloadSoundsMap.mjs
       - name: Deploy Project to Vercel

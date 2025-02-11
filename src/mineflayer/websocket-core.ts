@@ -1,4 +1,5 @@
 import { Duplex } from 'stream'
+import { UserError } from './userError'
 
 class CustomDuplex extends Duplex {
   constructor (options, public writeAction) {
@@ -42,7 +43,7 @@ export const getWebsocketStream = async (host: string) => {
     ws.addEventListener('open', resolve)
     ws.addEventListener('error', err => {
       console.log('ws error', err)
-      reject(new Error('Failed to open websocket connection'))
+      reject(new UserError('Failed to open websocket connection'))
     })
   })
 
