@@ -110,6 +110,8 @@ export default class HoldingBlock {
   ready = false
   lastUpdate = 0
   playerHand: THREE.Object3D | undefined
+  offHandDisplay = false
+  offHandModeLegacy = false
 
   swingAnimator: HandSwingAnimator | undefined
 
@@ -121,6 +123,8 @@ export default class HoldingBlock {
       this.updateItem()
     })
 
+    this.offHandDisplay = this.offHand
+    // this.offHandDisplay = true
     if (!this.offHand) {
       // watch over my hand
       watchProperty(
@@ -161,59 +165,6 @@ export default class HoldingBlock {
     this.swingAnimator?.startSwing()
   }
 
-  getFinalSwingPositionRotation (origPosition?: THREE.Vector3) {
-    const object = this.objectInnerGroup
-    if (this.lastHeldItem?.type === 'block') {
-      origPosition ??= object.position
-      return {
-        position: { y: origPosition.y - this.objectInnerGroup.scale.y / 2 },
-        rotation: { z: THREE.MathUtils.degToRad(90), x: -THREE.MathUtils.degToRad(90) },
-        object
-      }
-    }
-    if (this.lastHeldItem?.type === 'item') {
-      const object = this.holdingBlockInnerGroup
-      origPosition ??= object.position
-      return {
-        position: {
-          y: origPosition.y - object.scale.y * 2,
-          // z: origPosition.z - window.zFinal,
-          // x: origPosition.x - window.xFinal,
-        },
-        // rotation: { z: THREE.MathUtils.degToRad(90), x: -THREE.MathUtils.degToRad(90) }
-        rotation: {
-          // z: THREE.MathUtils.degToRad(window.zRotationFinal ?? 0),
-          // x: THREE.MathUtils.degToRad(window.xRotationFinal ?? 0),
-          // y: THREE.MathUtils.degToRad(window.yRotationFinal ?? 0),
-          x: THREE.MathUtils.degToRad(-120)
-        },
-        object
-      }
-    }
-    if (this.lastHeldItem?.type === 'hand') {
-      const object = this.holdingBlockInnerGroup
-      origPosition ??= object.position
-      return {
-        position: {
-          y: origPosition.y - (window.yFinal ?? 0.15),
-          z: origPosition.z - window.zFinal,
-          x: origPosition.x - window.xFinal,
-        },
-        rotation: {
-          x: THREE.MathUtils.degToRad(window.xRotationFinal || -14.7),
-          y: THREE.MathUtils.degToRad(window.yRotationFinal || 33.95),
-          z: THREE.MathUtils.degToRad(window.zRotationFinal || -28),
-        },
-        object
-      }
-    }
-    return {
-      position: {},
-      rotation: {},
-      object
-    }
-  }
-
   async stopSwing () {
     this.swingAnimator?.stopSwing()
   }
@@ -249,7 +200,7 @@ export default class HoldingBlock {
 
     renderer.autoClear = false
     renderer.clearDepth()
-    if (this.offHand) {
+    if (this.offHandDisplay) {
       renderer.setViewport(0, 0, minSize, minSize)
     } else {
       const x = viewerSize.width - minSize
@@ -314,7 +265,7 @@ export default class HoldingBlock {
     // Adjust the position based on the aspect ratio
     const { position, scale: scaleData } = this.getHandHeld3d()
     const distance = -position.z
-    const side = this.offHand ? -1 : 1
+    const side = this.offHandModeLegacy ? -1 : 1
     this.objectOuterGroup.position.set(
       distance * position.x * aspect * side,
       distance * position.y,
@@ -437,7 +388,7 @@ export default class HoldingBlock {
 
   getHandHeld3d () {
     const type = this.lastHeldItem?.type ?? 'hand'
-    const side = this.offHand ? 'Left' : 'Right'
+    const side = this.offHandModeLegacy ? 'Left' : 'Right'
 
     let scale = 0.8 * 1.15 // default scale for hand
     let position = {
@@ -780,7 +731,7 @@ class HandSwingAnimator {
       armSwingZRotAmount: { min: -180, max: 180, step: 5 },
       armHeightScale: { min: -2, max: 2, step: 0.1 }
     })
-    this.debugGui.activate()
+    // this.debugGui.activate()
   }
 
   update () {
