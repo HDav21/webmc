@@ -82,6 +82,7 @@ export class SmoothSwitcher {
   startTransition (
     newState: Partial<StateProperties>,
     stateName?: string,
+    onEnd?: () => void,
     easing: (amount: number) => number = tweenJs.Easing.Linear.None
   ): void {
     if (this.isTransitioning) {
@@ -106,6 +107,7 @@ export class SmoothSwitcher {
         .onComplete(() => {
           this.animationController.forceFinish()
           this.stateName = stateName ?? ''
+          onEnd?.()
         })
         .start()
       return group
@@ -137,8 +139,8 @@ export class SmoothSwitcher {
   /**
    * Start a new transition to the specified state
    */
-  transitionTo (newState: Partial<StateProperties>, stateName?: string): void {
-    this.startTransition(newState, stateName)
+  transitionTo (newState: Partial<StateProperties>, stateName?: string, onEnd?: () => void): void {
+    this.startTransition(newState, stateName, onEnd)
   }
 
   /**

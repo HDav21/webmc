@@ -1,4 +1,3 @@
-
 import * as THREE from 'three'
 import * as tweenJs from '@tweenjs/tween.js'
 import worldBlockProvider from 'mc-assets/dist/worldBlockProvider'
@@ -94,7 +93,7 @@ export default class HoldingBlock {
   // TODO refactor with the tree builder for better visual understanding
   holdingBlock: THREE.Object3D | undefined = undefined
   blockSwapAnimation: {
-    tween: tweenJs.Group
+    switcher: SmoothSwitcher
     hidden: boolean
   } | undefined = undefined
   cameraGroup = new THREE.Mesh()
@@ -183,7 +182,7 @@ export default class HoldingBlock {
       this.idleAnimator?.update()
     }
 
-    this.blockSwapAnimation?.tween.update()
+    this.blockSwapAnimation?.switcher.update()
 
     const scene = new THREE.Scene()
     scene.add(this.cameraGroup)
@@ -197,6 +196,13 @@ export default class HoldingBlock {
 
     const viewerSize = renderer.getSize(new THREE.Vector2())
     const minSize = Math.min(viewerSize.width, viewerSize.height)
+    const x = viewerSize.width - minSize
+
+    // Mirror the scene for offhand by scaling
+    const { offHandDisplay } = this
+    if (offHandDisplay) {
+      this.cameraGroup.scale.x = -1
+    }
 
     renderer.autoClear = false
     renderer.clearDepth()
@@ -209,6 +215,11 @@ export default class HoldingBlock {
     }
     renderer.render(scene, this.camera)
     renderer.setViewport(0, 0, viewerSize.width, viewerSize.height)
+
+    // Reset the mirroring after rendering
+    if (offHandDisplay) {
+      this.cameraGroup.scale.x = 1
+    }
   }
 
   // worldTest () {
@@ -226,24 +237,36 @@ export default class HoldingBlock {
   // }
 
   async playBlockSwapAnimation () {
-    // if (this.blockSwapAnimation) return
     this.blockSwapAnimation ??= {
-      tween: new tweenJs.Group(),
+      switcher: new SmoothSwitcher(
+        () => ({
+          y: this.objectInnerGroup.position.y
+        }),
+        (property, value) => {
+          if (property === 'y') this.objectInnerGroup.position.y = value
+        },
+        {
+          y: 16 // units per second
+        }
+      ),
       hidden: false
     }
-    const DURATION = 1000 * 0.35 / 2
-    const tween = new tweenJs.Tween(this.objectInnerGroup.position, this.blockSwapAnimation.tween).to({
-      y: this.objectInnerGroup.position.y + (this.objectInnerGroup.scale.y * 1.5 * (this.blockSwapAnimation.hidden ? 1 : -1))
-    }, DURATION).start()
+
+    const targetY = this.objectInnerGroup.position.y + (this.objectInnerGroup.scale.y * 1.5 * (this.blockSwapAnimation.hidden ? 1 : -1))
+
     return new Promise<void>((resolve) => {
-      tween.onComplete(() => {
-        if (this.blockSwapAnimation!.hidden) {
-          this.blockSwapAnimation = undefined
-        } else {
-          this.blockSwapAnimation!.hidden = !this.blockSwapAnimation!.hidden
+      this.blockSwapAnimation!.switcher.transitionTo(
+        { y: targetY },
+        this.blockSwapAnimation!.hidden ? 'appeared' : 'disappeared',
+        () => {
+          if (this.blockSwapAnimation!.hidden) {
+            this.blockSwapAnimation = undefined
+          } else {
+            this.blockSwapAnimation!.hidden = !this.blockSwapAnimation!.hidden
+          }
+          resolve()
         }
-        resolve()
-      })
+      )
     })
   }
 
