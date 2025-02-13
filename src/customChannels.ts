@@ -27,7 +27,7 @@ customEvents.on('mineflayerBotCreated', () => {
     ]
   ]
 
-  bot._client.registerChannel(CHANNEL_NAME, packetStructure, true)
+  bot._client.registerChannel(CHANNEL_NAME, packetStructure)
 
   bot._client.on(CHANNEL_NAME as any, (data) => {
 
