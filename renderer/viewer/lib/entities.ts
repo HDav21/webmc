@@ -240,8 +240,8 @@ export class Entities extends EventEmitter {
     return byName
   }
 
-  get entitiesCount (): number {
-    return Object.keys(this.entities).length
+  get entitiesRenderingCount (): number {
+    return Object.values(this.entities).filter(entity => entity.visible).length
   }
 
   constructor (public viewer: Viewer) {

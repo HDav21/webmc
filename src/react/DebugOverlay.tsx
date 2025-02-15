@@ -106,7 +106,7 @@ export default () => {
       setDimension(bot.game.dimension)
       setDay(bot.time.day)
       setCursorBlock(bot.blockAtCursor(5))
-      setEntitiesCount(`${viewer.entities.entitiesCount} (${Object.values(bot.entities).length})`)
+      setEntitiesCount(`${viewer.entities.entitiesRenderingCount} (${Object.values(bot.entities).length})`)
     }, 100)
 
     // @ts-expect-error
