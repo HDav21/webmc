@@ -18,7 +18,7 @@ import itemDefinitionsJson from 'mc-assets/dist/itemDefinitions.json'
 import { dynamicMcDataFiles } from '../../buildMesherConfig.mjs'
 import { toMajorVersion } from '../../../src/utils'
 import { buildCleanupDecorator } from './cleanupDecorator'
-import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput } from './mesher/shared'
+import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput, CustomBlockModels } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
 import { HandItemBlock } from './holdingBlock'
 import { updateStatText } from './ui/newStats'
@@ -149,6 +149,8 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   @worldCleanup()
   itemsRenderer: ItemsRenderer | undefined
+
+  customBlockModels = new Map<string, CustomBlockModels>()
 
   abstract outputFormat: 'threeJs' | 'webgpu'
 
@@ -409,9 +411,18 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.initialChunkLoadWasStartedIn ??= Date.now()
     this.loadedChunks[`${x},${z}`] = true
     this.updateChunksStatsText()
+
+    const chunkKey = `${x},${z}`
+    const customBlockModels = this.customBlockModels.get(chunkKey)
+
     for (const worker of this.workers) {
-      // todo optimize
-      worker.postMessage({ type: 'chunk', x, z, chunk })
+      worker.postMessage({
+        type: 'chunk',
+        x,
+        z,
+        chunk,
+        customBlockModels: customBlockModels || undefined
+      })
     }
     for (let y = this.worldMinYRender; y < this.worldConfig.worldHeight; y += 16) {
       const loc = new Vec3(x, y, z)
@@ -461,8 +472,17 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   setBlockStateId (pos: Vec3, stateId: number) {
     const needAoRecalculation = true
+    const chunkKey = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.z / 16) * 16}`
+    const blockPosKey = `${pos.x},${pos.y},${pos.z}`
+    const customBlockModels = this.customBlockModels.get(chunkKey) || {}
+
     for (const worker of this.workers) {
-      worker.postMessage({ type: 'blockUpdate', pos, stateId })
+      worker.postMessage({
+        type: 'blockUpdate',
+        pos,
+        stateId,
+        customBlockModels
+      })
     }
     this.setSectionDirty(pos, true, true)
     if (this.neighborChunkUpdates) {

@@ -106,19 +106,26 @@ const handleMessage = data => {
     }
     case 'chunk': {
       world.addColumn(data.x, data.z, data.chunk)
-
+      if (data.customBlockModels) {
+        const chunkKey = `${data.x},${data.z}`
+        world.customBlockModels.set(chunkKey, data.customBlockModels)
+      }
       break
     }
     case 'unloadChunk': {
       world.removeColumn(data.x, data.z)
+      world.customBlockModels.delete(`${data.x},${data.z}`)
       if (Object.keys(world.columns).length === 0) softCleanup()
-
       break
     }
     case 'blockUpdate': {
       const loc = new Vec3(data.pos.x, data.pos.y, data.pos.z).floored()
       world.setBlockStateId(loc, data.stateId)
 
+      const chunkKey = `${Math.floor(loc.x / 16) * 16},${Math.floor(loc.z / 16) * 16}`
+      if (data.customBlockModels) {
+        world.customBlockModels.set(chunkKey, data.customBlockModels)
+      }
       break
     }
     case 'reset': {

@@ -1,4 +1,10 @@
-customEvents.on('mineflayerBotCreated', () => {
+customEvents.on('mineflayerBotCreated', async () => {
+  await new Promise(resolve => {
+    bot.once('login', () => {
+      resolve(true)
+    })
+  })
+
   const CHANNEL_NAME = 'minecraft-web-client:blockmodels'
 
   const packetStructure = [
@@ -27,13 +33,38 @@ customEvents.on('mineflayerBotCreated', () => {
     ]
   ]
 
-  bot._client.registerChannel(CHANNEL_NAME, packetStructure)
+  bot._client.registerChannel(CHANNEL_NAME, packetStructure, true)
 
   bot._client.on(CHANNEL_NAME as any, (data) => {
-
-    console.log('received raw data:', data)
     const { worldName, x, y, z, model } = data
     console.log('Received model data:', { worldName, x, y, z, model })
+
+    if (viewer?.world) {
+      const chunkX = Math.floor(x / 16) * 16
+      const chunkZ = Math.floor(z / 16) * 16
+      const chunkKey = `${chunkX},${chunkZ}`
+      const blockPosKey = `${x},${y},${z}`
+
+      const chunkModels = viewer.world.customBlockModels.get(chunkKey) || {}
+
+      if (model) {
+        chunkModels[blockPosKey] = model
+      } else {
+        delete chunkModels[blockPosKey]
+      }
+
+      if (Object.keys(chunkModels).length > 0) {
+        viewer.world.customBlockModels.set(chunkKey, chunkModels)
+      } else {
+        viewer.world.customBlockModels.delete(chunkKey)
+      }
+
+      // Trigger update
+      // const block = viewer.world.getBlock(new Vec3(x, y, z))
+      // if (block) {
+      //   viewer.world.setBlockStateId(new Vec3(x, y, z), block.stateId)
+      // }
+    }
   })
 
   console.log(`registered ${CHANNEL_NAME} channel`)
