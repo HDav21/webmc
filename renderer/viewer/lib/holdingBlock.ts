@@ -9,6 +9,7 @@ import { DebugGui } from './DebugGui'
 import { SmoothSwitcher } from './smoothSwitcher'
 import { watchProperty } from './utils/proxy'
 import { disposeObject } from './threeJsUtils'
+import { WorldRendererConfig } from './worldrendererCommon'
 
 export type HandItemBlock = {
   name?
@@ -114,7 +115,7 @@ export default class HoldingBlock {
 
   swingAnimator: HandSwingAnimator | undefined
 
-  constructor (public playerState: IPlayerState, public offHand = false) {
+  constructor (public playerState: IPlayerState, public config: WorldRendererConfig, public offHand = false) {
     this.initCameraGroup()
 
     this.playerState.events.on('heldItemChanged', (_, isOffHand) => {
@@ -409,7 +410,9 @@ export default class HoldingBlock {
 
     this.swingAnimator = new HandSwingAnimator(this.holdingBlockInnerGroup)
     this.swingAnimator.type = result.type
-    this.idleAnimator = new HandIdleAnimator(this.holdingBlockInnerGroup, this.playerState)
+    if (this.config.viewBobbing) {
+      this.idleAnimator = new HandIdleAnimator(this.holdingBlockInnerGroup, this.playerState)
+    }
   }
 
   getHandHeld3d () {

@@ -41,8 +41,8 @@ export class WorldRendererThree extends WorldRendererCommon {
     super(config)
     this.rendererDevice = `${WorldRendererThree.getRendererInfo(this.renderer)} powered by three.js r${THREE.REVISION}`
     this.starField = new StarField(scene)
-    this.holdingBlock = new HoldingBlock(playerState)
-    this.holdingBlockLeft = new HoldingBlock(playerState, true)
+    this.holdingBlock = new HoldingBlock(playerState, this.config)
+    this.holdingBlockLeft = new HoldingBlock(playerState, this.config, true)
 
     this.renderUpdateEmitter.on('itemsTextureDownloaded', () => {
       this.holdingBlock.ready = true
@@ -234,9 +234,9 @@ export class WorldRendererThree extends WorldRendererCommon {
     // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
     const cam = this.camera instanceof THREE.Group ? this.camera.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
     this.renderer.render(this.scene, cam)
-    if (this.config.displayHand) {
+    if (this.config.showHand) {
       this.holdingBlock.render(this.camera, this.renderer, viewer.ambientLight, viewer.directionalLight)
-      // this.holdingBlockLeft.render(this.camera, this.renderer, viewer.ambientLight, viewer.directionalLight)
+      this.holdingBlockLeft.render(this.camera, this.renderer, viewer.ambientLight, viewer.directionalLight)
     }
   }
 

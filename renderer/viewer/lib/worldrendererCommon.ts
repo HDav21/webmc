@@ -35,7 +35,8 @@ export const defaultWorldRendererConfig = {
   numWorkers: 4,
   isPlayground: false,
   // game renderer setting actually
-  displayHand: false
+  showHand: false,
+  viewBobbing: false
 }
 
 export type WorldRendererConfig = typeof defaultWorldRendererConfig
