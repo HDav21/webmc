@@ -484,7 +484,7 @@ class HandIdleAnimator {
   // Debug parameters
   private readonly debugParams = {
     // Transition durations for different state changes
-    walkingSpeed: 9,
+    walkingSpeed: 8,
     sprintingSpeed: 16,
     walkingAmplitude: { x: 1 / 30, y: 1 / 10, rotationZ: 0.25 },
     sprintingAmplitude: { x: 1 / 30, y: 1 / 10, rotationZ: 0.4 }

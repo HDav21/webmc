@@ -290,12 +290,12 @@ export class Entities extends EventEmitter {
         const distanceSquared = dx * dx + dy * dy + dz * dz
 
         // Get chunk coordinates
-        const chunkX = Math.floor(entity.position.x / 16)
-        const chunkZ = Math.floor(entity.position.z / 16)
+        const chunkX = Math.floor(entity.position.x / 16) * 16
+        const chunkZ = Math.floor(entity.position.z / 16) * 16
         const chunkKey = `${chunkX},${chunkZ}`
 
         // Entity is visible if within 16 blocks OR in a finished chunk
-        entity.visible = distanceSquared < VISIBLE_DISTANCE || this.viewer.world.finishedChunks[chunkKey]
+        entity.visible = !!(distanceSquared < VISIBLE_DISTANCE || this.viewer.world.finishedChunks[chunkKey])
       }
     }
   }
