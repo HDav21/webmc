@@ -1,10 +1,12 @@
-import { useSnapshot } from 'valtio'
+import { proxy, useSnapshot } from 'valtio'
 import { useEffect, useMemo } from 'react'
 import { useMedia } from 'react-use'
 import { activeModalStack, miscUiState } from '../globalState'
 import { currentScaling } from '../scaleInterface'
 
-export const watchedModalsFromHooks = new Set<string>()
+export const watchedModalsFromHooks = proxy({
+  value: new Set<string>()
+})
 // todo should not be there
 export const hardcodedKnownModals = [
   'player_win:',
@@ -16,12 +18,12 @@ export const useUsingTouch = () => {
 }
 export const useIsModalActive = (modal: string, useIncludes = false) => {
   useMemo(() => {
-    watchedModalsFromHooks.add(modal)
+    watchedModalsFromHooks.value.add(modal)
   }, [])
   useEffect(() => {
     // watchedModalsFromHooks.add(modal)
     return () => {
-      watchedModalsFromHooks.delete(modal)
+      watchedModalsFromHooks.value.delete(modal)
     }
   }, [])
 

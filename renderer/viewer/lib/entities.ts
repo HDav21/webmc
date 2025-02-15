@@ -230,6 +230,20 @@ export class Entities extends EventEmitter {
     modelName: string
   })
 
+  get entitiesByName (): Record<string, SceneEntity[]> {
+    const byName: Record<string, SceneEntity[]> = {}
+    for (const entity of Object.values(this.entities)) {
+      if (!entity['realName']) continue
+      byName[entity['realName']] = byName[entity['realName']] || []
+      byName[entity['realName']].push(entity)
+    }
+    return byName
+  }
+
+  get entitiesCount (): number {
+    return Object.keys(this.entities).length
+  }
+
   constructor (public viewer: Viewer) {
     super()
     this.entitiesOptions = {}
@@ -654,6 +668,8 @@ export class Entities extends EventEmitter {
       this.viewer.scene.add(group)
 
       e = group
+      e.name = 'entity'
+      e['realName'] = entity.name
       this.entities[entity.id] = e
 
       this.emit('add', entity)
