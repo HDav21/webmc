@@ -5,14 +5,6 @@
   "mapsProvider": "https://maps.mcraft.fun/",
   "peerJsServer": "",
   "peerJsServerFallback": "https://p2p.mcraft.fun",
-  "promoteServers": [
-    {
-      "ip": "ws://play.mcraft.fun"
-    },
-    {
-      "ip": "kaboom.pw",
-      "version": "1.20.3",
-      "description": "Very nice a polite server. Must try for everyone!"
-    }
-  ]
+  "allowAutoConnect": true,
+  "promoteServers": []
 }

@@ -220,42 +220,18 @@ export default () => {
   }
 
   if (!isModalActive) return null
+
+  // return <div style={{ width: '100%', height: '100%', backgroundColor: '#000', opacity: 0.5 }} onClick={onReturnPress} />
+
+  // eslint-disable-next-line no-unreachable
   return <Screen title='Game Menu'>
-    <Button
+    {/* <Button
       icon="pixelarticons:folder"
       style={{ position: 'fixed', top: '5px', left: 'calc(env(safe-area-inset-left) + 5px)' }}
       onClick={async () => openWorldActions()}
-    />
+    /> */}
     <div className={styles.pause_container}>
       <Button className="button" style={{ width: '204px' }} onClick={onReturnPress}>Back to Game</Button>
-      <div className={styles.row}>
-        <Button className="button" style={{ width: '98px' }} onClick={() => openURL(process.env.GITHUB_URL!)}>GitHub</Button>
-        <DiscordButton />
-      </div>
-      <Button className="button" style={{ width: '204px' }} onClick={() => openOptionsMenu('main')}>Options</Button>
-      {singleplayer ? (
-        <div className={styles.row}>
-          <Button className="button" style={{ width: '170px' }} onClick={async () => clickJoinLinkButton()}>
-            {wanOpening ? 'Opening, wait...' : wanOpened ? 'Close Wan' : 'Copy Join Link'}
-          </Button>
-          {(navigator.share as typeof navigator.share | undefined) ? (
-            <Button
-              title="Share Join Link"
-              className="button"
-              icon="pixelarticons:arrow-up"
-              style={{ width: '20px' }}
-              onClick={async () => clickWebShareButton()}
-            />
-          ) : null}
-          <Button
-            title='Display QR for the Join Link'
-            className="button"
-            icon="pixelarticons:dice"
-            style={{ width: '20px' }}
-            onClick={async () => clickJoinLinkButton(true)}
-          />
-        </div>
-      ) : null}
       {noConnection && (
         <Button className="button" style={{ width: '204px' }} onClick={reconnectReload}>
           Reconnect

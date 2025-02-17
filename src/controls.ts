@@ -38,25 +38,25 @@ export const contro = new ControMax({
   commands: {
     general: {
       jump: ['Space', 'A'],
-      inventory: ['KeyE', 'X'],
-      drop: ['KeyQ', 'B'],
+      inventory: [null],
+      drop: [null],
       sneak: ['ShiftLeft'],
-      toggleSneakOrDown: [null, 'Right Stick'],
-      sprint: ['ControlLeft', 'Left Stick'],
-      nextHotbarSlot: [null, 'Right Bumper'],
-      prevHotbarSlot: [null, 'Left Bumper'],
-      attackDestroy: [null, 'Right Trigger'],
-      interactPlace: [null, 'Left Trigger'],
-      chat: [['KeyT', 'Enter']],
-      command: ['Slash'],
-      swapHands: ['KeyF'],
-      zoom: ['KeyC'],
-      selectItem: ['KeyH'], // default will be removed
+      toggleSneakOrDown: [null],
+      sprint: ['ControlLeft'],
+      nextHotbarSlot: [null],
+      prevHotbarSlot: [null],
+      attackDestroy: [null],
+      interactPlace: [null],
+      chat: [null],
+      command: [null],
+      swapHands: [null],
+      zoom: [null],
+      selectItem: [null], // default will be removed
       rotateCameraLeft: [null],
       rotateCameraRight: [null],
       rotateCameraUp: [null],
       rotateCameraDown: [null],
-      viewerConsole: ['Backquote']
+      viewerConsole: [null]
     },
     ui: {
       toggleFullscreen: ['F11'],
