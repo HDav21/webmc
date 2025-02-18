@@ -10,9 +10,7 @@ The web client is [deployed to Vercel](https://vercel.com/kradle-f5bad6db/minecr
 
 Your browser can't connect and communicate directly with a minecraft java server. For this reason, we use a proxy server that can translate those packets into websocket messages, and the other way around.
 
-The proxy is deployed on [GCP Cloud Run](https://console.cloud.google.com/run/detail/us-central1/web-proxy/metrics?project=mckradle-3c267) and is accessible at https://mcproxy.kradle.ai[^1]. 
-
-[^1]: You can check it's working by adding `/config.json` to the URL
+The proxy is deployed on [GCP Cloud Run](https://console.cloud.google.com/run/detail/us-central1/web-proxy/metrics?project=mckradle-3c267) and is accessible at https://mcproxy.kradle.ai (You can check it's working by adding `/config.json` to the URL)
 
 A proxy instance is stateless and is also not linked to a single client or a to a single minecraft server. A single instance of the proxy is actually capable of multiplexing multiple clients to multiple minecraft servers. 
 
