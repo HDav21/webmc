@@ -6,13 +6,22 @@ import { UserError } from './mineflayer/userError'
 
 const SUPPORTED_FORMAT_VERSION = 1
 
-export const startLocalReplayServer = (contents: string, waitForClientPackets = true) => {
+type ReplayDefinition = {
+  minecraftVersion: string
+  replayAgainst?: 'client' | 'server'
+  serverIp?: string
+}
+
+export const startLocalReplayServer = (contents: string) => {
   const lines = contents.split('\n')
-  const def: WorldStateHeader = JSON.parse(lines[0])
+  const def: WorldStateHeader | ReplayDefinition = JSON.parse(lines[0])
   const packetsRaw = lines.slice(1).join('\n')
   const replayData = parseReplayContents(packetsRaw)
-  if (def.formatVersion !== SUPPORTED_FORMAT_VERSION) {
+  if ('formatVersion' in def && def.formatVersion !== SUPPORTED_FORMAT_VERSION) {
     throw new UserError(`Unsupported format version: ${def.formatVersion}`)
+  }
+  if ('replayAgainst' in def && def.replayAgainst === 'server') {
+    throw new Error('not supported')
   }
 
   const server = createServer({
@@ -64,6 +73,71 @@ const mainPacketsReplayer = async (client: ServerClient, replayData: ReturnType<
       await new Promise(resolve => setTimeout(resolve, packet.diff))
     } else if (ignoreClientPacketsWait !== true && !ignoreClientPacketsWait.includes(packet.name)) {
       await waitForPacketOnce(packet.name, packet.state)
+    }
+  }
+}
+
+interface PacketsWaiterOptions {
+  unexpectedPacketReceived?: (name: string, params: any) => void
+  expectedPacketReceived?: (name: string, params: any) => void
+}
+
+interface PacketsWaiter {
+  addPacket(name: string, params: any): void
+  waitForPackets(packets: string[]): Promise<void>
+}
+
+const createPacketsWaiter = (options: PacketsWaiterOptions = {}): PacketsWaiter => {
+  let packetHandler: ((data: any, name: string) => void) | null = null
+  const queuedPackets: Array<{ name: string, params: any }> = []
+  let isWaiting = false
+
+  const handlePacket = (data: any, name: string, waitingPackets: string[], resolve: () => void) => {
+    if (waitingPackets.includes(name)) {
+      waitingPackets.splice(waitingPackets.indexOf(name), 1)
+      options.expectedPacketReceived?.(name, data)
+    } else {
+      options.unexpectedPacketReceived?.(name, data)
+    }
+
+    if (waitingPackets.length === 0) {
+      resolve()
+    }
+  }
+
+  return {
+    addPacket (name: string, params: any) {
+      if (packetHandler) {
+        packetHandler(params, name)
+      } else {
+        queuedPackets.push({ name, params })
+      }
+    },
+
+    async waitForPackets (packets: string[]) {
+      if (isWaiting) {
+        throw new Error('Already waiting for packets')
+      }
+      isWaiting = true
+
+      try {
+        await new Promise<void>(resolve => {
+          const waitingPackets = [...packets]
+
+          packetHandler = (data: any, name: string) => {
+            handlePacket(data, name, waitingPackets, resolve)
+          }
+
+          // Process any queued packets
+          for (const packet of queuedPackets) {
+            handlePacket(packet.params, packet.name, waitingPackets, resolve)
+          }
+          queuedPackets.length = 0
+        })
+      } finally {
+        isWaiting = false
+        packetHandler = null
+      }
     }
   }
 }

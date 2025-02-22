@@ -6,6 +6,7 @@ import { versions } from 'minecraft-data'
 import { openWorldDirectory, openWorldZip } from './browserfs'
 import { isGameActive } from './globalState'
 import { showNotification } from './react/NotificationProvider'
+import { ConnectOptions } from './connect'
 
 const parseNbt = promisify(nbt.parse)
 const simplifyNbt = nbt.simplify
@@ -53,10 +54,19 @@ async function handleDroppedFile (file: File) {
     alert('Rar files are not supported yet!')
     return
   }
+  if (file.name.endsWith('.worldstate') || (file.name.startsWith('packets-replay') && file.name.endsWith('.txt'))) {
+    const worldStateFileContents = await file.text()
+    const connectOptions: ConnectOptions = {
+      worldStateFileContents,
+      username: 'replay'
+    }
+    dispatchEvent(new CustomEvent('connect', { detail: connectOptions }))
+    return
+  }
   if (file.name.endsWith('.mca')) {
     const tempPath = '/data/temp.mca'
     try {
-      await fs.promises.writeFile(tempPath, Buffer.from(await file.arrayBuffer()))
+      await fs.promises.writeFile(tempPath, Buffer.from(await file.arrayBuffer()) as any)
       const region = new RegionFile(tempPath)
       await region.initialize()
       const chunks: Record<string, any> = {}

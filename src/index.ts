@@ -493,6 +493,8 @@ export async function connect (connectOptions: ConnectOptions) {
       initialLoadingText = `Connecting to server ${server.host} with version ${finalVersion}`
     } else if (connectOptions.viewerWsConnect) {
       initialLoadingText = `Connecting to Mineflayer WebSocket server ${connectOptions.viewerWsConnect}`
+    } else if (connectOptions.worldStateFileContents) {
+      initialLoadingText = `Loading local replay server`
     } else {
       initialLoadingText = 'We have no idea what to do'
     }
