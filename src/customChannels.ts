@@ -43,32 +43,33 @@ customEvents.on('mineflayerBotCreated', async () => {
     const { worldName, x, y, z, model } = data
     console.debug('Received model data:', { worldName, x, y, z, model })
 
-    if (viewer?.world) {
-      const chunkX = Math.floor(x / 16) * 16
-      const chunkZ = Math.floor(z / 16) * 16
-      const chunkKey = `${chunkX},${chunkZ}`
-      const blockPosKey = `${x},${y},${z}`
+    const chunkX = Math.floor(x / 16) * 16
+    const chunkZ = Math.floor(z / 16) * 16
+    const chunkKey = `${chunkX},${chunkZ}`
+    const blockPosKey = `${x},${y},${z}`
 
-      const chunkModels = viewer.world.customBlockModels.get(chunkKey) || {}
+    const chunkModels = viewer.world.protocolCustomBlocks.get(chunkKey) || {}
 
-      if (model) {
-        chunkModels[blockPosKey] = model
-      } else {
-        delete chunkModels[blockPosKey]
-      }
+    if (model) {
+      chunkModels[blockPosKey] = model
+    } else {
+      delete chunkModels[blockPosKey]
+    }
 
-      if (Object.keys(chunkModels).length > 0) {
-        viewer.world.customBlockModels.set(chunkKey, chunkModels)
-      } else {
-        viewer.world.customBlockModels.delete(chunkKey)
-      }
+    if (Object.keys(chunkModels).length > 0) {
+      viewer.world.protocolCustomBlocks.set(chunkKey, chunkModels)
+    } else {
+      viewer.world.protocolCustomBlocks.delete(chunkKey)
+    }
 
-      // Trigger update
-      const block = worldView!.world.getBlock(new Vec3(x, y, z))
+    // Trigger update
+    if (worldView) {
+      const block = worldView.world.getBlock(new Vec3(x, y, z))
       if (block) {
-        worldView!.world.setBlockStateId(new Vec3(x, y, z), block.stateId)
+        worldView.world.setBlockStateId(new Vec3(x, y, z), block.stateId)
       }
     }
+
   })
 
   console.debug(`registered custom channel ${CHANNEL_NAME} channel`)

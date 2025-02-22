@@ -202,7 +202,6 @@ const App = () => {
             <ServersListProvider />
             <OptionsRenderApp />
             <MainMenuRenderApp />
-            <NotificationProvider />
             <TouchAreasControlsProvider />
             <SignInMessageProvider />
             <NoModalFoundProvider />
@@ -213,6 +212,7 @@ const App = () => {
             </div>
             <div />
             <DebugEdges />
+            <NotificationProvider />
           </RobustPortal>
         </ButtonAppProvider>
       </div>

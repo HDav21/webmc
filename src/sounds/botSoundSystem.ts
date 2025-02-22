@@ -14,13 +14,14 @@ let soundMap: SoundMap | undefined
 
 const updateResourcePack = async () => {
   if (!soundMap) return
-  soundMap.activeResourcePackBasePath = await getActiveResourcepackBasePath() ?? undefined
+  // todo, rework to await
+  void soundMap.updateActiveResourcePackBasePath(await getActiveResourcepackBasePath() ?? undefined)
 }
 
 let musicInterval: ReturnType<typeof setInterval> | null = null
 
 subscribeKey(miscUiState, 'gameLoaded', async () => {
-  if (!miscUiState.gameLoaded || !loadedData.sounds) {
+  if (!miscUiState.gameLoaded) {
     stopMusicSystem()
     soundMap?.quit()
     return
@@ -28,6 +29,7 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
 
   console.log(`Loading sounds for version ${bot.version}. Resourcepack state: ${JSON.stringify(resourcePackState)}`)
   soundMap = createSoundMap(bot.version) ?? undefined
+  globalThis.soundMap = soundMap
   if (!soundMap) return
   void updateResourcePack()
   startMusicSystem()
@@ -106,8 +108,7 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
   })
 
   bot.on('hardcodedSoundEffectHeard', async (soundIdNum, soundCategory, position, volume, pitch) => {
-    const fixOffset = versionToNumber('1.20.4') === versionToNumber(bot.version) ? -1 : 0
-    const soundKey = loadedData.sounds[soundIdNum + fixOffset]?.name
+    const soundKey = soundMap!.soundsIdToName[soundIdNum]
     if (soundKey === undefined) return
     await playGeneralSound(soundKey, position, volume, pitch)
   })

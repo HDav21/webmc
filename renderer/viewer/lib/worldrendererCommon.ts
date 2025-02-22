@@ -19,7 +19,7 @@ import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBloc
 import { dynamicMcDataFiles } from '../../buildMesherConfig.mjs'
 import { toMajorVersion } from '../../../src/utils'
 import { buildCleanupDecorator } from './cleanupDecorator'
-import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput, CustomBlockModels } from './mesher/shared'
+import { defaultMesherConfig, HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
 import { HandItemBlock } from './holdingBlock'
 import { updateStatText } from './ui/newStats'
@@ -152,7 +152,10 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   @worldCleanup()
   itemsRenderer: ItemsRenderer | undefined
 
-  customBlockModels = new Map<string, CustomBlockModels>()
+  protocolCustomBlocks = new Map<string, CustomBlockModels>()
+
+  @worldCleanup()
+  blockStateModelInfo = new Map<string, BlockStateModelInfo>()
 
   abstract outputFormat: 'threeJs' | 'webgpu'
   worldBlockProvider: WorldBlockProvider
@@ -230,6 +233,12 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
             this.workersProcessAverageTimeCount++
             this.workersProcessAverageTime = ((this.workersProcessAverageTime * (this.workersProcessAverageTimeCount - 1)) + data.processTime) / this.workersProcessAverageTimeCount
             this.maxWorkersProcessTime = Math.max(this.maxWorkersProcessTime, data.processTime)
+          }
+        }
+
+        if (data.type === 'blockStateModelInfo') {
+          for (const [cacheKey, info] of Object.entries(data.info)) {
+            this.blockStateModelInfo.set(cacheKey, info)
           }
         }
       }
@@ -348,15 +357,19 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     }
 
     const customBlockTextures = Object.keys(this.customTextures.blocks?.textures ?? {})
+    console.time('createBlocksAtlas')
     const { atlas: blocksAtlas, canvas: blocksCanvas } = await blocksAssetsParser.makeNewAtlas(this.texturesVersion ?? this.version ?? 'latest', (textureName) => {
       const texture = this.customTextures?.blocks?.textures[textureName]
       return blockTexturesChanges[textureName] ?? texture
     }, /* this.customTextures?.blocks?.tileSize */undefined, prioritizeBlockTextures, customBlockTextures)
+    console.timeEnd('createBlocksAtlas')
+    console.time('createItemsAtlas')
     const { atlas: itemsAtlas, canvas: itemsCanvas } = await itemsAssetsParser.makeNewAtlas(this.texturesVersion ?? this.version ?? 'latest', (textureName) => {
       const texture = this.customTextures?.items?.textures[textureName]
       if (!texture) return
       return texture
     }, this.customTextures?.items?.tileSize)
+    console.timeEnd('createItemsAtlas')
     this.blocksAtlasParser = new AtlasParser({ latest: blocksAtlas }, blocksCanvas.toDataURL())
     this.itemsAtlasParser = new AtlasParser({ latest: itemsAtlas }, itemsCanvas.toDataURL())
 
@@ -400,6 +413,15 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     console.log('texture loaded')
   }
 
+  async downloadDebugAtlas (isItems = false) {
+    const atlasParser = (isItems ? this.itemsAtlasParser : this.blocksAtlasParser)!
+    const dataUrl = await atlasParser.createDebugImage(true)
+    const a = document.createElement('a')
+    a.href = dataUrl
+    a.download = `atlas-debug-${isItems ? 'items' : 'blocks'}.png`
+    a.click()
+  }
+
   get worldMinYRender () {
     return Math.floor(Math.max(this.worldConfig.minY, this.mesherConfig.clipWorldBelowY ?? -Infinity) / 16) * 16
   }
@@ -417,7 +439,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.updateChunksStatsText()
 
     const chunkKey = `${x},${z}`
-    const customBlockModels = this.customBlockModels.get(chunkKey)
+    const customBlockModels = this.protocolCustomBlocks.get(chunkKey)
 
     for (const worker of this.workers) {
       worker.postMessage({
@@ -478,7 +500,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     const needAoRecalculation = true
     const chunkKey = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.z / 16) * 16}`
     const blockPosKey = `${pos.x},${pos.y},${pos.z}`
-    const customBlockModels = this.customBlockModels.get(chunkKey) || {}
+    const customBlockModels = this.protocolCustomBlocks.get(chunkKey) || {}
 
     for (const worker of this.workers) {
       worker.postMessage({

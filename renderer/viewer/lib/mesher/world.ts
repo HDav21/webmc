@@ -5,7 +5,7 @@ import { Vec3 } from 'vec3'
 import { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import moreBlockDataGeneratedJson from '../moreBlockDataGenerated.json'
 import legacyJson from '../../../../src/preflatMap.json'
-import { defaultMesherConfig, CustomBlockModels } from './shared'
+import { defaultMesherConfig, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey } from './shared'
 import { INVISIBLE_BLOCKS } from './worldConstants'
 
 const ignoreAoBlocks = Object.keys(moreBlockDataGeneratedJson.noOcclusions)
@@ -39,7 +39,6 @@ export type WorldBlock = Omit<Block, 'position'> & {
   _properties?: Record<string, any>
 }
 
-
 export class World {
   config = defaultMesherConfig
   Chunk: typeof import('prismarine-chunk/types/index').PCChunk
@@ -49,6 +48,8 @@ export class World {
   preflat: boolean
   erroredBlockModel?: BlockModelPartsResolved
   customBlockModels = new Map<string, CustomBlockModels>() // chunkKey -> blockModels
+  sentBlockStateModels = new Set<string>()
+  blockStateModelInfo = new Map<string, BlockStateModelInfo>()
 
   constructor (version) {
     this.Chunk = Chunks(version) as any
@@ -123,7 +124,7 @@ export class World {
     return this.getColumn(Math.floor(pos.x / 16) * 16, Math.floor(pos.z / 16) * 16)
   }
 
-  getBlock (pos: Vec3, blockProvider?, attr?): WorldBlock | null {
+  getBlock (pos: Vec3, blockProvider?: WorldBlockProvider, attr?: { hadErrors?: boolean }): WorldBlock | null {
     // for easier testing
     if (!(pos instanceof Vec3)) pos = new Vec3(...pos as [number, number, number])
     const key = columnKey(Math.floor(pos.x / 16) * 16, Math.floor(pos.z / 16) * 16)
@@ -138,7 +139,7 @@ export class World {
     const locInChunk = posInChunk(loc)
     const stateId = column.getBlockStateId(locInChunk)
 
-    const cacheKey = modelOverride ? `${stateId}:${modelOverride}` : stateId
+    const cacheKey = getBlockAssetsCacheKey(stateId, modelOverride)
 
     if (!this.blockCache[cacheKey]) {
       const b = column.getBlock(locInChunk) as unknown as WorldBlock
@@ -196,11 +197,31 @@ export class World {
           }
         }
 
-        const useFallbackModel = this.preflat || modelOverride
-        block.models = blockProvider.getAllResolvedModels0_1({
-          name: block.name,
-          properties: props,
-        }, useFallbackModel)! // fixme! this is a hack (also need a setting for all versions)
+        const useFallbackModel = !!(this.preflat || modelOverride)
+        const issues = [] as string[]
+        const resolvedModelNames = [] as string[]
+        const resolvedConditions = [] as string[]
+        block.models = blockProvider.getAllResolvedModels0_1(
+          {
+            name: block.name,
+            properties: props,
+          },
+          useFallbackModel,
+          issues,
+          resolvedModelNames,
+          resolvedConditions
+        )!
+
+        // Track block state model info
+        if (!this.sentBlockStateModels.has(cacheKey)) {
+          this.blockStateModelInfo.set(cacheKey, {
+            cacheKey,
+            issues,
+            modelNames: resolvedModelNames,
+            conditions: resolvedConditions
+          })
+        }
+
         if (!block.models!.length) {
           if (block.name !== 'water' && block.name !== 'lava' && !INVISIBLE_BLOCKS.has(block.name)) {
             console.debug('[mesher] block to render not found', block.name, props)

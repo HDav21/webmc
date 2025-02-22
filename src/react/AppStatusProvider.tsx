@@ -1,5 +1,5 @@
 import { proxy, useSnapshot } from 'valtio'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { activeModalStack, activeModalStacks, hideModal, insertActiveModalStack, miscUiState } from '../globalState'
 import { guessProblem } from '../errorLoadingScreenHelpers'
 import type { ConnectOptions } from '../connect'
@@ -53,10 +53,18 @@ export const reconnectReload = () => {
 }
 
 export default () => {
-  const { isError, lastStatus, maybeRecoverable, status, hideDots, descriptionHint, loadingChunksData, loadingChunksDataPlayerChunk, minecraftJsonMessage, showReconnect } = useSnapshot(appStatusState)
+  const lastState = useRef(JSON.parse(JSON.stringify(appStatusState)))
+  const currentState = useSnapshot(appStatusState)
   const { active: replayActive } = useSnapshot(packetsReplaceSessionState)
 
   const isOpen = useIsModalActive('app-status')
+
+  if (isOpen) {
+    lastState.current = JSON.parse(JSON.stringify(currentState))
+  }
+
+  const usingState = isOpen ? currentState : lastState.current
+  const { isError, lastStatus, maybeRecoverable, status, hideDots, descriptionHint, loadingChunksData, loadingChunksDataPlayerChunk, minecraftJsonMessage, showReconnect } = usingState
 
   useDidUpdateEffect(() => {
     // todo play effect only when world successfully loaded
@@ -108,7 +116,7 @@ export default () => {
   return <DiveTransition open={isOpen}>
     <AppStatus
       status={status}
-      isError={isError || appStatusState.status === ''} // display back button if status is empty as probably our app is errored
+      isError={isError || status === ''} // display back button if status is empty as probably our app is errored
       hideDots={hideDots}
       lastStatus={lastStatus}
       showReconnect={showReconnect}

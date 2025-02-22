@@ -3,7 +3,7 @@ import { PacketsLogger } from './packetsReplayBase'
 import { options } from './optionsStorage'
 
 export const packetsReplaceSessionState = proxy({
-  active: false,
+  active: options.packetsReplayAutoStart,
   hasRecordedPackets: false
 })
 
