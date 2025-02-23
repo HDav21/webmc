@@ -6,7 +6,7 @@ import { versions } from 'minecraft-data'
 import { openWorldDirectory, openWorldZip } from './browserfs'
 import { isGameActive } from './globalState'
 import { showNotification } from './react/NotificationProvider'
-import { ConnectOptions } from './connect'
+import { openFile, VALID_REPLAY_EXTENSIONS } from './packetsReplay/replayPackets'
 
 const parseNbt = promisify(nbt.parse)
 const simplifyNbt = nbt.simplify
@@ -54,13 +54,13 @@ async function handleDroppedFile (file: File) {
     alert('Rar files are not supported yet!')
     return
   }
-  if (file.name.endsWith('.worldstate') || file.name.endsWith('.worldstate.txt') || (file.name.startsWith('packets-replay') && file.name.endsWith('.txt'))) {
-    const worldStateFileContents = await file.text()
-    const connectOptions: ConnectOptions = {
-      worldStateFileContents,
-      username: 'replay'
-    }
-    dispatchEvent(new CustomEvent('connect', { detail: connectOptions }))
+  if (VALID_REPLAY_EXTENSIONS.some(ext => file.name.endsWith(ext)) || file.name.startsWith('packets-replay')) {
+    const contents = await file.text()
+    openFile({
+      contents,
+      filename: file.name,
+      filesize: file.size
+    })
     return
   }
   if (file.name.endsWith('.mca')) {

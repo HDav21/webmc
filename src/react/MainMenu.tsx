@@ -1,4 +1,4 @@
-import React, { MouseEvent, MouseEventHandler } from 'react'
+import React from 'react'
 import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { haveDirectoryPicker } from '../utils'
 import { ConnectOptions } from '../connect'
@@ -28,19 +28,6 @@ interface Props {
 
 const httpsRegex = /^https?:\/\//
 
-const handleFileSelect = async (file: File) => {
-  if (file.name.endsWith('.worldstate') || file.name.endsWith('.worldstate.txt') || (file.name.startsWith('packets-replay') && file.name.endsWith('.txt'))) {
-    const worldStateFileContents = await file.text()
-    const connectOptions: ConnectOptions = {
-      worldStateFileContents,
-      username: 'replay'
-    }
-    dispatchEvent(new CustomEvent('connect', { detail: connectOptions }))
-    return true
-  }
-  return false
-}
-
 export default ({
   connectToServerAction,
   mapsProvider,
@@ -56,27 +43,6 @@ export default ({
   onVersionStatusClick,
   bottomRightLinks
 }: Props) => {
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
-
-  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    const handled = await handleFileSelect(file)
-    if (!handled && openFileAction) {
-      openFileAction(null as any)
-    }
-
-    // Clear the input so the same file can be selected again
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-  }
-
-  const handleFolderClick: MouseEventHandler<HTMLButtonElement> = () => {
-    fileInputRef.current?.click()
-  }
-
   if (!bottomRightLinks?.trim()) bottomRightLinks = undefined
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
   const linksParsed = bottomRightLinks?.split(/;|\n/g).map(l => {
@@ -161,9 +127,9 @@ export default ({
           <ButtonWithTooltip
             data-test-id='select-file-folder'
             icon={pixelartIcons.folder}
-            onClick={handleFolderClick}
+            onClick={openFileAction}
             initialTooltip={{
-              content: 'Load any Java world save or replay' + (haveDirectoryPicker() ? '' : ' (zip)!'),
+              content: 'Load any Java world save' + (haveDirectoryPicker() ? '' : ' (zip)!'),
               placement: 'bottom-start',
             }}
           />
@@ -220,14 +186,6 @@ export default ({
           <span>A Minecraft client in the browser!</span>
         </span>
       </div>
-
-      <input
-        type="file"
-        ref={fileInputRef}
-        style={{ display: 'none' }}
-        onChange={handleFileInput}
-        accept=".worldstate,.worldstate.txt,.zip"
-      />
     </div>
   )
 }

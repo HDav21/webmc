@@ -45,7 +45,7 @@ import * as THREE from 'three'
 import MinecraftData from 'minecraft-data'
 import debug from 'debug'
 import { defaultsDeep } from 'lodash-es'
-import initializePacketsReplay from './packetsReplay'
+import initializePacketsReplay from './packetsReplay/packetsReplayLegacy'
 
 import { initVR } from './vr'
 import {
@@ -112,7 +112,7 @@ import { initMotionTracking } from './react/uiMotion'
 import { UserError } from './mineflayer/userError'
 import ping from './mineflayer/plugins/ping'
 import { LocalServer } from './customServer'
-import { startLocalReplayServer } from './replayPackets'
+import { startLocalReplayServer } from './packetsReplay/replayPackets'
 import { localRelayServerPlugin } from './mineflayer/plugins/localRelay'
 
 window.debug = debug
@@ -634,14 +634,16 @@ export async function connect (connectOptions: ConnectOptions) {
     }
     customEvents.emit('mineflayerBotCreated')
     if (singleplayer || p2pMultiplayer || localReplaySession) {
-      // in case of p2pMultiplayer there is still flying-squid on the host side
-      const _supportFeature = bot.supportFeature
-      bot.supportFeature = ((feature) => {
-        if (unsupportedLocalServerFeatures.includes(feature)) {
-          return false
-        }
-        return _supportFeature(feature)
-      }) as typeof bot.supportFeature
+      if (singleplayer || p2pMultiplayer) {
+        // in case of p2pMultiplayer there is still flying-squid on the host side
+        const _supportFeature = bot.supportFeature
+        bot.supportFeature = ((feature) => {
+          if (unsupportedLocalServerFeatures.includes(feature)) {
+            return false
+          }
+          return _supportFeature(feature)
+        }) as typeof bot.supportFeature
+      }
 
       bot.emit('inject_allowed')
       bot._client.emit('connect')
