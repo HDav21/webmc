@@ -836,7 +836,7 @@ const selectItem = async () => {
 addEventListener('mousedown', async (e) => {
   if ((e.target as HTMLElement).matches?.('#VRButton')) return
   if (!isInRealGameSession() && !(e.target as HTMLElement).id.includes('ui-root')) return
-  // void pointerLock.requestPointerLock()
+  void pointerLock.requestPointerLock()
   if (!bot) return
   // wheel click
   // todo support ctrl+wheel (+nbt)

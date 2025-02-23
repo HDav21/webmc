@@ -37,7 +37,7 @@ export function openFile ({ contents, filename = 'unnamed', filesize }: OpenFile
 export const startLocalReplayServer = (contents: string) => {
   const lines = contents.split('\n')
   if (!lines[0]) {
-    throw new UserError("No header line found. Cannot parse replay definition.")
+    throw new UserError('No header line found. Cannot parse replay definition.')
   }
   let def: WorldStateHeader | ReplayDefinition
   try {
