@@ -1,5 +1,5 @@
 import { Entity } from 'prismarine-entity'
-import { versionToNumber } from 'prismarine-viewer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/prepare/utils'
 import tracker from '@nxg-org/mineflayer-tracker'
 import { loader as autoJumpPlugin } from '@nxg-org/mineflayer-auto-jump'
 import { subscribeKey } from 'valtio/utils'
@@ -75,10 +75,9 @@ customEvents.on('gameLoaded', () => {
       const isWalking = Math.abs(speed.x) > WALKING_SPEED || Math.abs(speed.z) > WALKING_SPEED
       const isSprinting = Math.abs(speed.x) > SPRINTING_SPEED || Math.abs(speed.z) > SPRINTING_SPEED
       const newAnimation = isWalking ? (isSprinting ? 'running' : 'walking') : 'idle'
-      const username = e.username!
-      if (newAnimation !== playerPerAnimation[username]) {
+      if (newAnimation !== playerPerAnimation[id]) {
         viewer.entities.playAnimation(e.id, newAnimation)
-        playerPerAnimation[username] = newAnimation
+        playerPerAnimation[id] = newAnimation
       }
     }
   })
@@ -116,13 +115,13 @@ customEvents.on('gameLoaded', () => {
       if (viewer.entities.entities[e.id]) {
         if (loadedSkinEntityIds.has(e.id)) return
         loadedSkinEntityIds.add(e.id)
-        viewer.entities.updatePlayerSkin(e.id, e.username, true, true)
+        viewer.entities.updatePlayerSkin(e.id, e.username, e.uuid, true, true)
       }
     }
   }
   viewer.entities.addListener('remove', (e) => {
     loadedSkinEntityIds.delete(e.id)
-    playerPerAnimation[e.username] = ''
+    playerPerAnimation[e.id] = ''
     bot.tracker.stopTrackingEntity(e, true)
   })
 
@@ -153,5 +152,37 @@ customEvents.on('gameLoaded', () => {
 
   watchValue(options, o => {
     viewer.entities.setDebugMode(o.showChunkBorders ? 'basic' : 'none')
+  })
+
+  // Texture override from packet properties
+  bot._client.on('player_info', (packet) => {
+    for (const playerEntry of packet.data) {
+      if (!playerEntry.player && !playerEntry.properties) continue
+      let textureProperty = playerEntry.properties?.find(prop => prop?.name === 'textures')
+      if (!textureProperty) {
+        textureProperty = playerEntry.player?.properties?.find(prop => prop?.key === 'textures')
+      }
+      if (textureProperty) {
+        try {
+          const textureData = JSON.parse(Buffer.from(textureProperty.value, 'base64').toString())
+          const skinUrl = textureData.textures?.SKIN?.url
+          const capeUrl = textureData.textures?.CAPE?.url
+
+          // Find entity with matching UUID and update skin
+          let entityId = ''
+          for (const [entId, entity] of Object.entries(bot.entities)) {
+            if (entity.uuid === playerEntry.uuid) {
+              entityId = entId
+              break
+            }
+          }
+          // even if not found, still record to cache
+          viewer.entities.updatePlayerSkin(entityId, playerEntry.player?.name, playerEntry.uuid, skinUrl, capeUrl)
+        } catch (err) {
+          console.error('Error decoding player texture:', err)
+        }
+      }
+    }
+
   })
 })

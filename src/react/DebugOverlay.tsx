@@ -1,8 +1,9 @@
 import { useEffect, useRef, useMemo, useState } from 'react'
 import * as THREE from 'three'
+import type { Block } from 'prismarine-block'
 import { getFixedFilesize } from '../downloadAndOpenFile'
 import { options } from '../optionsStorage'
-import worldInteractions from '../worldInteractions'
+import { getBlockAssetsCacheKey } from '../../renderer/viewer/lib/mesher/shared'
 import styles from './DebugOverlay.module.css'
 
 export default () => {
@@ -33,12 +34,12 @@ export default () => {
   const [blockL, setBlockL] = useState(0)
   const [biomeId, setBiomeId] = useState(0)
   const [day, setDay] = useState(0)
-  const [entitiesCount, setEntitiesCount] = useState(0)
+  const [entitiesCount, setEntitiesCount] = useState('0')
   const [dimension, setDimension] = useState('')
-  const [cursorBlock, setCursorBlock] = useState<typeof worldInteractions.cursorBlock>(null)
-  const [rendererDevice, setRendererDevice] = useState('')
+  const [cursorBlock, setCursorBlock] = useState<Block | null>(null)
   const minecraftYaw = useRef(0)
   const minecraftQuad = useRef(0)
+  const { rendererDevice } = viewer.world
 
   const quadsDescription = [
     'north (towards negative Z)',
@@ -105,8 +106,8 @@ export default () => {
       setBiomeId(bot.world.getBiome(bot.entity.position))
       setDimension(bot.game.dimension)
       setDay(bot.time.day)
-      setCursorBlock(worldInteractions.cursorBlock)
-      setEntitiesCount(Object.values(bot.entities).length)
+      setCursorBlock(bot.blockAtCursor(5))
+      setEntitiesCount(`${viewer.entities.entitiesRenderingCount} (${Object.values(bot.entities).length})`)
     }, 100)
 
     // @ts-expect-error
@@ -117,13 +118,6 @@ export default () => {
       sent.current.count++
       managePackets('sent', name, data)
     })
-
-    try {
-      const gl = window.renderer.getContext()
-      setRendererDevice(gl.getParameter(gl.getExtension('WEBGL_debug_renderer_info')!.UNMASKED_RENDERER_WEBGL))
-    } catch (err) {
-      console.warn(err)
-    }
 
     return () => {
       document.removeEventListener('keydown', handleF3)
@@ -140,7 +134,7 @@ export default () => {
   if (!showDebug) return null
 
   return <>
-    <div className={styles['debug-left-side']}>
+    <div className={`debug-left-side ${styles['debug-left-side']}`}>
       <p>Prismarine Web Client ({bot.version})</p>
       <p>E: {entitiesCount}</p>
       <p>{dimension}</p>
@@ -158,8 +152,8 @@ export default () => {
       {Object.entries(customEntries.current).map(([name, value]) => <p key={name}>{name}: {value}</p>)}
     </div>
 
-    <div className={styles['debug-right-side']}>
-      <p>Renderer: {rendererDevice} powered by three.js r{THREE.REVISION}</p>
+    <div className={`debug-right-side ${styles['debug-right-side']}`}>
+      <p>Renderer: {rendererDevice}</p>
       <div className={styles.empty} />
       {cursorBlock ? (<>
         <p>{cursorBlock.name}</p>
@@ -179,6 +173,26 @@ export default () => {
       {cursorBlock ? (
         <p>Looking at: {cursorBlock.position.x} {cursorBlock.position.y} {cursorBlock.position.z}</p>
       ) : ''}
+      <div className={styles.empty} />
+      {cursorBlock && (() => {
+        const chunkKey = `${Math.floor(cursorBlock.position.x / 16) * 16},${Math.floor(cursorBlock.position.z / 16) * 16}`
+        const customBlockName = viewer.world.protocolCustomBlocks.get(chunkKey)?.[`${cursorBlock.position.x},${cursorBlock.position.y},${cursorBlock.position.z}`]
+        const cacheKey = getBlockAssetsCacheKey(cursorBlock.stateId, customBlockName)
+        const modelInfo = viewer.world.blockStateModelInfo.get(cacheKey)
+        return modelInfo && (
+          <>
+            {customBlockName && <p style={{ fontSize: 7, }}>Custom block: {customBlockName}</p>}
+            {modelInfo.issues.map((issue, i) => (
+              <p key={i} style={{ color: 'yellow', fontSize: 7, }}>{issue}</p>
+            ))}
+            {/* <p style={{ fontSize: 7, }}>Resolved models chain: {modelInfo.modelNames.join(' -> ')}</p> */}
+            <p style={{ fontSize: 7, }}>Resolved model: {modelInfo.modelNames[0] ?? '-'}</p>
+            <p style={{ fontSize: 7, whiteSpace: 'nowrap', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {modelInfo.conditions.join(', ')}
+            </p>
+          </>
+        )
+      })()}
     </div>
   </>
 }

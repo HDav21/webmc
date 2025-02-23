@@ -1,7 +1,8 @@
 // global variables useful for debugging
 
 import fs from 'fs'
-import { WorldRendererThree } from 'prismarine-viewer/viewer/lib/worldrendererThree'
+import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
+import { enable, disable, enabled } from 'debug'
 import { getEntityCursor } from './worldInteractions'
 
 window.cursorBlockRel = (x = 0, y = 0, z = 0) => {
@@ -23,19 +24,92 @@ Object.defineProperty(window, 'debugSceneChunks', {
   },
 })
 
+window.chunkKey = (xRel = 0, zRel = 0) => {
+  const pos = bot.entity.position
+  return `${(Math.floor(pos.x / 16) + xRel) * 16},${(Math.floor(pos.z / 16) + zRel) * 16}`
+}
+
+window.sectionKey = (xRel = 0, yRel = 0, zRel = 0) => {
+  const pos = bot.entity.position
+  return `${(Math.floor(pos.x / 16) + xRel) * 16},${(Math.floor(pos.y / 16) + yRel) * 16},${(Math.floor(pos.z / 16) + zRel) * 16}`
+}
+
+window.keys = (obj) => Object.keys(obj)
+window.values = (obj) => Object.values(obj)
+
 window.len = (obj) => Object.keys(obj).length
 
-window.inspectPacket = (packetName, full = false) => {
-  const listener = (...args) => console.log('packet', packetName, full ? args : args[0])
+customEvents.on('gameLoaded', () => {
+  bot._client.on('packet', (data, { name }) => {
+    if (sessionStorage.ignorePackets?.includes(name)) {
+      console.log('ignoring packet', name)
+      const oldEmit = bot._client.emit
+      let i = 0
+      // ignore next 3 emits
+      //@ts-expect-error
+      bot._client.emit = (...args) => {
+        if (i++ === 3) {
+          oldEmit.apply(bot._client, args)
+          bot._client.emit = oldEmit
+        }
+      }
+    }
+  })
+})
+
+window.inspectPacket = (packetName, isFromClient = false, fullOrListener: boolean | ((...args) => void) = false) => {
+  if (typeof isFromClient === 'function') {
+    fullOrListener = isFromClient
+    isFromClient = false
+  }
+  const listener = typeof fullOrListener === 'function'
+    ? (name, ...args) => fullOrListener(...args, name)
+    : (name, ...args) => {
+      const displayName = name === packetName ? name : `${name} (${packetName})`
+      console.log('packet', displayName, fullOrListener ? args : args[0])
+    }
+
+  // Pre-compile regex if using wildcards
+  const pattern = typeof packetName === 'string' && packetName.includes('*')
+    ? new RegExp('^' + packetName.replaceAll('*', '.*') + '$')
+    : null
+
+  const packetNameListener = (name, data) => {
+    if (pattern) {
+      if (pattern.test(name)) {
+        listener(name, data)
+      }
+    } else if (name === packetName) {
+      listener(name, data)
+    }
+  }
+  const packetListener = (data, { name }) => {
+    packetNameListener(name, data)
+  }
+
   const attach = () => {
-    bot?._client.on(packetName, listener)
+    if (isFromClient) {
+      bot?._client.prependListener('writePacket', packetNameListener)
+    } else {
+      bot?._client.prependListener('packet_name', packetNameListener)
+      bot?._client.prependListener('packet', packetListener)
+    }
+  }
+  const detach = () => {
+    if (isFromClient) {
+      bot?._client.removeListener('writePacket', packetNameListener)
+    } else {
+      bot?._client.removeListener('packet_name', packetNameListener)
+      bot?._client.removeListener('packet', packetListener)
+    }
   }
   attach()
   customEvents.on('mineflayerBotCreated', attach)
+
   const returnobj = {}
   Object.defineProperty(returnobj, 'detach', {
     get () {
-      bot?.removeListener(packetName, listener)
+      detach()
       customEvents.removeListener('mineflayerBotCreated', attach)
       return true
     },
@@ -53,4 +127,36 @@ window.downloadFile = async (path: string) => {
   a.download = path.split('/').at(-1)!
   a.click()
   URL.revokeObjectURL(url)
+}
+
+Object.defineProperty(window, 'debugToggle', {
+  get () {
+    localStorage.debug = localStorage.debug === '*' ? '' : '*'
+    if (enabled('*')) {
+      disable()
+      return 'disabled debug'
+    } else {
+      enable('*')
+      return 'enabled debug'
+    }
+  },
+  set (v) {
+    enable(v)
+    localStorage.debug = v
+    console.log('Enabled debug for', v)
+  }
+})
+
+customEvents.on('gameLoaded', () => {
+  window.holdingBlock = (viewer.world as WorldRendererThree).holdingBlock
+})
+
+window.clearStorage = (...keysToKeep: string[]) => {
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && !keysToKeep.includes(key)) {
+      localStorage.removeItem(key)
+    }
+  }
+  return `Cleared ${localStorage.length - keysToKeep.length} items from localStorage. Kept: ${keysToKeep.join(', ')}`
 }

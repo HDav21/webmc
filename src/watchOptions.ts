@@ -1,11 +1,12 @@
 // not all options are watched here
 
 import { subscribeKey } from 'valtio/utils'
-import { WorldRendererThree } from 'prismarine-viewer/viewer/lib/worldrendererThree'
-import { isMobile } from 'prismarine-viewer/viewer/lib/simpleUtils'
+import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
+import { isMobile } from 'renderer/viewer/lib/simpleUtils'
 import { options, watchValue } from './optionsStorage'
 import { reloadChunks } from './utils'
 import { miscUiState } from './globalState'
+import { toggleStatsVisibility } from './topRightStats'
 
 subscribeKey(options, 'renderDistance', reloadChunks)
 subscribeKey(options, 'multiplayerRenderDistance', reloadChunks)
@@ -44,8 +45,28 @@ export const watchOptionsAfterViewerInit = () => {
     viewer.entities.setRendering(o.renderEntities)
   })
 
-  // viewer.world.mesherConfig.smoothLighting = options.smoothLighting
-  viewer.world.mesherConfig.smoothLighting = false // todo not supported for now
+  if (options.renderDebug === 'none') {
+    toggleStatsVisibility(false)
+  }
+  subscribeKey(options, 'renderDebug', () => {
+    if (options.renderDebug === 'none') {
+      toggleStatsVisibility(false)
+    } else {
+      toggleStatsVisibility(true)
+    }
+  })
+  watchValue(options, o => {
+    viewer.world.displayStats = o.renderDebug === 'advanced'
+  })
+  watchValue(options, (o, isChanged) => {
+    viewer.world.mesherConfig.clipWorldBelowY = o.clipWorldBelowY
+    viewer.world.mesherConfig.disableSignsMapsSupport = o.disableSignsMapsSupport
+    if (isChanged) {
+      (viewer.world as WorldRendererThree).rerenderAllChunks()
+    }
+  })
+
+  viewer.world.mesherConfig.smoothLighting = options.smoothLighting
   subscribeKey(options, 'smoothLighting', () => {
     viewer.world.mesherConfig.smoothLighting = options.smoothLighting;
     (viewer.world as WorldRendererThree).rerenderAllChunks()
@@ -75,6 +96,8 @@ export const watchOptionsAfterWorldViewInit = () => {
   watchValue(options, o => {
     if (!worldView) return
     worldView.keepChunksDistance = o.keepChunksDistance
-    worldView.handDisplay = o.handDisplay
+    viewer.world.config.renderEars = o.renderEars
+    viewer.world.config.showHand = o.showHand
+    viewer.world.config.viewBobbing = o.viewBobbing
   })
 }

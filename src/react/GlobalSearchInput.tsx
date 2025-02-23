@@ -13,11 +13,11 @@ function InnerSearch () {
     margin: 'auto',
     zIndex: 11,
     width: 'min-content',
+    transform: 'scale(1.5)'
   }}
   >
     <Input
       autoFocus={currentTouch === false}
-      width={50}
       placeholder='Search...'
       onChange={({ target: { value } }) => {
         customEvents.emit('search', value)

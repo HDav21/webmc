@@ -3,7 +3,7 @@ import fs from 'fs'
 import { useEffect } from 'react'
 import { subscribe, useSnapshot } from 'valtio'
 import { usedServerPathsV1 } from 'flying-squid/dist/lib/modules/world'
-import { openURL } from 'prismarine-viewer/viewer/lib/simpleUtils'
+import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { Vec3 } from 'vec3'
 import { generateSpiralMatrix } from 'flying-squid/dist/utils'
 import { subscribeKey } from 'valtio/utils'
@@ -12,13 +12,16 @@ import {
   showModal,
   hideModal,
   miscUiState,
-  openOptionsMenu
+  openOptionsMenu,
+  gameAdditionalState
 } from '../globalState'
 import { fsState } from '../loadSave'
 import { disconnect } from '../flyingSquidUtils'
-import { pointerLock, setLoadingScreenStatus } from '../utils'
+import { pointerLock } from '../utils'
+import { setLoadingScreenStatus } from '../appStatus'
 import { closeWan, openToWanAndCopyJoinLink, getJoinLink } from '../localServerMultiplayer'
 import { collectFilesToCopy, fileExistsAsyncOptimized, mkdirRecursive, uniqueFileNameFromWorldName } from '../browserfs'
+import { appQueryParams } from '../appParams'
 import { useIsModalActive } from './utilsApp'
 import { showOptionsModal } from './SelectOption'
 import Button from './Button'
@@ -26,7 +29,8 @@ import Screen from './Screen'
 import styles from './PauseScreen.module.css'
 import { DiscordButton } from './DiscordButton'
 import { showNotification } from './NotificationProvider'
-import { appStatusState } from './AppStatusProvider'
+import { appStatusState, reconnectReload } from './AppStatusProvider'
+import NetworkStatus from './NetworkStatus'
 
 const waitForPotentialRender = async () => {
   return new Promise<void>(resolve => {
@@ -86,7 +90,7 @@ export const saveToBrowserMemory = async () => {
           const srcPath = join(worldFolder, copyPath)
           const savePath = join(saveRootPath, copyPath)
           await mkdirRecursive(savePath)
-          await fs.promises.writeFile(savePath, await fs.promises.readFile(srcPath))
+          await fs.promises.writeFile(savePath, await fs.promises.readFile(srcPath) as any)
           upProgress(totalSIze)
           if (isRegionFiles) {
             const regionFile = copyPath.split('/').at(-1)!
@@ -146,12 +150,12 @@ const splitByCopySize = (files: string[], copySize = 15) => {
 }
 
 export default () => {
-  const qsParams = new URLSearchParams(window.location.search)
-  const lockConnect = qsParams?.get('lockConnect') === 'true'
+  const lockConnect = appQueryParams.lockConnect === 'true'
   const isModalActive = useIsModalActive('pause-screen')
   const fsStateSnap = useSnapshot(fsState)
   const activeModalStackSnap = useSnapshot(activeModalStack)
-  const { singleplayer, wanOpened } = useSnapshot(miscUiState)
+  const { singleplayer, wanOpened, wanOpening } = useSnapshot(miscUiState)
+  const { noConnection } = useSnapshot(gameAdditionalState)
 
   const handlePointerLockChange = () => {
     if (!pointerLock.hasPointerLock && activeModalStack.length === 0) {
@@ -188,7 +192,10 @@ export default () => {
       return
     }
     if (!wanOpened || !qr) {
-      await openToWanAndCopyJoinLink(() => { }, !qr)
+      await openToWanAndCopyJoinLink((err) => {
+        if (!miscUiState.wanOpening) return
+        alert(`Something went wrong: ${err}`)
+      }, !qr)
     }
     if (qr) {
       const joinLink = getJoinLink()
@@ -220,6 +227,9 @@ export default () => {
       style={{ position: 'fixed', top: '5px', left: 'calc(env(safe-area-inset-left) + 5px)' }}
       onClick={async () => openWorldActions()}
     />
+    <div style={{ position: 'fixed', top: '5px', left: 'calc(env(safe-area-inset-left) + 35px)' }}>
+      <NetworkStatus />
+    </div>
     <div className={styles.pause_container}>
       <Button className="button" style={{ width: '204px' }} onClick={onReturnPress}>Back to Game</Button>
       <div className={styles.row}>
@@ -230,10 +240,11 @@ export default () => {
       {singleplayer ? (
         <div className={styles.row}>
           <Button className="button" style={{ width: '170px' }} onClick={async () => clickJoinLinkButton()}>
-            {wanOpened ? 'Close Wan' : 'Copy Join Link'}
+            {wanOpening ? 'Opening, wait...' : wanOpened ? 'Close Wan' : 'Copy Join Link'}
           </Button>
           {(navigator.share as typeof navigator.share | undefined) ? (
             <Button
+              title="Share Join Link"
               className="button"
               icon="pixelarticons:arrow-up"
               style={{ width: '20px' }}
@@ -241,6 +252,7 @@ export default () => {
             />
           ) : null}
           <Button
+            title='Display QR for the Join Link'
             className="button"
             icon="pixelarticons:dice"
             style={{ width: '20px' }}
@@ -253,6 +265,11 @@ export default () => {
           {localServer && !fsState.syncFs && !fsState.isReadonly ? 'Save & Quit' : 'Disconnect & Reset'}
         </Button>
       </>}
+      {noConnection && (
+        <Button className="button" style={{ width: '204px' }} onClick={reconnectReload}>
+          Reconnect
+        </Button>
+      )}
     </div>
   </Screen>
 }

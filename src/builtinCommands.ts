@@ -5,7 +5,8 @@ import { readLevelDat } from './loadSave'
 import { closeWan, openToWanAndCopyJoinLink } from './localServerMultiplayer'
 import { copyFilesAsync, uniqueFileNameFromWorldName } from './browserfs'
 import { saveServer } from './flyingSquidUtils'
-import { setLoadingScreenStatus } from './utils'
+import { setLoadingScreenStatus } from './appStatus'
+import { displayClientChat } from './botUtils'
 
 const notImplemented = () => {
   return 'Not implemented yet'
@@ -75,14 +76,12 @@ const exportLoadedWorld = async () => {
 window.exportWorld = exportLoadedWorld
 
 const writeText = (text) => {
-  bot._client.emit('chat', {
-    message: JSON.stringify({ text })
-  })
+  displayClientChat(text)
 }
 
 const commands: Array<{
   command: string[],
-  invoke (): Promise<void> | void
+  invoke (args: string[]): Promise<void> | void
   //@ts-format-ignore-region
 }> = [
   {
@@ -109,18 +108,38 @@ const commands: Array<{
       await saveServer(false)
       writeText('Saved to browser memory')
     }
+  },
+  {
+    command: ['/pos'],
+    async invoke ([type]) {
+      let pos: { x: number, y: number, z: number } | undefined
+      if (type === 'block') {
+        const blockPos = window.cursorBlockRel()?.position
+        if (blockPos) {
+          pos = { x: blockPos.x, y: blockPos.y, z: blockPos.z }
+        }
+      } else {
+        const playerPos = bot.entity.position
+        pos = { x: playerPos.x, y: playerPos.y, z: playerPos.z }
+      }
+      if (!pos) return
+      const formatted = `${pos.x.toFixed(2)} ${pos.y.toFixed(2)} ${pos.z.toFixed(2)}`
+      await navigator.clipboard.writeText(formatted)
+      writeText(`Copied position to clipboard: ${formatted}`)
+    }
   }
 ]
 //@ts-format-ignore-endregion
 
 export const getBuiltinCommandsList = () => commands.flatMap(command => command.command)
 
-export const tryHandleBuiltinCommand = (message) => {
+export const tryHandleBuiltinCommand = (message: string) => {
   if (!localServer) return
+  const [userCommand, ...args] = message.split(' ')
 
   for (const command of commands) {
-    if (command.command.includes(message)) {
-      void command.invoke() // ignoring for now
+    if (command.command.includes(userCommand)) {
+      void command.invoke(args) // ignoring for now
       return true
     }
   }

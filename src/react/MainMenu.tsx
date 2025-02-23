@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react'
-import { openURL } from 'prismarine-viewer/viewer/lib/simpleUtils'
+import React from 'react'
+import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { haveDirectoryPicker } from '../utils'
-import { activeModalStack } from '../globalState'
+import { ConnectOptions } from '../connect'
 import styles from './mainMenu.module.css'
 import Button from './Button'
 import ButtonWithTooltip from './ButtonWithTooltip'
 import { pixelartIcons } from './PixelartIcon'
+import useLongPress from './useLongPress'
 
 type Action = (e: React.MouseEvent<HTMLButtonElement>) => void
 
@@ -19,8 +20,10 @@ interface Props {
   mapsProvider?: string
   versionStatus?: string
   versionTitle?: string
-  onVersionClick?: () => void
+  onVersionStatusClick?: () => void
   bottomRightLinks?: string
+  versionText?: string
+  onVersionTextClick?: () => void
 }
 
 const httpsRegex = /^https?:\/\//
@@ -33,9 +36,11 @@ export default ({
   githubAction,
   linksButton,
   openFileAction,
+  versionText,
+  onVersionTextClick,
   versionStatus,
   versionTitle,
-  onVersionClick,
+  onVersionStatusClick,
   bottomRightLinks
 }: Props) => {
   if (!bottomRightLinks?.trim()) bottomRightLinks = undefined
@@ -44,6 +49,38 @@ export default ({
     const parts = l.split(':')
     return [parts[0], parts.slice(1).join(':')]
   }) as Array<[string, string]> | undefined
+
+  const singleplayerLongPress = useLongPress(
+    () => {
+      window.location.href = window.location.pathname + '?sp=1'
+    },
+    () => singleplayerAction?.(null as any),
+    { delay: 500 }
+  )
+
+  const versionLongPress = useLongPress(
+    () => {
+      const buildDate = process.env.BUILD_VERSION ? new Date(process.env.BUILD_VERSION) : null
+      alert(`BUILD INFO:\n${buildDate?.toLocaleString() || 'Development build'}`)
+    },
+    () => onVersionTextClick?.(),
+  )
+
+  const connectToServerLongPress = useLongPress(
+    () => {
+      if (process.env.NODE_ENV === 'development') {
+      // Connect to <origin>:25565
+        const origin = window.location.hostname
+        const connectOptions: ConnectOptions = {
+          server: `${origin}:25565`,
+          username: 'test',
+        }
+        dispatchEvent(new CustomEvent('connect', { detail: connectOptions }))
+      }
+    },
+    () => connectToServerAction?.(null as any),
+    { delay: 500 }
+  )
 
   return (
     <div className={styles.root}>
@@ -60,15 +97,15 @@ export default ({
             content: 'Connect to Java servers!',
             placement: 'top',
           }}
-          onClick={connectToServerAction}
+          {...connectToServerLongPress}
           data-test-id='servers-screen-button'
         >
           Connect to server
         </ButtonWithTooltip>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <ButtonWithTooltip
-            style={{ width: 170 }}
-            onClick={singleplayerAction}
+            style={{ width: 150 }}
+            {...singleplayerLongPress}
             data-test-id='singleplayer-button'
             initialTooltip={{
               content: 'Create worlds and play offline',
@@ -78,6 +115,14 @@ export default ({
           >
             Singleplayer
           </ButtonWithTooltip>
+
+          <ButtonWithTooltip
+            disabled={!mapsProvider}
+            // className={styles['maps-provider']}
+            icon={pixelartIcons.map}
+            initialTooltip={{ content: 'Explore maps to play from provider!', placement: 'top-start' }}
+            onClick={() => mapsProvider && openURL(httpsRegex.test(mapsProvider) ? mapsProvider : 'https://' + mapsProvider, false)}
+          />
 
           <ButtonWithTooltip
             data-test-id='select-file-folder'
@@ -109,13 +154,16 @@ export default ({
       </div>
 
       <div className={styles['bottom-info']}>
-        <span
-          title={`${versionTitle} (click to reload)`}
-          onClick={onVersionClick}
-          className={styles['product-info']}
-        >
-          Prismarine Web Client {versionStatus}
-        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontSize: 10, color: 'gray' }} {...versionLongPress}>{versionText}</span>
+          <span
+            title={`${versionTitle} (click to reload)`}
+            onClick={onVersionStatusClick}
+            className={styles['product-info']}
+          >
+            Prismarine Web Client {versionStatus}
+          </span>
+        </div>
         <span className={styles['product-description']}>
           <div className={styles['product-link']}>
             {linksParsed?.map(([name, link], i, arr) => {
@@ -138,14 +186,6 @@ export default ({
           <span>A Minecraft client in the browser!</span>
         </span>
       </div>
-
-      {mapsProvider &&
-        <ButtonWithTooltip
-          className={styles['maps-provider']}
-          icon={pixelartIcons.map}
-          initialTooltip={{ content: 'Explore maps to play from provider!', placement: 'right' }}
-          onClick={() => openURL(httpsRegex.test(mapsProvider) ? mapsProvider : 'https://' + mapsProvider, false)}
-        />}
     </div>
   )
 }

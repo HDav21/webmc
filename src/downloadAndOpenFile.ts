@@ -1,18 +1,18 @@
 import prettyBytes from 'pretty-bytes'
 import { openWorldFromHttpDir, openWorldZip } from './browserfs'
-import { getResourcePackNames, installTexturePack, resourcePackState, updateTexturePackInstalledState } from './resourcePack'
-import { setLoadingScreenStatus } from './utils'
+import { getResourcePackNames, installResourcepackPack, resourcePackState, updateTexturePackInstalledState } from './resourcePack'
+import { setLoadingScreenStatus } from './appStatus'
+import { appQueryParams, appQueryParamsArray } from './appParams'
 
 export const getFixedFilesize = (bytes: number) => {
   return prettyBytes(bytes, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 const inner = async () => {
-  const qs = new URLSearchParams(window.location.search)
-  const mapUrlDir = qs.get('mapDir')
-  const mapUrlDirGuess = qs.get('mapDirGuess')
-  const mapUrlDirBaseUrl = qs.get('mapDirBaseUrl')
-  if (mapUrlDir) {
+  const mapUrlDir = appQueryParamsArray.mapDir ?? []
+  const mapUrlDirGuess = appQueryParams.mapDirGuess
+  const mapUrlDirBaseUrl = appQueryParams.mapDirBaseUrl
+  if (mapUrlDir.length) {
     await openWorldFromHttpDir(mapUrlDir, mapUrlDirBaseUrl ?? undefined)
     return true
   }
@@ -20,8 +20,8 @@ const inner = async () => {
     // await openWorldFromHttpDir(undefined, mapUrlDirGuess)
     return true
   }
-  let mapUrl = qs.get('map')
-  const texturepack = qs.get('texturepack')
+  let mapUrl = appQueryParams.map
+  const { texturepack } = appQueryParams
   // fixme
   if (texturepack) mapUrl = texturepack
   if (!mapUrl) return false
@@ -74,7 +74,7 @@ const inner = async () => {
   })).arrayBuffer()
   if (texturepack) {
     const name = mapUrl.slice(mapUrl.lastIndexOf('/') + 1).slice(-30)
-    await installTexturePack(buffer, name)
+    await installResourcepackPack(buffer, name)
   } else {
     await openWorldZip(buffer)
   }

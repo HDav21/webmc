@@ -39,7 +39,7 @@ fs.promises.readdir(path.resolve(__dirname, '../src/react')).then(async (files) 
     version = version.replace(/^v/, '')
     packageJson.version = version
 
-    const externalize = ['prismarine-viewer', 'mc-assets']
+    const externalize = ['renderer', 'mc-assets']
     const { metafile } = await build({
         entryPoints: [path.resolve(__dirname, '../src/react/npmReactComponents.ts')],
         bundle: true,
@@ -148,6 +148,13 @@ fs.promises.readdir(path.resolve(__dirname, '../src/react')).then(async (files) 
     fs.copyFileSync(path.resolve(__dirname, '../README.NPM.MD'), path.resolve(__dirname, '../dist-npm/README.md'))
 
     if (version !== '0.0.0-dev') {
-        execSync('npm publish', { cwd: path.resolve(__dirname, '../dist-npm') })
+        execSync('npm publish', {
+            cwd: path.resolve(__dirname, '../dist-npm'),
+            env: {
+                ...process.env,
+                NPM_TOKEN: process.env.NPM_TOKEN,
+                NODE_AUTH_TOKEN: process.env.NPM_TOKEN
+            }
+        })
     }
 })

@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { Transition } from 'react-transition-group'
 import { createPortal } from 'react-dom'
 import { subscribe, useSnapshot } from 'valtio'
-import { allImagesLoadedState, getItemNameRaw, openItemsCanvas, openPlayerInventory, upInventoryItems } from '../inventoryWindows'
+import { allImagesLoadedState, openItemsCanvas, openPlayerInventory, upInventoryItems } from '../inventoryWindows'
 import { activeModalStack, isGameActive, miscUiState } from '../globalState'
 import { currentScaling } from '../scaleInterface'
 import { watchUnloadForCleanup } from '../gameUnload'
+import { getItemNameRaw } from '../mineflayer/items'
 import MessageFormattedString from './MessageFormattedString'
 import SharedHudVars from './SharedHudVars'
 
@@ -37,20 +38,16 @@ const ItemName = ({ itemKey }: { itemKey: string }) => {
   }
 
   useEffect(() => {
-    const itemData = itemKey.split('_split_')
-    if (!itemKey) {
-      setItemName('')
-    } else if (itemData[3]) {
-      const customDisplay = getItemNameRaw({
-        nbt: JSON.parse(itemData[3])
-      })
+    const item = bot.heldItem
+    if (item) {
+      const customDisplay = getItemNameRaw(item)
       if (customDisplay) {
         setItemName(customDisplay)
       } else {
-        setItemName(itemData[0])
+        setItemName(item.displayName)
       }
     } else {
-      setItemName(itemData[0])
+      setItemName('')
     }
     setShow(true)
     const id = setTimeout(() => {
@@ -73,7 +70,7 @@ const ItemName = ({ itemKey }: { itemKey: string }) => {
   </Transition>
 }
 
-export default () => {
+const HotbarInner = () => {
   const container = useRef<HTMLDivElement>(null!)
   const [itemKey, setItemKey] = useState('')
   const hasModals = useSnapshot(activeModalStack).length
@@ -144,7 +141,7 @@ export default () => {
       }
       const item = bot.inventory.slots[bot.quickBarSlot + 36]!
       const itemNbt = item.nbt ? JSON.stringify(item.nbt) : ''
-      setItemKey(`${item.displayName}_split_${item.type}_split_${item.metadata}_split_${itemNbt}`)
+      setItemKey(`${item.name}_split_${item.type}_split_${item.metadata}_split_${itemNbt}_split_${JSON.stringify(item['components'] ?? [])}`)
     }
     heldItemChanged()
     bot.on('heldItemChanged' as any, heldItemChanged)
@@ -219,6 +216,17 @@ export default () => {
       />
     </Portal>
   </SharedHudVars>
+}
+
+export default () => {
+  const [gameMode, setGameMode] = useState(bot.game?.gameMode ?? 'creative')
+  useEffect(() => {
+    bot.on('game', () => {
+      setGameMode(bot.game.gameMode)
+    })
+  }, [])
+
+  return gameMode === 'spectator' ? null : <HotbarInner />
 }
 
 const Portal = ({ children, to = document.body }) => {

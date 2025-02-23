@@ -4,21 +4,22 @@ import { showInventory } from 'minecraft-inventory-gui/web/ext.mjs'
 // import Dirt from 'mc-assets/dist/other-textures/latest/blocks/dirt.png'
 import { RecipeItem } from 'minecraft-data'
 import { flat, fromFormattedString } from '@xmcl/text-component'
-import mojangson from 'mojangson'
-import nbt from 'prismarine-nbt'
 import { splitEvery, equals } from 'rambda'
 import PItem, { Item } from 'prismarine-item'
-import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
-import { versionToNumber } from 'prismarine-viewer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/prepare/utils'
 import { getRenamedData } from 'flying-squid/dist/blockRenames'
+import PrismarineChatLoader from 'prismarine-chat'
+import { BlockModel } from 'mc-assets'
 import Generic95 from '../assets/generic_95.png'
 import { appReplacableResources } from './generated/resources'
 import { activeModalStack, hideCurrentModal, hideModal, miscUiState, showModal } from './globalState'
 import { options } from './optionsStorage'
 import { assertDefined, inGameError } from './utils'
-import { MessageFormatPart } from './botUtils'
+import { displayClientChat } from './botUtils'
 import { currentScaling } from './scaleInterface'
 import { getItemDescription } from './itemsDescriptions'
+import { MessageFormatPart } from './chatUtils'
+import { GeneralInputItem, getItemMetadata, getItemNameRaw, RenderItem } from './mineflayer/items'
 
 const loadedImagesCache = new Map<string, HTMLImageElement>()
 const cleanLoadedImagesCache = () => {
@@ -34,44 +35,55 @@ export const allImagesLoadedState = proxy({
   value: false
 })
 
-let itemsRenderer: ItemsRenderer
 export const onGameLoad = (onLoad) => {
   allImagesLoadedState.value = false
   version = bot.version
 
   const checkIfLoaded = () => {
     if (!viewer.world.itemsAtlasParser) return
-    itemsRenderer = new ItemsRenderer(bot.version, viewer.world.blockstatesModels, viewer.world.itemsAtlasParser, viewer.world.blocksAtlasParser)
-    globalThis.itemsRenderer = itemsRenderer
-    if (allImagesLoadedState.value) return
-    onLoad?.()
-    allImagesLoadedState.value = true
+    if (!allImagesLoadedState.value) {
+      onLoad?.()
+    }
+    allImagesLoadedState.value = false
+    setTimeout(() => {
+      allImagesLoadedState.value = true
+    }, 0)
   }
   viewer.world.renderUpdateEmitter.on('textureDownloaded', checkIfLoaded)
   checkIfLoaded()
 
   PrismarineItem = PItem(version)
 
+  const mapWindowType = (type: string, inventoryStart: number) => {
+    if (type === 'minecraft:container') {
+      if (inventoryStart === 45 - 9 * 4) return 'minecraft:generic_9x1'
+      if (inventoryStart === 45 - 9 * 3) return 'minecraft:generic_9x2'
+      if (inventoryStart === 45 - 9 * 2) return 'minecraft:generic_9x3'
+      if (inventoryStart === 45 - 9) return 'minecraft:generic_9x4'
+      if (inventoryStart === 45) return 'minecraft:generic_9x5'
+      if (inventoryStart === 45 + 9) return 'minecraft:generic_9x6'
+    }
+    return type
+  }
+
   bot.on('windowOpen', (win) => {
-    if (implementedContainersGuiMap[win.type]) {
-      openWindow(implementedContainersGuiMap[win.type])
+    const implementedWindow = implementedContainersGuiMap[mapWindowType(win.type as string, win.inventoryStart)]
+    if (implementedWindow) {
+      openWindow(implementedWindow)
     } else if (options.unimplementedContainers) {
       openWindow('ChestWin')
     } else {
       // todo format
-      bot._client.emit('chat', {
-        message: JSON.stringify({
-          text: `[client error] cannot open unimplemented window ${win.id} (${win.type}). Slots: ${win.slots.map(item => getItemName(item)).filter(Boolean).join(', ')}`
-        })
-      })
+      displayClientChat(`[client error] cannot open unimplemented window ${win.id} (${win.type}). Slots: ${win.slots.map(item => getItemName(item)).filter(Boolean).join(', ')}`)
       bot.currentWindow?.['close']()
     }
   })
 
   // workaround: singleplayer player inventory crafting
+  let skipUpdate = false
   bot.inventory.on('updateSlot', ((_oldSlot, oldItem, newItem) => {
     const currentSlot = _oldSlot as number
-    if (!miscUiState.singleplayer) return
+    if (!miscUiState.singleplayer || oldItem === newItem || skipUpdate) return
     const { craftingResultSlot } = bot.inventory
     if (currentSlot === craftingResultSlot && oldItem && !newItem) {
       for (let i = 1; i < 5; i++) {
@@ -90,7 +102,10 @@ export const onGameLoad = (onLoad) => {
     const craftingSlots = bot.inventory.slots.slice(1, 5)
     try {
       const resultingItem = getResultingRecipe(craftingSlots, 2)
-      void bot.creative.setInventorySlot(craftingResultSlot, resultingItem ?? null)
+      skipUpdate = true
+      void bot.creative.setInventorySlot(craftingResultSlot, resultingItem ?? null).then(() => {
+        skipUpdate = false
+      })
     } catch (err) {
       console.error(err)
       // todo resolve the error! and why would we ever get here on every update?
@@ -159,23 +174,34 @@ const getImage = ({ path = undefined as string | undefined, texture = undefined 
   return loadedImagesCache.get(loadPath)
 }
 
-type RenderSlot = Pick<import('prismarine-item').Item, 'name' | 'displayName' | 'durabilityUsed' | 'maxDurability' | 'enchants'>
-const renderSlot = (slot: RenderSlot, skipBlock = false): {
+export const renderSlot = (slot: GeneralInputItem, debugIsQuickbar = false, fullBlockModelSupport = false): {
   texture: string,
-  blockData?: Record<string, { slice, path }>,
+  blockData?: Record<string, { slice, path }> & { resolvedModel: BlockModel },
   scale?: number,
-  slice?: number[]
+  slice?: number[],
+  modelName?: string
 } | undefined => {
-  let itemName = slot.name
-  const isItem = loadedData.itemsByName[itemName]
+  let itemModelName = slot.name
+  const originalItemName = itemModelName
+  const isItem = loadedData.itemsByName[itemModelName]
+
+  // #region normalize item name
+  if (versionToNumber(bot.version) < versionToNumber('1.13')) itemModelName = getRenamedData(isItem ? 'items' : 'blocks', itemModelName, bot.version, '1.13.1') as string
+  // #endregion
+
+
+  const { customModel } = getItemMetadata(slot)
+  if (customModel) {
+    itemModelName = customModel
+  }
 
   let itemTexture
   try {
-    if (versionToNumber(bot.version) < versionToNumber('1.13')) itemName = getRenamedData(isItem ? 'items' : 'blocks', itemName, bot.version, '1.13.1') as string
-    itemTexture = itemsRenderer.getItemTexture(itemName) ?? itemsRenderer.getItemTexture('item/missing_texture')!
+    assertDefined(viewer.world.itemsRenderer)
+    itemTexture = viewer.world.itemsRenderer.getItemTexture(itemModelName, {}, false, fullBlockModelSupport) ?? viewer.world.itemsRenderer.getItemTexture('item/missing_texture')!
   } catch (err) {
-    itemTexture = itemsRenderer.getItemTexture('block/errored')!
-    inGameError(`Failed to render item ${itemName} on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.message}`)
+    inGameError(`Failed to render item ${itemModelName} (original: ${originalItemName}) on ${bot.version} (resourcepack: ${options.enabledResourcepack}): ${err.stack}`)
+    itemTexture = viewer.world.itemsRenderer!.getItemTexture('block/errored')!
   }
   if ('type' in itemTexture) {
     // is item
@@ -187,36 +213,13 @@ const renderSlot = (slot: RenderSlot, skipBlock = false): {
     // is block
     return {
       texture: 'blocks',
-      blockData: itemTexture
+      blockData: itemTexture,
+      modelName: itemModelName
     }
   }
 }
 
-type JsonString = string
-type PossibleItemProps = {
-  Damage?: number
-  display?: { Name?: JsonString } // {"text":"Knife","color":"white","italic":"true"}
-}
-export const getItemNameRaw = (item: Pick<import('prismarine-item').Item, 'nbt'> | null) => {
-  if (!item?.nbt) return
-  const itemNbt: PossibleItemProps = nbt.simplify(item.nbt)
-  const customName = itemNbt.display?.Name
-  if (!customName) return
-  try {
-    const parsed = mojangson.simplify(mojangson.parse(customName))
-    if (parsed.extra) {
-      return parsed as Record<string, any>
-    } else {
-      return parsed as MessageFormatPart
-    }
-  } catch (err) {
-    return {
-      text: customName
-    }
-  }
-}
-
-const getItemName = (slot: Item | null) => {
+const getItemName = (slot: Item | RenderItem | null) => {
   const parsed = getItemNameRaw(slot)
   if (!parsed) return
   // todo display full text renderer from sign renderer
@@ -225,7 +228,7 @@ const getItemName = (slot: Item | null) => {
 }
 
 export const renderSlotExternal = (slot) => {
-  const data = renderSlot(slot, true)
+  const data = renderSlot(slot)
   if (!data) return
   return {
     imageDataUrl: data.texture === 'invsprite' ? undefined : getImage({ path: data.texture })?.src,
@@ -234,14 +237,15 @@ export const renderSlotExternal = (slot) => {
   }
 }
 
-const mapSlots = (slots: Array<RenderSlot | Item | null>) => {
-  return slots.map(slot => {
+const mapSlots = (slots: Array<RenderItem | Item | null>) => {
+  return slots.map((slot, i) => {
     // todo stateid
     if (!slot) return
 
     try {
-      const slotCustomProps = renderSlot(slot)
-      Object.assign(slot, { ...slotCustomProps, displayName: ('nbt' in slot ? getItemName(slot) : undefined) ?? slot.displayName })
+      const slotCustomProps = renderSlot(slot, i === bot.inventory.hotbarStart + bot.quickBarSlot)
+      const itemCustomName = getItemName(slot)
+      Object.assign(slot, { ...slotCustomProps, displayName: itemCustomName ?? slot.displayName })
       //@ts-expect-error
       slot.toJSON = () => {
         // Allow to serialize slot to JSON as minecraft-inventory-gui creates icon property as cache (recursively)
@@ -288,6 +292,7 @@ const implementedContainersGuiMap = {
   'minecraft:furnace': 'FurnaceWin',
   'minecraft:smoker': 'FurnaceWin',
   'minecraft:crafting': 'CraftingWin',
+  'minecraft:crafting3x3': 'CraftingWin', // todo different result slot
   'minecraft:anvil': 'AnvilWin',
   // enchant
   'minecraft:enchanting_table': 'EnchantingWin',
@@ -365,7 +370,18 @@ const openWindow = (type: string | undefined) => {
   cleanLoadedImagesCache()
   const inv = openItemsCanvas(type)
   inv.canvasManager.children[0].mobileHelpers = miscUiState.currentTouch
-  inv.canvasManager.children[0].customTitleText = bot.currentWindow?.title ? fromFormattedString(bot.currentWindow.title).text : undefined
+  const title = bot.currentWindow?.title
+  const PrismarineChat = PrismarineChatLoader(bot.version)
+  try {
+    inv.canvasManager.children[0].customTitleText = title ?
+      typeof title === 'string' ?
+        fromFormattedString(title).text :
+        new PrismarineChat(title).toString() :
+      undefined
+  } catch (err) {
+    reportError?.(err)
+    inv.canvasManager.children[0].customTitleText = undefined
+  }
   // todo
   inv.canvasManager.setScale(currentScaling.scale === 1 ? 1.5 : currentScaling.scale)
   inv.canvas.style.zIndex = '10'

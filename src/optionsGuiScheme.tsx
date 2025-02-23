@@ -1,19 +1,20 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useSnapshot } from 'valtio'
-import { openURL } from 'prismarine-viewer/viewer/lib/simpleUtils'
+import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { noCase } from 'change-case'
-import { titleCase } from 'title-case'
-import { loadedGameState, miscUiState, openOptionsMenu, showModal } from './globalState'
+import { gameAdditionalState, miscUiState, openOptionsMenu, showModal } from './globalState'
 import { AppOptions, options } from './optionsStorage'
 import Button from './react/Button'
 import { OptionMeta, OptionSlider } from './react/OptionsItems'
 import Slider from './react/Slider'
-import { getScreenRefreshRate, setLoadingScreenStatus } from './utils'
+import { getScreenRefreshRate } from './utils'
+import { setLoadingScreenStatus } from './appStatus'
 import { openFilePicker, resetLocalStorageWithoutWorld } from './browserfs'
-import { completeTexturePackInstall, getResourcePackNames, resourcePackState, uninstallTexturePack } from './resourcePack'
+import { completeTexturePackInstall, getResourcePackNames, resourcePackState, uninstallResourcePack } from './resourcePack'
 import { downloadPacketsReplay, packetsReplaceSessionState } from './packetsReplay'
 import { showOptionsModal } from './react/SelectOption'
-
+import supportedVersions from './supportedVersions.mjs'
+import { getVersionAutoSelect } from './connect'
 
 export const guiOptionsScheme: {
   [t in OptionsGroupType]: Array<{ [K in keyof AppOptions]?: Partial<OptionMeta<AppOptions[K]>> } & { custom? }>
@@ -74,9 +75,9 @@ export const guiOptionsScheme: {
       dayCycleAndLighting: {
         text: 'Day Cycle',
       },
-      // smoothLighting: {},
+      smoothLighting: {},
       newVersionsLighting: {
-        text: 'Lighting in newer versions',
+        text: 'Lighting in Newer Versions',
       },
       lowMemoryMode: {
         text: 'Low Memory Mode',
@@ -90,9 +91,30 @@ export const guiOptionsScheme: {
         unit: '',
         tooltip: 'Additional distance to keep the chunks loading before unloading them by marking them as too far',
       },
-      handDisplay: {},
-      neighborChunkUpdates: {},
+      renderEars: {
+        tooltip: 'Enable rendering Deadmau5 ears for all players if their skin contains textures for it',
+      },
+      renderDebug: {
+        values: [
+          'advanced',
+          'basic',
+          'none'
+        ],
+      },
     },
+    {
+      custom () {
+        return <Category>Resource Packs</Category>
+      },
+      serverResourcePacks: {
+        text: 'Download From Server',
+        values: [
+          'prompt',
+          'always',
+          'never'
+        ],
+      }
+    }
   ],
   main: [
     {
@@ -140,7 +162,7 @@ export const guiOptionsScheme: {
     {
       custom () {
         const { resourcePackInstalled } = useSnapshot(resourcePackState)
-        const { usingServerResourcePack } = useSnapshot(loadedGameState)
+        const { usingServerResourcePack } = useSnapshot(gameAdditionalState)
         const { enabledResourcepack } = useSnapshot(options)
         return <Button
           label={`Resource Pack: ${usingServerResourcePack ? 'SERVER ON' : resourcePackInstalled ? enabledResourcepack ? 'ON' : 'OFF' : 'NO'}`} inScreen onClick={async () => {
@@ -159,13 +181,13 @@ export const guiOptionsScheme: {
               }
               if (choice === 'Enable') {
                 options.enabledResourcepack = name
-                await completeTexturePackInstall(name, name)
+                await completeTexturePackInstall(name, name, false)
                 return
               }
               if (choice === 'Uninstall') {
               // todo make hidable
                 setLoadingScreenStatus('Uninstalling texturepack')
-                await uninstallTexturePack()
+                await uninstallResourcePack()
                 setLoadingScreenStatus(undefined)
               }
             } else {
@@ -218,6 +240,25 @@ export const guiOptionsScheme: {
     },
     {
       custom () {
+        return <Category>World</Category>
+      },
+      highlightBlockColor: {
+        text: 'Block Highlight Color',
+        values: [
+          ['auto', 'Auto'],
+          ['blue', 'Blue'],
+          ['classic', 'Classic']
+        ],
+      },
+      showHand: {
+        text: 'Show Hand',
+      },
+      viewBobbing: {
+        text: 'View Bobbing',
+      },
+    },
+    {
+      custom () {
         return <Category>Sign Editor</Category>
       },
       autoSignEditor: {
@@ -228,6 +269,19 @@ export const guiOptionsScheme: {
         values: [
           'auto',
           'always',
+          'never'
+        ],
+      },
+    },
+    {
+      custom () {
+        return <Category>Map</Category>
+      },
+      showMinimap: {
+        text: 'Enable Minimap',
+        values: [
+          'always',
+          'singleplayer',
           'never'
         ],
       },
@@ -312,33 +366,38 @@ export const guiOptionsScheme: {
       touchButtonsSize: {
         min: 40,
         disableIf: [
-          'touchControlsType',
-          'joystick-buttons'
+          'touchMovementType',
+          'modern'
         ],
       },
       touchButtonsOpacity: {
         min: 10,
         max: 90,
         disableIf: [
-          'touchControlsType',
-          'joystick-buttons'
+          'touchMovementType',
+          'modern'
         ],
       },
       touchButtonsPosition: {
         max: 80,
         disableIf: [
-          'touchControlsType',
-          'joystick-buttons'
+          'touchMovementType',
+          'modern'
         ],
       },
-      touchControlsType: {
-        values: [['classic', 'Classic'], ['joystick-buttons', 'New']],
+      touchMovementType: {
+        text: 'Movement Controls',
+        values: [['modern', 'Modern'], ['classic', 'Classic']],
+      },
+      touchInteractionType: {
+        text: 'Interaction Controls',
+        values: [['classic', 'Classic'], ['buttons', 'Buttons']],
       },
     },
     {
       custom () {
-        const { touchControlsType } = useSnapshot(options)
-        return <Button label='Setup Touch Buttons' onClick={() => showModal({ reactType: 'touch-buttons-setup' })} inScreen disabled={touchControlsType !== 'joystick-buttons'} />
+        const { touchInteractionType, touchMovementType } = useSnapshot(options)
+        return <Button label='Setup Touch Buttons' onClick={() => showModal({ reactType: 'touch-buttons-setup' })} inScreen disabled={touchInteractionType === 'classic' && touchMovementType === 'classic'} />
       },
     },
     {
@@ -368,15 +427,21 @@ export const guiOptionsScheme: {
     }
     // { ignoreSilentSwitch: {} },
   ],
+
   VR: [
     {
       custom () {
-        return <>
-          <span style={{ fontSize: 9, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>VR currently has basic support</span>
-          <div />
-        </>
+        return (
+          <>
+            <span style={{ fontSize: 9, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              VR currently has basic support
+            </span>
+            <div />
+          </>
+        )
       },
-    }
+      vrSupport: {}
+    },
   ],
   advanced: [
     {
@@ -402,21 +467,58 @@ export const guiOptionsScheme: {
           onClick={() => {
             packetsReplaceSessionState.active = !active
           }}
-        >{active ? 'Disable' : 'Enable'} Packets Replay</Button>
+        >{active ? 'Stop' : 'Start'} Packets Replay Logging</Button>
       },
     },
     {
       custom () {
-        const { active } = useSnapshot(packetsReplaceSessionState)
+        const { active, hasRecordedPackets } = useSnapshot(packetsReplaceSessionState)
         return <Button
-          disabled={!active}
+          disabled={!hasRecordedPackets}
           inScreen
           onClick={() => {
             void downloadPacketsReplay()
           }}
         >Download Packets Replay</Button>
       },
-    }
+    },
+    {
+      packetsLoggerPreset: {
+        text: 'Packets Logger Preset',
+        values: [
+          ['all', 'All'],
+          ['no-buffers', 'No Buffers']
+        ],
+      },
+    },
+    {
+      custom () {
+        const { serversAutoVersionSelect } = useSnapshot(options)
+        const allVersions = [...supportedVersions, 'latest', 'auto']
+        const currentIndex = allVersions.indexOf(serversAutoVersionSelect)
+
+        const getDisplayValue = (version: string) => {
+          const versionAutoSelect = getVersionAutoSelect(version)
+          if (version === 'latest') return `latest (${versionAutoSelect})`
+          if (version === 'auto') return `auto (${versionAutoSelect})`
+          return version
+        }
+
+        return <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Slider
+            style={{ width: 150 }}
+            label='Server Version'
+            value={currentIndex}
+            min={0}
+            max={allVersions.length - 1}
+            valueDisplay={getDisplayValue(serversAutoVersionSelect)}
+            updateValue={(newVal) => {
+              options.serversAutoVersionSelect = allVersions[newVal]
+            }}
+          />
+        </div>
+      },
+    },
   ],
 }
 export type OptionsGroupType = 'main' | 'render' | 'interface' | 'controls' | 'sound' | 'advanced' | 'VR'

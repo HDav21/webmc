@@ -7,7 +7,7 @@ import { ControMax } from 'contro-max/build/controMax'
 import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types'
 import { stringStartsWith } from 'contro-max/build/stringUtils'
 import { UserOverrideCommand, UserOverridesConfig } from 'contro-max/build/types/store'
-import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, loadedGameState } from './globalState'
+import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, hideModal, hideAllModals } from './globalState'
 import { goFullscreen, pointerLock, reloadChunks } from './utils'
 import { options } from './optionsStorage'
 import { openPlayerInventory } from './inventoryWindows'
@@ -17,10 +17,12 @@ import { customCommandsConfig } from './customCommands'
 import type { CustomCommand } from './react/KeybindingsCustom'
 import { showOptionsModal } from './react/SelectOption'
 import widgets from './react/widgets'
-import { getItemFromBlock } from './botUtils'
+import { getItemFromBlock } from './chatUtils'
 import { gamepadUiCursorState, moveGamepadCursorByPx } from './react/GamepadUiCursor'
-import { completeTexturePackInstall, resourcePackState } from './resourcePack'
+import { completeTexturePackInstall, copyServerResourcePackToRegular, resourcePackState } from './resourcePack'
 import { showNotification } from './react/NotificationProvider'
+import { lastConnectOptions } from './react/AppStatusProvider'
+import { onCameraMove, onControInit } from './cameraRotationControls'
 
 
 export const customKeymaps = proxy(JSON.parse(localStorage.keymap || '{}')) as UserOverridesConfig
@@ -48,10 +50,18 @@ export const contro = new ControMax({
       chat: [['KeyT', 'Enter']],
       command: ['Slash'],
       swapHands: ['KeyF'],
-      selectItem: ['KeyH'] // default will be removed
+      zoom: ['KeyC'],
+      selectItem: ['KeyH'], // default will be removed
+      rotateCameraLeft: [null],
+      rotateCameraRight: [null],
+      rotateCameraUp: [null],
+      rotateCameraDown: [null],
+      viewerConsole: ['Backquote']
     },
     ui: {
+      toggleFullscreen: ['F11'],
       back: [null/* 'Escape' */, 'B'],
+      toggleMap: ['KeyM'],
       leftClick: [null, 'A'],
       rightClick: [null, 'Y'],
       speedupCursor: [null, 'Left Stick'],
@@ -87,6 +97,8 @@ export const contro = new ControMax({
 })
 window.controMax = contro
 export type Command = CommandEventArgument<typeof contro['_commandsRaw']>['command']
+
+onControInit()
 
 updateBinds(customKeymaps)
 
@@ -155,6 +167,7 @@ let lastCommandTrigger = null as { command: string, time: number } | null
 const secondActionActivationTimeout = 300
 const secondActionCommands = {
   'general.jump' () {
+    // if (bot.game.gameMode === 'spectator') return
     toggleFly()
   },
   'general.forward' () {
@@ -240,6 +253,73 @@ const inModalCommand = (command: Command, pressed: boolean) => {
   }
 }
 
+// Camera rotation controls
+const cameraRotationControls = {
+  activeDirections: new Set<'left' | 'right' | 'up' | 'down'>(),
+  interval: null as ReturnType<typeof setInterval> | null,
+  config: {
+    speed: 1, // movement per interval
+    interval: 5 // ms between movements
+  },
+  movements: {
+    left: { movementX: -0.5, movementY: 0 },
+    right: { movementX: 0.5, movementY: 0 },
+    up: { movementX: 0, movementY: -0.5 },
+    down: { movementX: 0, movementY: 0.5 }
+  },
+  updateMovement () {
+    if (cameraRotationControls.activeDirections.size === 0) {
+      if (cameraRotationControls.interval) {
+        clearInterval(cameraRotationControls.interval)
+        cameraRotationControls.interval = null
+      }
+      return
+    }
+
+    if (!cameraRotationControls.interval) {
+      cameraRotationControls.interval = setInterval(() => {
+        // Combine all active movements
+        const movement = { movementX: 0, movementY: 0 }
+        for (const direction of cameraRotationControls.activeDirections) {
+          movement.movementX += cameraRotationControls.movements[direction].movementX
+          movement.movementY += cameraRotationControls.movements[direction].movementY
+        }
+
+        onCameraMove({
+          ...movement,
+          type: 'keyboardRotation',
+          stopPropagation () {}
+        })
+      }, cameraRotationControls.config.interval)
+    }
+  },
+  start (direction: 'left' | 'right' | 'up' | 'down') {
+    cameraRotationControls.activeDirections.add(direction)
+    cameraRotationControls.updateMovement()
+  },
+  stop (direction: 'left' | 'right' | 'up' | 'down') {
+    cameraRotationControls.activeDirections.delete(direction)
+    cameraRotationControls.updateMovement()
+  },
+  handleCommand (command: string, pressed: boolean) {
+    const directionMap = {
+      'general.rotateCameraLeft': 'left',
+      'general.rotateCameraRight': 'right',
+      'general.rotateCameraUp': 'up',
+      'general.rotateCameraDown': 'down'
+    } as const
+
+    const direction = directionMap[command]
+    if (direction) {
+      if (pressed) cameraRotationControls.start(direction)
+      else cameraRotationControls.stop(direction)
+      return true
+    }
+    return false
+  }
+}
+window.cameraRotationControls = cameraRotationControls
+
 const setSneaking = (state: boolean) => {
   gameAdditionalState.isSneaking = state
   bot.setControlState('sneak', state)
@@ -270,13 +350,21 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
         } else if (pressed) {
           setSneaking(!gameAdditionalState.isSneaking)
         }
-
         break
       case 'general.attackDestroy':
         document.dispatchEvent(new MouseEvent(pressed ? 'mousedown' : 'mouseup', { button: 0 }))
         break
       case 'general.interactPlace':
         document.dispatchEvent(new MouseEvent(pressed ? 'mousedown' : 'mouseup', { button: 2 }))
+        break
+      case 'general.zoom':
+        gameAdditionalState.isZooming = pressed
+        break
+      case 'general.rotateCameraLeft':
+      case 'general.rotateCameraRight':
+      case 'general.rotateCameraUp':
+      case 'general.rotateCameraDown':
+        cameraRotationControls.handleCommand(command, pressed)
         break
     }
   }
@@ -296,22 +384,26 @@ const alwaysPressedHandledCommand = (command: Command) => {
   }
 }
 
-function lockUrl () {
+export function lockUrl () {
   let newQs = ''
   if (fsState.saveLoaded) {
     const save = localServer!.options.worldFolder.split('/').at(-1)
     newQs = `loadSave=${save}`
   } else if (process.env.NODE_ENV === 'development') {
     newQs = `reconnect=1`
-  } else {
+  } else if (lastConnectOptions.value?.server) {
     const qs = new URLSearchParams()
-    const { server, version } = localStorage
-    qs.set('server', server)
-    if (version) qs.set('version', version)
+    const { server, botVersion, proxy, username } = lastConnectOptions.value
+    qs.set('ip', server)
+    if (botVersion) qs.set('version', botVersion)
+    if (proxy) qs.set('proxy', proxy)
+    if (username) qs.set('username', username)
     newQs = String(qs.toString())
   }
 
-  window.history.replaceState({}, '', `${window.location.pathname}?${newQs}`)
+  if (newQs) {
+    window.history.replaceState({}, '', `${window.location.pathname}?${newQs}`)
+  }
 }
 
 function cycleHotbarSlot (dir: 1 | -1) {
@@ -358,6 +450,12 @@ contro.on('trigger', ({ command }) => {
       case 'general.toggleSneakOrDown':
       case 'general.sprint':
       case 'general.attackDestroy':
+      case 'general.rotateCameraLeft':
+      case 'general.rotateCameraRight':
+      case 'general.rotateCameraUp':
+      case 'general.rotateCameraDown':
+        // no-op
+        break
       case 'general.swapHands': {
         bot._client.write('entity_action', {
           entityId: bot.entity.id,
@@ -409,11 +507,35 @@ contro.on('trigger', ({ command }) => {
       case 'general.prevHotbarSlot':
         cycleHotbarSlot(-1)
         break
+      case 'general.zoom':
+        break
+      case 'general.viewerConsole':
+        if (lastConnectOptions.value?.viewerWsConnect) {
+          showModal({ reactType: 'console' })
+        }
+        break
     }
   }
 
   if (command === 'ui.pauseMenu') {
     showModal({ reactType: 'pause-screen' })
+  }
+
+  if (command === 'ui.toggleFullscreen') {
+    void goFullscreen(true)
+  }
+})
+
+// show-hide Fullmap
+contro.on('trigger', ({ command }) => {
+  if (command !== 'ui.toggleMap') return
+  const isActive = isGameActive(true)
+  if (activeModalStack.at(-1)?.reactType === 'full-map') {
+    miscUiState.displayFullmap = false
+    hideModal({ reactType: 'full-map' })
+  } else if (isActive && !activeModalStack.length) {
+    miscUiState.displayFullmap = true
+    showModal({ reactType: 'full-map' })
   }
 })
 
@@ -424,7 +546,12 @@ contro.on('release', ({ command }) => {
 
 // hard-coded keybindings
 
-export const f3Keybinds = [
+export const f3Keybinds: Array<{
+  key?: string,
+  action: () => void,
+  mobileTitle: string
+  enabled?: () => boolean
+}> = [
   {
     key: 'KeyA',
     action () {
@@ -470,9 +597,9 @@ export const f3Keybinds = [
     key: 'KeyT',
     async action () {
       // TODO!
-      if (resourcePackState.resourcePackInstalled || loadedGameState.usingServerResourcePack) {
+      if (resourcePackState.resourcePackInstalled || gameAdditionalState.usingServerResourcePack) {
         showNotification('Reloading textures...')
-        await completeTexturePackInstall('default', 'default')
+        await completeTexturePackInstall('default', 'default', gameAdditionalState.usingServerResourcePack)
       }
     },
     mobileTitle: 'Reload Textures'
@@ -505,6 +632,23 @@ export const f3Keybinds = [
       }
     },
     mobileTitle: 'Cycle Game Mode'
+  },
+  {
+    key: 'KeyP',
+    async action () {
+      const { uuid, ping: playerPing, username } = bot.player
+      const proxyPing = await bot['pingProxy']()
+      void showOptionsModal(`${username}: last known total latency (ping): ${playerPing}. Connected to ${lastConnectOptions.value?.proxy} with current ping ${proxyPing}. Player UUID: ${uuid}`, [])
+    },
+    mobileTitle: 'Show Proxy & Ping Details',
+    enabled: () => !!lastConnectOptions.value?.proxy
+  },
+  {
+    action () {
+      void copyServerResourcePackToRegular()
+    },
+    mobileTitle: 'Copy Server Resource Pack',
+    enabled: () => !!gameAdditionalState.usingServerResourcePack
   }
 ]
 
@@ -513,7 +657,7 @@ document.addEventListener('keydown', (e) => {
   if (!isGameActive(false)) return
   if (hardcodedPressedKeys.has('F3')) {
     const keybind = f3Keybinds.find((v) => v.key === e.code)
-    if (keybind) {
+    if (keybind && (keybind.enabled?.() ?? true)) {
       keybind.action()
       e.stopPropagation()
     }
@@ -600,6 +744,7 @@ const patchedSetControlState = (action, state) => {
 }
 
 const startFlying = (sendAbilities = true) => {
+  bot.entity['creativeFly'] = true
   if (sendAbilities) {
     bot._client.write('abilities', {
       flags: 2,
@@ -613,6 +758,7 @@ const startFlying = (sendAbilities = true) => {
 }
 
 const endFlying = (sendAbilities = true) => {
+  bot.entity['creativeFly'] = false
   if (bot.physics.gravity !== 0) return
   if (sendAbilities) {
     bot._client.write('abilities', {
@@ -632,6 +778,7 @@ const endFlying = (sendAbilities = true) => {
 let allowFlying = false
 
 export const onBotCreate = () => {
+  let wasSpectatorFlying = false
   bot._client.on('abilities', ({ flags }) => {
     if (flags & 2) { // flying
       toggleFly(true, false)
@@ -639,6 +786,21 @@ export const onBotCreate = () => {
       toggleFly(false, false)
     }
     allowFlying = !!(flags & 4)
+  })
+  const gamemodeCheck = () => {
+    if (bot.game.gameMode === 'spectator') {
+      toggleFly(true, false)
+      wasSpectatorFlying = true
+    } else if (wasSpectatorFlying) {
+      toggleFly(false, false)
+      wasSpectatorFlying = false
+    }
+  }
+  bot.on('game', () => {
+    gamemodeCheck()
+  })
+  bot.on('login', () => {
+    gamemodeCheck()
   })
 }
 
@@ -673,6 +835,7 @@ const selectItem = async () => {
 
 addEventListener('mousedown', async (e) => {
   if ((e.target as HTMLElement).matches?.('#VRButton')) return
+  if (gameAdditionalState.viewerConnection && !(e.target as HTMLElement).id.includes('ui-root')) return
   void pointerLock.requestPointerLock()
   if (!bot) return
   // wheel click
@@ -685,11 +848,15 @@ addEventListener('mousedown', async (e) => {
 window.addEventListener('keydown', (e) => {
   if (e.code !== 'Escape') return
   if (activeModalStack.length) {
-    hideCurrentModal(undefined, () => {
-      if (!activeModalStack.length) {
-        pointerLock.justHitEscape = true
-      }
-    })
+    const hideAll = e.ctrlKey || e.metaKey
+    if (hideAll) {
+      hideAllModals()
+    } else {
+      hideCurrentModal()
+    }
+    if (activeModalStack.length === 0) {
+      pointerLock.justHitEscape = true
+    }
   } else if (pointerLock.hasPointerLock) {
     document.exitPointerLock?.()
     if (options.autoExitFullscreen) {
@@ -720,10 +887,6 @@ window.addEventListener('keydown', (e) => {
 
 // #region experimental debug things
 window.addEventListener('keydown', (e) => {
-  if (e.code === 'F11') {
-    e.preventDefault()
-    void goFullscreen(true)
-  }
   if (e.code === 'KeyL' && e.altKey) {
     console.clear()
   }

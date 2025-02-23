@@ -1,104 +1,30 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useUtilsEffect } from '@zardoy/react-util'
+import { useSnapshot } from 'valtio'
 import { ConnectOptions } from '../connect'
-import { hideCurrentModal, miscUiState, showModal } from '../globalState'
+import { activeModalStack, hideCurrentModal, miscUiState, showModal } from '../globalState'
 import supportedVersions from '../supportedVersions.mjs'
+import { appQueryParams } from '../appParams'
+import { fetchServerStatus, isServerValid } from '../api/mcStatusApi'
+import { getServerInfo } from '../mineflayer/mc-protocol'
+import { parseServerAddress } from '../parseServerAddress'
 import ServersList from './ServersList'
 import AddServerOrConnect, { BaseServerInfo } from './AddServerOrConnect'
 import { useDidUpdateEffect } from './utils'
 import { useIsModalActive } from './utilsApp'
 import { showOptionsModal } from './SelectOption'
-
-interface StoreServerItem extends BaseServerInfo {
-  lastJoined?: number
-  description?: string
-  optionsOverride?: Record<string, any>
-  autoLogin?: Record<string, string>
-}
-
-type ServerResponse = {
-  online: boolean
-  version?: {
-    name_raw: string
-  }
-  // display tooltip
-  players?: {
-    online: number
-    max: number
-    list: Array<{
-      name_raw: string
-      name_clean: string
-    }>
-  }
-  icon?: string
-  motd?: {
-    raw: string
-  }
-  // todo circle error icon
-  mods?: Array<{ name, version }>
-  // todo display via hammer icon
-  software?: string
-  plugins?: Array<{ name, version }>
-}
+import { useCopyKeybinding } from './simpleHooks'
+import { AuthenticatedAccount, getInitialServersList, getServerConnectionHistory, setNewServersList, StoreServerItem } from './serversStorage'
 
 type AdditionalDisplayData = {
   formattedText: string
   textNameRight: string
   icon?: string
+  offline?: boolean
 }
 
-export interface AuthenticatedAccount {
-  // type: 'microsoft'
-  username: string
-  cachedTokens?: {
-    data: any
-    expiresOn: number
-  }
-}
-
-const getInitialServersList = () => {
-  if (localStorage['serversList']) return JSON.parse(localStorage['serversList']) as StoreServerItem[]
-
-  const servers = [] as StoreServerItem[]
-
-  const legacyServersList = localStorage['serverHistory'] ? JSON.parse(localStorage['serverHistory']) as string[] : null
-  if (legacyServersList) {
-    for (const server of legacyServersList) {
-      if (!server || localStorage['server'] === server) continue
-      servers.push({ ip: server, lastJoined: Date.now() })
-    }
-  }
-
-  if (localStorage['server']) {
-    const legacyLastJoinedServer: StoreServerItem = {
-      ip: localStorage['server'],
-      versionOverride: localStorage['version'],
-      lastJoined: Date.now()
-    }
-    servers.push(legacyLastJoinedServer)
-  }
-
-  if (servers.length === 0) { // server list is empty, let's suggest some
-    for (const server of miscUiState.appConfig?.promoteServers ?? []) {
-      servers.push({
-        ip: server.ip,
-        description: server.description,
-        versionOverride: server.version,
-      })
-    }
-  }
-
-  return servers
-}
-
-const setNewServersList = (serversList: StoreServerItem[]) => {
-  localStorage['serversList'] = JSON.stringify(serversList)
-
-  // cleanup legacy
-  localStorage.removeItem('serverHistory')
-  localStorage.removeItem('server')
-  localStorage.removeItem('password')
-  localStorage.removeItem('version')
-}
+const serversListQs = appQueryParams.serversList
+const proxyQs = appQueryParams.proxy
 
 const getInitialProxies = () => {
   const proxies = [] as string[]
@@ -112,52 +38,66 @@ const getInitialProxies = () => {
   return proxies
 }
 
-export const updateLoadedServerData = (callback: (data: StoreServerItem) => StoreServerItem, index = miscUiState.loadedServerIndex) => {
-  if (!index) index = miscUiState.loadedServerIndex
-  if (!index) return
-  // function assumes component is not mounted to avoid sync issues after save
-  const servers = getInitialServersList()
-  const server = servers[index]
-  servers[index] = callback(server)
-  setNewServersList(servers)
-}
-
-export const updateAuthenticatedAccountData = (callback: (data: AuthenticatedAccount[]) => AuthenticatedAccount[]) => {
-  const accounts = JSON.parse(localStorage['authenticatedAccounts'] || '[]') as AuthenticatedAccount[]
-  const newAccounts = callback(accounts)
-  localStorage['authenticatedAccounts'] = JSON.stringify(newAccounts)
-}
-
 // todo move to base
 const normalizeIp = (ip: string) => ip.replace(/https?:\/\//, '').replace(/\/(:|$)/, '')
 
-const Inner = () => {
+const FETCH_DELAY = 100 // ms between each request
+const MAX_CONCURRENT_REQUESTS = 10
+
+const Inner = ({ hidden, customServersList }: { hidden?: boolean, customServersList?: string[] }) => {
   const [proxies, setProxies] = useState<readonly string[]>(localStorage['proxies'] ? JSON.parse(localStorage['proxies']) : getInitialProxies())
-  const [selectedProxy, setSelectedProxy] = useState(localStorage.getItem('selectedProxy') ?? proxies?.[0] ?? '')
+  const [selectedProxy, setSelectedProxy] = useState(proxyQs ?? localStorage.getItem('selectedProxy') ?? proxies?.[0] ?? '')
   const [serverEditScreen, setServerEditScreen] = useState<StoreServerItem | true | null>(null) // true for add
-  const [defaultUsername, setDefaultUsername] = useState(localStorage['username'] ?? (`mcrafter${Math.floor(Math.random() * 1000)}`))
-  const [authenticatedAccounts, setAuthenticatedAccounts] = useState<AuthenticatedAccount[]>(JSON.parse(localStorage['authenticatedAccounts'] || '[]'))
+  const [defaultUsername, _setDefaultUsername] = useState(localStorage['username'] ?? (`mcrafter${Math.floor(Math.random() * 1000)}`))
+  const [authenticatedAccounts, _setAuthenticatedAccounts] = useState<AuthenticatedAccount[]>(JSON.parse(localStorage['authenticatedAccounts'] || '[]'))
+  const [quickConnectIp, setQuickConnectIp] = useState('')
+  const [selectedIndex, setSelectedIndex] = useState(0)
+
+  // Save username to localStorage when component mounts if it doesn't exist
+  useEffect(() => {
+    if (!localStorage['username']) {
+      localStorage.setItem('username', defaultUsername)
+    }
+  }, [])
+
+  const setAuthenticatedAccounts = (newState: typeof authenticatedAccounts) => {
+    _setAuthenticatedAccounts(newState)
+    localStorage.setItem('authenticatedAccounts', JSON.stringify(newState))
+  }
+
+  const setDefaultUsername = (newState: typeof defaultUsername) => {
+    _setDefaultUsername(newState)
+    localStorage.setItem('username', newState)
+  }
+
+  const saveNewProxy = () => {
+    if (!selectedProxy || proxyQs) return
+    localStorage.setItem('selectedProxy', selectedProxy)
+  }
 
   useEffect(() => {
-    localStorage.setItem('authenticatedAccounts', JSON.stringify(authenticatedAccounts))
-  }, [authenticatedAccounts])
-
-  useEffect(() => {
-    localStorage.setItem('username', defaultUsername)
-  }, [defaultUsername])
-
-  useEffect(() => {
-    // TODO! do not unmount on connecting screen
-    // if (proxies.length) {
-    //   localStorage.setItem('proxies', JSON.stringify(proxies))
-    // }
-    // if (selectedProxy) {
-    //   localStorage.setItem('selectedProxy', selectedProxy)
-    // }
+    if (proxies.length) {
+      localStorage.setItem('proxies', JSON.stringify(proxies))
+    }
+    saveNewProxy()
   }, [proxies])
 
-  const [serversList, setServersList] = useState<StoreServerItem[]>(() => getInitialServersList())
+  const [serversList, setServersList] = useState<StoreServerItem[]>(() => (customServersList ? [] : getInitialServersList()))
   const [additionalData, setAdditionalData] = useState<Record<string, AdditionalDisplayData>>({})
+
+  useEffect(() => {
+    if (customServersList) {
+      setServersList(customServersList.map(row => {
+        const [ip, name] = row.split(' ')
+        const [_ip, _port, version] = ip.split(':')
+        return {
+          ip,
+          versionOverride: version,
+          name,
+        }
+      }))
+    }
+  }, [customServersList])
 
   useDidUpdateEffect(() => {
     // save data only on user changes
@@ -169,32 +109,71 @@ const Inner = () => {
     return serversList.map((server, index) => ({ ...server, index })).sort((a, b) => (b.lastJoined ?? 0) - (a.lastJoined ?? 0))
   }, [serversList])
 
-  useEffect(() => {
-    const update = async () => {
-      for (const server of serversListSorted) {
-        const isInLocalNetwork = server.ip.startsWith('192.168.') || server.ip.startsWith('10.') || server.ip.startsWith('172.') || server.ip.startsWith('127.') || server.ip.startsWith('localhost')
-        if (isInLocalNetwork) continue
-        // eslint-disable-next-line no-await-in-loop
-        await fetch(`https://api.mcstatus.io/v2/status/java/${server.ip}`).then(async r => r.json()).then((data: ServerResponse) => {
-          const versionClean = data.version?.name_raw.replace(/^[^\d.]+/, '')
-          if (!versionClean) return
-          setAdditionalData(old => {
-            return ({
-              ...old,
-              [server.ip]: {
-                formattedText: data.motd?.raw ?? '',
-                textNameRight: `${versionClean} ${data.players?.online ?? '??'}/${data.players?.max ?? '??'}`,
-                icon: data.icon,
-              }
-            })
-          })
-        })
-      }
-    }
-    void update()
-  }, [serversListSorted])
-
   const isEditScreenModal = useIsModalActive('editServer')
+
+  useUtilsEffect(({ signal }) => {
+    if (isEditScreenModal) return
+    const update = async () => {
+      const queue = serversListSorted
+        .map(server => {
+          if (!isServerValid(server.ip) || signal.aborted) return null
+
+          return server
+        })
+        .filter(x => x !== null)
+
+      const activeRequests = new Set<Promise<void>>()
+
+      let lastRequestStart = 0
+      for (const server of queue) {
+        // Wait if at concurrency limit
+        if (activeRequests.size >= MAX_CONCURRENT_REQUESTS) {
+          // eslint-disable-next-line no-await-in-loop
+          await Promise.race(activeRequests)
+        }
+
+        // Create and track new request
+        // eslint-disable-next-line @typescript-eslint/no-loop-func
+        const request = new Promise<void>(resolve => {
+          setTimeout(async () => {
+            try {
+              lastRequestStart = Date.now()
+              if (signal.aborted) return
+              const isWebSocket = server.ip.startsWith('ws://') || server.ip.startsWith('wss://')
+              let data
+              if (isWebSocket) {
+                const pingResult = await getServerInfo(server.ip, undefined, undefined, true)
+                data = {
+                  formattedText: `${pingResult.version} server with a direct websocket connection`,
+                  textNameRight: `ws ${pingResult.latency}ms`,
+                  offline: false
+                }
+              } else {
+                data = await fetchServerStatus(server.ip/* , signal */) // DONT ADD SIGNAL IT WILL CRUSH JS RUNTIME
+              }
+              if (data) {
+                setAdditionalData(old => ({
+                  ...old,
+                  [server.ip]: data
+                }))
+              }
+            } catch (err) {
+              console.warn('Failed to fetch server status', err)
+            } finally {
+              activeRequests.delete(request)
+              resolve()
+            }
+          }, lastRequestStart ? Math.max(0, FETCH_DELAY - (Date.now() - lastRequestStart)) : 0)
+        })
+
+        activeRequests.add(request)
+      }
+
+      await Promise.all(activeRequests)
+    }
+
+    void update()
+  }, [serversListSorted, isEditScreenModal])
 
   useDidUpdateEffect(() => {
     if (serverEditScreen && !isEditScreenModal) {
@@ -211,47 +190,76 @@ const Inner = () => {
     }
   }, [isEditScreenModal])
 
-  if (isEditScreenModal) {
-    return <AddServerOrConnect
-      defaults={{
-        proxyOverride: selectedProxy,
-        usernameOverride: defaultUsername,
-      }}
-      parseQs={!serverEditScreen}
-      onBack={() => {
-        hideCurrentModal()
-      }}
-      onConfirm={(info) => {
-        if (!serverEditScreen) return
-        if (serverEditScreen === true) {
-          const server: StoreServerItem = { ...info, lastJoined: Date.now() } // so it appears first
-          setServersList(old => [...old, server])
-        } else {
-          const index = serversList.indexOf(serverEditScreen)
-          const { lastJoined } = serversList[index]
-          serversList[index] = { ...info, lastJoined }
-          setServersList([...serversList])
-        }
-        setServerEditScreen(null)
-      }}
-      accounts={authenticatedAccounts.map(a => a.username)}
-      initialData={!serverEditScreen || serverEditScreen === true ? undefined : serverEditScreen}
-      onQsConnect={(info) => {
-        const connectOptions: ConnectOptions = {
-          username: info.usernameOverride || defaultUsername,
-          server: normalizeIp(info.ip),
-          proxy: info.proxyOverride || selectedProxy,
-          botVersion: info.versionOverride,
-          ignoreQs: true,
-        }
-        dispatchEvent(new CustomEvent('connect', { detail: connectOptions }))
-      }}
-      versions={supportedVersions}
-    />
-  }
+  useCopyKeybinding(() => {
+    const item = serversList[selectedIndex]
+    if (!item) return
+    let str = `${item.ip}`
+    if (item.versionOverride) {
+      str += `:${item.versionOverride}`
+    }
+    return str
+  })
 
-  return <ServersList
-    joinServer={(overrides, { shouldSave }) => {
+  const editModalJsx = isEditScreenModal ? <AddServerOrConnect
+    allowAutoConnect={miscUiState.appConfig?.allowAutoConnect}
+    placeholders={{
+      proxyOverride: selectedProxy,
+      usernameOverride: defaultUsername,
+    }}
+    parseQs={!serverEditScreen}
+    onBack={() => {
+      hideCurrentModal()
+    }}
+    onConfirm={(info) => {
+      if (!serverEditScreen) return
+      if (serverEditScreen === true) {
+        const server: StoreServerItem = { ...info, lastJoined: Date.now() } // so it appears first
+        setServersList(old => [...old, server])
+      } else {
+        const index = serversList.indexOf(serverEditScreen)
+        const { lastJoined } = serversList[index]
+        serversList[index] = { ...info, lastJoined }
+        setServersList([...serversList])
+      }
+      setServerEditScreen(null)
+    }}
+    accounts={authenticatedAccounts.map(a => a.username)}
+    initialData={!serverEditScreen || serverEditScreen === true ? {
+      ip: quickConnectIp
+    } : serverEditScreen}
+    onQsConnect={(info) => {
+      const connectOptions: ConnectOptions = {
+        username: info.usernameOverride || defaultUsername,
+        server: normalizeIp(info.ip),
+        proxy: info.proxyOverride || selectedProxy,
+        botVersion: info.versionOverride,
+        ignoreQs: true,
+      }
+      dispatchEvent(new CustomEvent('connect', { detail: connectOptions }))
+    }}
+    versions={supportedVersions}
+  /> : null
+
+  const serversListJsx = <ServersList
+    joinServer={(overridesOrIp, { shouldSave }) => {
+      let overrides: BaseServerInfo
+      if (typeof overridesOrIp === 'string') {
+        let msAuth = false
+        const parts = overridesOrIp.split(':')
+        if (parts.at(-1) === 'ms') {
+          msAuth = true
+          parts.pop()
+        }
+        const parsed = parseServerAddress(parts.join(':'))
+        overrides = {
+          ip: parsed.serverIpFull,
+          versionOverride: parsed.version,
+          authenticatedAccountOverride: msAuth ? true : undefined, // todo popup selector
+        }
+      } else {
+        overrides = overridesOrIp
+      }
+
       const indexOrIp = overrides.ip
       let ip = indexOrIp
       let server: StoreServerItem | undefined
@@ -285,15 +293,16 @@ const Inner = () => {
         ignoreQs: true,
         autoLoginPassword: server?.autoLogin?.[username],
         authenticatedAccount,
+        saveServerToHistory: shouldSave,
         onSuccessfulPlay () {
           if (shouldSave && !serversList.some(s => s.ip === ip)) {
             const newServersList: StoreServerItem[] = [...serversList, {
               ip,
               lastJoined: Date.now(),
               versionOverride: overrides.versionOverride,
+              numConnects: 1
             }]
-            // setServersList(newServersList)
-            setNewServersList(newServersList) // component is not mounted
+            setNewServersList(newServersList)
             miscUiState.loadedServerIndex = (newServersList.length - 1).toString()
           }
 
@@ -302,8 +311,8 @@ const Inner = () => {
             const server = serversList.find(s => s.ip === ip)
             if (server) {
               server.lastJoined = Date.now()
-              // setServersList([...serversList])
-              setNewServersList(serversList) // component is not mounted
+              server.numConnects = (server.numConnects || 0) + 1
+              setNewServersList(serversList)
             }
           }
 
@@ -312,21 +321,21 @@ const Inner = () => {
             // setProxies([...proxies, selectedProxy])
             localStorage.setItem('proxies', JSON.stringify([...proxies, selectedProxy]))
           }
-          if (selectedProxy) {
-            localStorage.setItem('selectedProxy', selectedProxy)
-          }
+          saveNewProxy()
         },
         serverIndex: shouldSave ? serversList.length.toString() : indexOrIp // assume last
       } satisfies ConnectOptions
       dispatchEvent(new CustomEvent('connect', { detail: options }))
       // qsOptions
     }}
+    lockedEditing={!!customServersList}
     username={defaultUsername}
     setUsername={setDefaultUsername}
+    setQuickConnectIp={setQuickConnectIp}
     onProfileClick={async () => {
       const username = await showOptionsModal('Select authenticated account to remove', authenticatedAccounts.map(a => a.username))
       if (!username) return
-      setAuthenticatedAccounts(old => old.filter(a => a.username !== username))
+      setAuthenticatedAccounts(authenticatedAccounts.filter(a => a.username !== username))
     }}
     onWorldAction={(action, index) => {
       const server = serversList[index]
@@ -353,10 +362,10 @@ const Inner = () => {
         name: server.index.toString(),
         title: server.name || server.ip,
         detail: (server.versionOverride ?? '') + ' ' + (server.usernameOverride ?? ''),
-        // lastPlayed: server.lastJoined,
         formattedTextOverride: additional?.formattedText,
         worldNameRight: additional?.textNameRight ?? '',
         iconSrc: additional?.icon,
+        offline: additional?.offline
       }
     })}
     initialProxies={{
@@ -368,12 +377,50 @@ const Inner = () => {
       setProxies(proxies)
       setSelectedProxy(selected)
     }}
+    hidden={hidden}
+    onRowSelect={(_, i) => {
+      setSelectedIndex(i)
+    }}
+    selectedRow={selectedIndex}
+    serverHistory={getServerConnectionHistory()
+      .sort((a, b) => b.numConnects - a.numConnects)
+      .map(server => ({
+        ip: server.ip,
+        versionOverride: server.version,
+        numConnects: server.numConnects
+      }))}
   />
+  return <>
+    {serversListJsx}
+    {editModalJsx}
+  </>
 }
 
 export default () => {
+  const [customServersList, setCustomServersList] = useState<string[] | undefined>(serversListQs ? [] : undefined)
+
+  useEffect(() => {
+    if (serversListQs) {
+      if (serversListQs.startsWith('http')) {
+        void fetch(serversListQs).then(async r => r.text()).then((text) => {
+          const isJson = serversListQs.endsWith('.json') ? true : serversListQs.endsWith('.txt') ? false : text.startsWith('[')
+          setCustomServersList(isJson ? JSON.parse(text) : text.split('\n').map(x => x.trim()).filter(x => x.trim().length > 0))
+        }).catch((err) => {
+          console.error(err)
+          alert(`Failed to get servers list file: ${err}`)
+        })
+      } else {
+        setCustomServersList(serversListQs.split(','))
+      }
+    }
+  }, [])
+
+  const modalStack = useSnapshot(activeModalStack)
+  const hasServersListModal = modalStack.some(x => x.reactType === 'serversList')
   const editServerModalActive = useIsModalActive('editServer')
   const isServersListModalActive = useIsModalActive('serversList')
+
   const eitherModal = isServersListModalActive || editServerModalActive
-  return eitherModal ? <Inner /> : null
+  const render = eitherModal || hasServersListModal
+  return render ? <Inner hidden={!isServersListModalActive} customServersList={customServersList} /> : null
 }

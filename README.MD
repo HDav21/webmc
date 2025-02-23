@@ -2,23 +2,28 @@
 
 ![banner](./docs-assets/banner.jpg)
 
-A true Minecraft client running in your browser! A port of the original game to the web, written in JavaScript using the best modern web technologies.
+Minecraft **clone** rewritten in TypeScript using the best modern web technologies. Minecraft vanilla-compatible client and integrated server packaged into a single web app.
 
-You can try this out at [mcraft.fun](https://mcraft.fun/), [pcm.gg](https://pcm.gg) (short link) [mcon.vercel.app](https://mcon.vercel.app/) or the GitHub pages deploy. Every commit from the `develop` (default) branch is deployed to [s.mcraft.fun](https://s.mcraft.fun/) - so it's usually newer, but might be less stable.
+You can try this out at [mcraft.fun](https://mcraft.fun/), [pcm.gg](https://pcm.gg) (short link), [mcon.vercel.app](https://mcon.vercel.app/) or the GitHub pages deploy. Every commit from the default (`develop`) branch is deployed to [s.mcraft.fun](https://s.mcraft.fun/) and [s.pcm.gg](https://s.pcm.gg/) - so it's usually newer, but might be less stable.
 
-For building the project yourself / contributing, see [Development, Debugging & Contributing](#development-debugging--contributing). If you encounter any bugs or usability issues, please report them!
+Don't confuse with [Eaglercraft](https://git.eaglercraft.rip/eaglercraft/eaglercraft-1.8) which is a REAL vanilla Minecraft Java edition port to the web (but with its own limitations). Eaglercraft is a fully playable solution, but this project is more in position of a "technical demo" to show how it's possible to build games for web at scale entirely with the JS ecosystem. Have fun!
+
+For building the project yourself / contributing, see [Development, Debugging & Contributing](#development-debugging--contributing). For reference at what and how web technologies / frameworks are used, see [TECH.md](./TECH.md).
 
 ### Big Features
 
 - Open any zip world file or even folder in read-write mode!
 - Connect to Java servers running in both offline (cracked) and online mode* (it's possible because of proxy servers, see below)
+- Integrated JS server clone capable of opening Java world saves in any way (folders, zip, web chunks streaming, etc)
 - Singleplayer mode with simple world generations!
-- Google Drive support for reading / saving worlds
 - Works offline
-- Play with friends over internet! (P2P is powered by Peer.js discovery servers)
 - First-class touch (mobile) & controller support
-- Basic Resource pack support: Custom GUI, all textures. Server resource packs are not supported yet.
-- Builtin JEI with recipes & guides for every item (also replaces creative inventory)
+- First-class keybindings configuration
+- Advanced Resource pack support: Custom GUI, all textures. Server resource packs are supported with proper CORS configuration.
+- Builtin JEI with recipes & descriptions for almost every item (JEI is creative inventory replacement)
+- Custom protocol channel extensions (eg for custom block models in the world)
+- Play with friends over internet! (P2P is powered by Peer.js discovery servers)
+- ~~Google Drive support for reading / saving worlds back to the cloud~~
 - even even more!
 
 All components that are in [Storybook](https://mcraft.fun/storybook) are published as npm module and can be used in other projects: [`minecraft-react`](https://npmjs.com/minecraft-react)
@@ -30,6 +35,13 @@ All components that are in [Storybook](https://mcraft.fun/storybook) are publish
 - Controls -> **Raw Input** -> **On** - This will make the controls more precise (UPD: already enabled by default)
 - Interface -> **Chat Select** -> **On** - To select chat messages (UPD: already enabled by default)
 
+### Browser Notes
+
+These browsers have issues with capturing pointer:
+
+**Opera Mini**: Disable *mouse gestures* in browsre settings to avoid opening new tab on right click hold
+**Vivaldi**: Disable Controls -> *Raw Input* in game settings if experiencing issues
+
 ### World Loading
 
 Zip files and folders are supported. Just drag and drop them into the browser window. You can open folders in readonly and read-write mode. New chunks may be generated incorrectly for now.
@@ -38,11 +50,13 @@ Whatever offline mode you used (zip, folder, just single player), you can always
 
 ![docs-assets/singleplayer-future-city-1-10-2.jpg](./docs-assets/singleplayer-future-city-1-10-2.jpg)
 
-### Servers
+### Servers & Proxy
 
 You can play almost on any Java server, vanilla servers are fully supported.
 See the [Mineflayer](https://github.com/PrismarineJS/mineflayer) repo for the list of supported versions (should support majority of versions).
-There is a builtin proxy, but you can also host your one! Just clone the repo, run `pnpm i` (following CONTRIBUTING.MD) and run `pnpm prod-start`, then you can specify `http://localhost:8080` in the proxy field.
+There is a builtin proxy, but you can also host your one! Just clone the repo, run `pnpm i` (following CONTRIBUTING.MD) and run `pnpm prod-start`, then you can specify `http://localhost:8080` in the proxy field. Or you can deploy it to the cloud service:
+
+[![Deploy to Koyeb](https://www.koyeb.com/static/images/deploy/button.svg)](https://app.koyeb.com/deploy?name=minecraft-web-client&type=git&repository=zardoy%2Fminecraft-web-client&branch=next&builder=dockerfile&env%5B%5D=&ports=8080%3Bhttp%3B%2F)
 
 Proxy servers are used to connect to Minecraft servers which use TCP protocol. When you connect connect to a server with a proxy, websocket connection is created between you (browser client) and the proxy server located in Europe, then the proxy connects to the Minecraft server and sends the data to the client (you) without any packet deserialization to avoid any additional delays. That said all the Minecraft protocol packets are processed by the client, right in your browser.
 
@@ -126,6 +140,11 @@ Press `Y` to set query parameters to url of your current game state.
 
 There are some parameters you can set in the url to archive some specific behaviors:
 
+General:
+
+- **`?setting=<setting_name>:<setting_value>`** - Set and lock the setting on load. You can set multiple settings by separating them with `&` e.g. `?setting=autoParkour:true&setting=renderDistance:4`
+- `?modal=<modal>` - Open specific modal on page load eg `keybindings`. Very useful on UI changes testing during dev. For path use `,` as separator. To get currently opened modal type this in the console: `activeModalStack.at(-1).reactType`
+
 Server specific:
 
 - `?ip=<server_address>` - Display connect screen to the server on load with predefined server ip. `:<port>` is optional and can be added to the ip.
@@ -134,12 +153,13 @@ Server specific:
 - `?proxy=<proxy_address>` - Set the proxy server address to use for  the server
 - `?username=<username>` - Set the username for the server
 - `?lockConnect=true` - Only works then `ip` parameter is set. Disables cancel/save buttons and all inputs in the connect screen already set as parameters. Useful for integrates iframes.
-- `?reconnect=true` - Reconnect to the server on page reloads. Available in **dev mode only** and very useful on server testing.
+- `?autoConnect=true` - Only works then `ip` and `version` parameters are set and `allowAutoConnect` is `true` in config.json! Directly connects to the specified server. Useful for integrates iframes.
+- `?serversList=<list_or_url>` - `<list_or_url>` can be a list of servers in the format `ip:version,ip` or a url to a json file with the same format (array) or a txt file with line-delimited list of server IPs.
 
 Single player specific:
 
 - `?loadSave=<save_name>` - Load the save on load with the specified folder name (not title)
-- `?singleplayer=1` - Create empty world on load. Nothing will be saved
+- `?singleplayer=1` or `?sp=1` - Create empty world on load. Nothing will be saved
 - `?version=<version>` - Set the version for the singleplayer world (when used with `?singleplayer=1`)
 - `?noSave=true` - Disable auto save on unload / disconnect / export whenever a world is loaded. Only manual save with `/save` command will work.
 - `?serverSetting=<key>:<value>` - Set local server [options](https://github.com/zardoy/space-squid/tree/everything/src/modules.ts#L51). For example `?serverSetting=noInitialChunksSend:true` will disable initial chunks loading on the loading screen.
@@ -167,11 +187,11 @@ In this case you must use `?mapDirBaseUrl` to specify the base URL to fetch the 
 
 - `?mapDirBaseUrl` - See above.
 
+Only during development:
+
+- `?reconnect=true` - Reconnect to the server on page reloads. Very useful on server testing.
+
 <!-- - `?mapDirGuess=<base_url>` - Load the map from the provided URL and paths will be guessed with a few additional fetch requests. -->
-
-General:
-
-- `?setting=<setting_name>:<setting_value>` - Set and lock the setting on load. You can set multiple settings by separating them with `&` e.g. `?setting=autoParkour:true&setting=renderDistance:4`
 
 ### Notable Things that Power this Project
 
