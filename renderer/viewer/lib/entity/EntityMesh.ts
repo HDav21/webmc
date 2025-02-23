@@ -434,6 +434,26 @@ export type EntityDebugFlags = {
 export class EntityMesh {
   mesh: THREE.Object3D
 
+  private applyMaterialAndTransform (obj: THREE.Object3D, originalType: string, currentType: string, material: THREE.Material, overrides: EntityOverrides): void {
+    const scale = scaleEntity[originalType] || scaleEntity[currentType]
+    const offset = offsetEntity[originalType]
+    obj.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.material = material
+        // todo
+        if (child.name === 'Head layer') child.visible = false
+        if (child.name === 'Head' && overrides.rotation?.head) { // todo
+          child.rotation.x -= (overrides.rotation.head.x ?? 0) * Math.PI / 180
+          child.rotation.y -= (overrides.rotation.head.y ?? 0) * Math.PI / 180
+          child.rotation.z -= (overrides.rotation.head.z ?? 0) * Math.PI / 180
+        }
+      }
+    })
+
+    if (scale) obj.scale.set(scale, scale, scale)
+    if (offset) obj.position.set(offset.x, offset.y, offset.z)
+  }
+
   constructor (
     version: string,
     type: string,
@@ -479,22 +499,7 @@ export class EntityMesh {
         alphaTest: 0.1
       })
       const obj = objLoader.parse(externalModels[type])
-      const scale = scaleEntity[originalType] || scaleEntity[type]
-      if (scale) obj.scale.set(scale, scale, scale)
-      const offset = offsetEntity[originalType]
-      if (offset) obj.position.set(offset.x, offset.y, offset.z)
-      obj.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          child.material = material
-          // todo
-          if (child.name === 'Head layer') child.visible = false
-          if (child.name === 'Head' && overrides.rotation?.head) { // todo
-            child.rotation.x -= (overrides.rotation.head.x ?? 0) * Math.PI / 180
-            child.rotation.y -= (overrides.rotation.head.y ?? 0) * Math.PI / 180
-            child.rotation.z -= (overrides.rotation.head.z ?? 0) * Math.PI / 180
-          }
-        }
-      })
+      this.applyMaterialAndTransform(obj, originalType, type, material, overrides)
       this.mesh = obj
       debugFlags.type = 'obj'
       return
