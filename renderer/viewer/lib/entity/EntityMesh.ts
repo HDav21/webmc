@@ -10,6 +10,7 @@ import { loadTexture } from '../utils'
 import entities from './entities.json'
 import { externalModels } from './objModels'
 import externalTexturesJson from './externalTextures.json'
+import { sheep, sheepCoat } from './exportedModels'
 
 interface ElemFace {
   dir: [number, number, number]
@@ -406,7 +407,8 @@ const getEntity = (name: string) => {
 const scaleEntity: Record<string, number> = {
   zombie: 1.85,
   husk: 1.85,
-  arrow: 0.0025
+  arrow: 0.0025,
+  sheep: 2
 }
 
 const offsetEntity: Record<string, Vec3> = {
@@ -433,6 +435,56 @@ export type EntityDebugFlags = {
 
 export class EntityMesh {
   mesh: THREE.Object3D
+
+  private applyMaterialToMesh (obj: THREE.Object3D, material: THREE.Material): void {
+    obj.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.material = material
+      }
+    })
+  }
+
+  private applyEntityScaleAndPosition (obj1: THREE.Object3D, obj2: THREE.Object3D, originalType: string): void {
+    const scale = scaleEntity[originalType]
+    const offset = offsetEntity[originalType]
+
+    if (scale) {
+      obj1.scale.set(scale, scale, scale)
+      obj2.scale.set(scale, scale, scale)
+    }
+    if (offset) {
+      obj1.position.set(offset.x, offset.y, offset.z)
+      obj2.position.set(offset.x, offset.y, offset.z)
+    }
+  }
+
+  private applyHeadRotation (mesh: THREE.Object3D, rotation: { x?: number; y?: number; z?: number }): void {
+    mesh.rotation.x -= (rotation.x ?? 0) * Math.PI / 180
+    mesh.rotation.y -= (rotation.y ?? 0) * Math.PI / 180
+    mesh.rotation.z -= (rotation.z ?? 0) * Math.PI / 180
+  }
+
+  private handleSheep (objLoader: OBJLoader, originalType: string, overrides: EntityOverrides): THREE.Object3D {
+    const sheepObj = objLoader.parse(sheep)
+    const sheepMaterial = new THREE.MeshLambertMaterial({ color: 0xff_ff_ff })
+    this.applyMaterialToMesh(sheepObj, sheepMaterial)
+
+    const sheepCoatObj = objLoader.parse(sheepCoat)
+    const sheepCoatMaterial = new THREE.MeshLambertMaterial({ color: 0xff_d7_00 })
+    this.applyMaterialToMesh(sheepCoatObj, sheepCoatMaterial)
+
+    this.applyEntityScaleAndPosition(sheepObj, sheepCoatObj, originalType)
+
+    if (overrides.rotation?.head) {
+      this.applyHeadRotation(sheepObj, overrides.rotation.head)
+    }
+
+    const mesh = new THREE.Object3D()
+    mesh.add(sheepObj)
+    mesh.add(sheepCoatObj)
+
+    return mesh
+  }
 
   private applyMaterialAndTransform (obj: THREE.Object3D, originalType: string, currentType: string, material: THREE.Material, overrides: EntityOverrides): void {
     const scale = scaleEntity[originalType] || scaleEntity[currentType]
@@ -470,6 +522,13 @@ export class EntityMesh {
 
     if (externalModels[type]) {
       const objLoader = new OBJLoader()
+
+      if (type === 'sheep') {
+        this.mesh = this.handleSheep(objLoader, originalType, overrides)
+        debugFlags.type = 'obj'
+        return
+      }
+
       const texturePathMap = {
         'zombie_horse': `textures/${version}/entity/horse/horse_zombie.png`,
         'husk': huskPng,
