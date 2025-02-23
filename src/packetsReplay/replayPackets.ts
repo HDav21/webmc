@@ -36,14 +36,25 @@ export function openFile ({ contents, filename = 'unnamed', filesize }: OpenFile
 
 export const startLocalReplayServer = (contents: string) => {
   const lines = contents.split('\n')
-  const def: WorldStateHeader | ReplayDefinition = JSON.parse(lines[0])
+  if (!lines[0]) {
+    throw new UserError("No header line found. Cannot parse replay definition.")
+  }
+  let def: WorldStateHeader | ReplayDefinition
+  try {
+    def = JSON.parse(lines[0])
+  } catch (err) {
+    throw new UserError(`Invalid JSON in file header: ${String(err)}`)
+  }
   const packetsRaw = lines.slice(1).join('\n')
   const replayData = parseReplayContents(packetsRaw)
 
   packetsReplayState.packetsPlayback = []
   packetsReplayState.isOpen = true
   packetsReplayState.isPlaying = true
-  packetsReplayState.progress = { current: 0, total: replayData.packets.filter(packet => packet.isFromServer).length }
+  packetsReplayState.progress = {
+    current: 0,
+    total: replayData.packets.filter(packet => packet.isFromServer).length
+  }
   packetsReplayState.speed = 1
   packetsReplayState.replayName ||= `local ${getFixedFilesize(contents.length)}`
   packetsReplayState.replayName = `${def.minecraftVersion} ${packetsReplayState.replayName}`
@@ -62,7 +73,11 @@ export const startLocalReplayServer = (contents: string) => {
   })
 
   server.on('login', async client => {
-    await mainPacketsReplayer(client, replayData, appQueryParams.replayValidateClient === 'true' ? true : undefined)
+    await mainPacketsReplayer(
+      client,
+      replayData,
+      appQueryParams.replayValidateClient === 'true' ? true : undefined
+    )
   })
 
   return {
