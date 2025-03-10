@@ -12,6 +12,7 @@ declare const bot: Omit<import('mineflayer').Bot, 'world' | '_client'> & {
 }
 declare const __type_bot: typeof bot
 declare const following: __type_bot | Player
+declare const controMax: ControMax
 declare const viewer: import('renderer/viewer/lib/viewer').Viewer
 declare const worldView: import('renderer/viewer/lib/worldDataEmitter').WorldDataEmitter | undefined
 declare const addStatPerSec: (name: string) => void

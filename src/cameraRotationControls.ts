@@ -54,7 +54,11 @@ const moveCameraRawHandler = ({ x, y }: { x: number; y: number }) => {
 }
 
 window.addEventListener('mousemove', (e: MouseEvent) => {
-  onCameraMove(e)
+  if (following === bot) {
+    onCameraMove(e)
+  } else {
+    // TODO: support user camera orbiting when following a player
+  }
 }, { capture: true })
 
 export const onControInit = () => {

@@ -110,6 +110,7 @@ import { playerState, PlayerStateManager } from './mineflayer/playerState'
 import { states } from 'minecraft-protocol'
 import { initMotionTracking } from './react/uiMotion'
 import { UserError } from './mineflayer/userError'
+import { setupIframeComms } from './iframe'
 import { setThirdPersonCamera, trackFollowerMovement } from './follow'
 
 window.debug = debug
@@ -119,45 +120,7 @@ window.beforeRenderFrame = []
 
 // ACTUAL CODE
 
-// Handle incoming messages from kradle frontend
-window.addEventListener('message', (event) => {
-  const data = event.data
-  if (data.source === 'kradle-frontend') {
-    console.log('[iframe-rpc] [minecraft-web-client] Received message', data)
-    customEvents.emit(`kradle:${data.action as 'followPlayer'}`, data)
-  }
-})
-
-// Handle outgoing messages to kradle frontend
-type IFrameSendablePayload = {
-  source: 'minecraft-web-client'; // Used to filter messages on the parent side
-  action: 'gameLoaded'; // indicates the action to perform
-} | {
-  source: 'minecraft-web-client';
-  action: 'followingPlayer';
-  username?: string;
-};
-function sendMessageToKradle(payload: Omit<IFrameSendablePayload, 'source'>) {
-  if (window !== window.parent) {
-    console.log('[iframe-rpc] [minecraft-web-client] Posting message', payload);
-    window.parent.postMessage({
-      ...payload,
-      source: 'minecraft-web-client'
-    }, '*')
-  }
-}
-customEvents.on('gameLoaded', () => {
-  sendMessageToKradle({
-    action: 'gameLoaded'
-  })
-})
-customEvents.on('followingPlayer', (username) => {
-  sendMessageToKradle({
-    action: 'followingPlayer',
-    // @ts-expect-error TODO fix this type
-    username
-  })
-})
+setupIframeComms()
 void registerServiceWorker().then(() => {
   mainMenuState.serviceWorkerLoaded = true
 })

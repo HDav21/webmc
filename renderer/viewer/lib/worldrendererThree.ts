@@ -222,9 +222,11 @@ export class WorldRendererThree extends WorldRendererCommon {
     return tex
   }
 
+  private activeTween: tweenJs.Tween<THREE.Vector3> | null = null
   updateCamera (pos: Vec3 | null, yaw: number, pitch: number): void {
     if (pos) {
-      new tweenJs.Tween(this.camera.position).to({ x: pos.x, y: pos.y, z: pos.z }, 50).start()
+      this.activeTween?.stop()
+      this.activeTween = new tweenJs.Tween(this.camera.position).to({ x: pos.x, y: pos.y, z: pos.z }, 50).start()
     }
     this.camera.rotation.set(pitch, yaw, this.cameraRoll, 'ZYX')
   }
