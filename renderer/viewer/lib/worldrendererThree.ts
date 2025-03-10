@@ -223,10 +223,40 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   updateCamera (pos: Vec3 | null, yaw: number, pitch: number): void {
+    // Following an entity is smoother
+    const duration = bot === following ? 50 : 100
+
+    // Tween position
     if (pos) {
-      new tweenJs.Tween(this.camera.position).to({ x: pos.x, y: pos.y, z: pos.z }, 50).start()
+      new tweenJs.Tween(this.camera.position)
+        .to({ x: pos.x, y: pos.y, z: pos.z }, duration)
+        .start()
     }
-    this.camera.rotation.set(pitch, yaw, this.cameraRoll, 'ZYX')
+
+    // Update rotation
+
+    // If we're following the bot, set the rotation directly
+    if (bot === following) {
+      this.camera.rotation.set(pitch, yaw, this.cameraRoll, 'ZYX')
+      return
+    }
+
+    // If we're following a player, we use a smoother interpolation
+
+    // Create start and target quaternions
+    const startQuaternion = new THREE.Quaternion().copy(this.camera.quaternion)
+    const targetEuler = new THREE.Euler(pitch, yaw, this.cameraRoll, 'ZYX')
+    const targetQuaternion = new THREE.Quaternion().setFromEuler(targetEuler)
+
+    // Create an object to tween
+    const rotationObj = { t: 0 }
+    new tweenJs.Tween(rotationObj)
+      .to({ t: 1 }, duration)
+      .onUpdate(() => {
+        // Use quaternion slerp for smooth interpolation
+        this.camera.quaternion.slerp(targetQuaternion, rotationObj.t)
+      })
+      .start()
   }
 
   render () {
