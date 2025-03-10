@@ -1,4 +1,6 @@
 import { Vec3 } from 'vec3'
+import * as THREE from 'three'
+import { WorldRendererThree } from '../renderer/viewer/lib/worldrendererThree'
 import { options } from './optionsStorage'
 
 customEvents.on('mineflayerBotCreated', async () => {
@@ -9,6 +11,7 @@ customEvents.on('mineflayerBotCreated', async () => {
     })
   })
   registerBlockModelsChannel()
+  registerMediaChannels()
 })
 
 const registerBlockModelsChannel = () => {
@@ -107,3 +110,150 @@ const registeredJeiChannel = () => {
 
   console.debug(`registered custom channel ${CHANNEL_NAME} channel`)
 }
+
+const registerMediaChannels = () => {
+  // Media Add Channel
+  const ADD_CHANNEL = 'minecraft-web-client:media-add'
+  const addPacketStructure = [
+    'container',
+    [
+      { name: 'id', type: ['pstring', { countType: 'i16' }] },
+      { name: 'x', type: 'i32' },
+      { name: 'y', type: 'i32' },
+      { name: 'z', type: 'i32' },
+      { name: 'width', type: 'f32' },
+      { name: 'height', type: 'f32' },
+      { name: 'rotation', type: 'u8' }, // 0-3 for 0°, 90°, 180°, 270° (3-6 is same but double side)
+      { name: 'source', type: ['pstring', { countType: 'i16' }] },
+      { name: 'loop', type: 'bool' },
+      { name: '_volume', type: 'f32' }, // 0
+      { name: '_aspectRatioMode', type: 'u8' }, // 0
+      { name: '_background', type: 'u8' }, // 0
+      { name: '_cropXStart', type: 'f32' }, // 0
+      { name: '_cropYStart', type: 'f32' }, // 0
+      { name: '_cropXEnd', type: 'f32' }, // 0
+      { name: '_cropYEnd', type: 'f32' }, // 0
+    ]
+  ]
+
+  // Media Control Channels
+  const PLAY_CHANNEL = 'minecraft-web-client:media-play'
+  const PAUSE_CHANNEL = 'minecraft-web-client:media-pause'
+  const SEEK_CHANNEL = 'minecraft-web-client:media-seek'
+  const DESTROY_CHANNEL = 'minecraft-web-client:media-destroy'
+
+  const controlPacketStructure = [
+    'container',
+    [
+      { name: 'id', type: ['pstring', { countType: 'i16' }] }
+    ]
+  ]
+
+  const seekPacketStructure = [
+    'container',
+    [
+      { name: 'id', type: ['pstring', { countType: 'i16' }] },
+      { name: 'seconds', type: 'f32' }
+    ]
+  ]
+
+  // Register channels
+  bot._client.registerChannel(ADD_CHANNEL, addPacketStructure, true)
+  bot._client.registerChannel(PLAY_CHANNEL, controlPacketStructure, true)
+  bot._client.registerChannel(PAUSE_CHANNEL, controlPacketStructure, true)
+  bot._client.registerChannel(SEEK_CHANNEL, seekPacketStructure, true)
+  bot._client.registerChannel(DESTROY_CHANNEL, controlPacketStructure, true)
+
+  // Handle media add
+  bot._client.on(ADD_CHANNEL as any, (data) => {
+    const { id, x, y, z, width, height, rotation, source, loop } = data
+    const worldRenderer = viewer.world as WorldRendererThree
+
+    // Destroy existing video if it exists
+    worldRenderer.destroyVideo(id)
+
+    // Add new video
+    worldRenderer.addVideo(id, {
+      position: { x, y, z },
+      size: { width, height },
+      side: 'towards',
+      src: source,
+      rotation: rotation as 0 | 1 | 2 | 3,
+      doubleSide: false
+    })
+
+    // Set loop state
+    if (!loop) {
+      const videoData = worldRenderer.customVideos.get(id)
+      if (videoData) {
+        videoData.video.loop = false
+      }
+    }
+  })
+
+  // Handle media play
+  bot._client.on(PLAY_CHANNEL as any, (data) => {
+    const { id } = data
+    const worldRenderer = viewer.world as WorldRendererThree
+    worldRenderer.setVideoPlaying(id, true)
+  })
+
+  // Handle media pause
+  bot._client.on(PAUSE_CHANNEL as any, (data) => {
+    const { id } = data
+    const worldRenderer = viewer.world as WorldRendererThree
+    worldRenderer.setVideoPlaying(id, false)
+  })
+
+  // Handle media seek
+  bot._client.on(SEEK_CHANNEL as any, (data) => {
+    const { id, seconds } = data
+    const worldRenderer = viewer.world as WorldRendererThree
+    worldRenderer.setVideoSeeking(id, seconds)
+  })
+
+  // Handle media destroy
+  bot._client.on(DESTROY_CHANNEL as any, (data) => {
+    const { id } = data
+    const worldRenderer = viewer.world as WorldRendererThree
+    worldRenderer.destroyVideo(id)
+  })
+
+  console.debug('Registered media channels')
+}
+
+const addTestVideo = (rotation = 0 as 0 | 1 | 2 | 3, scale = 1) => {
+  const block = window.cursorBlockRel()
+  if (!block) return
+  const { position: startPosition } = block
+
+  const worldRenderer = viewer.world as WorldRendererThree
+  worldRenderer.destroyVideo('test-video')
+
+  // Add video with proper positioning
+  worldRenderer.addVideo('test-video', {
+    position: {
+      x: startPosition.x,
+      y: startPosition.y,
+      z: startPosition.z
+    },
+    size: {
+      width: scale,
+      height: scale
+    },
+    side: 'towards',
+    src: 'video1.mp4',
+    rotation,
+    doubleSide: false
+  })
+}
+window.addTestVideo = addTestVideo
+
+
+// const registerMediaOpenChannel = () => {
+//   const CHANNEL_NAME = 'minecraft-web-client:media-open'
+//   const packetStructure = [
+//     'container',
+//     [
+//       {
+//         name: 'id',

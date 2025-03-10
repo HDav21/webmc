@@ -16,6 +16,16 @@ import { IPlayerState } from './basePlayerState'
 import { getMesh } from './entity/EntityMesh'
 import { armorModel } from './entity/armorModels'
 
+interface VideoProperties {
+  position: { x: number, y: number, z: number }
+  size: { width: number, height: number }
+  side: 'towards' | 'away'
+  src: string
+  rotation?: 0 | 1 | 2 | 3 // 0-3 for 0°, 90°, 180°, 270° rotation
+  doubleSide?: boolean
+  uvMapping?: { startU: number, endU: number, startV: number, endV: number }
+}
+
 export class WorldRendererThree extends WorldRendererCommon {
   interactionLines: null | { blockPos; mesh } = null
   outputFormat = 'threeJs' as const
@@ -28,6 +38,12 @@ export class WorldRendererThree extends WorldRendererCommon {
   holdingBlock: HoldingBlock
   holdingBlockLeft: HoldingBlock
   rendererDevice = '...'
+  customVideos = new Map<string, {
+    mesh: THREE.Mesh
+    video: HTMLVideoElement
+    texture: THREE.VideoTexture
+    updateUVMapping: (config: { startU: number, endU: number, startV: number, endV: number }) => void
+  }>()
 
   get tilesRendered () {
     return Object.values(this.sectionObjects).reduce((acc, obj) => acc + (obj as any).tilesCount, 0)
@@ -455,6 +471,133 @@ export class WorldRendererThree extends WorldRendererCommon {
       return `${gl.getParameter(gl.getExtension('WEBGL_debug_renderer_info')!.UNMASKED_RENDERER_WEBGL)}`
     } catch (err) {
       console.warn('Failed to get renderer info', err)
+    }
+  }
+
+  private calculateVideoPosition (position: { x: number, y: number, z: number }, side: 'towards' | 'away'): { x: number, y: number, z: number } {
+    const offset = side === 'towards' ? 0.999 : 0.001
+    // Position is bottom-left corner, so we need to add half the size to center it
+    // Only apply towards/away offset to Z-axis, normalize X/Y with 0.5
+    return {
+      x: Math.floor(position.x) + 0.5,
+      y: Math.floor(position.y) + 0.5,
+      z: Math.floor(position.z) + (side === 'towards' ? 1 : 0) - offset
+    }
+  }
+
+  addVideo (id: string, props: VideoProperties) {
+    // Create video element
+    const video = document.createElement('video')
+    video.src = props.src
+    video.loop = true
+    video.muted = true
+    video.playsInline = true
+
+    // Create video texture
+    const videoTexture = new THREE.VideoTexture(video)
+    videoTexture.minFilter = THREE.NearestFilter
+    videoTexture.magFilter = THREE.NearestFilter
+    videoTexture.format = THREE.RGBAFormat
+    videoTexture.generateMipmaps = false
+
+    // Create a plane geometry with configurable UV mapping
+    const geometry = new THREE.PlaneGeometry(1, 1)
+    const material = new THREE.MeshBasicMaterial({
+      map: videoTexture,
+      transparent: true,
+      side: props.doubleSide ? THREE.DoubleSide : THREE.FrontSide
+    })
+
+    // Create mesh
+    const mesh = new THREE.Mesh(geometry, material)
+
+    // Calculate final position with offset
+    const finalPosition = this.calculateVideoPosition(props.position, props.side)
+    mesh.position.set(finalPosition.x, finalPosition.y, finalPosition.z)
+
+    // Set rotation if provided (0-3 for 0°, 90°, 180°, 270°)
+    if (props.rotation !== undefined) {
+      mesh.rotation.y = (props.rotation * Math.PI) / 2
+    }
+
+    // Set fixed scale based on provided size
+    mesh.scale.set(props.size.width, props.size.height, 1)
+
+    // Add to scene
+    this.scene.add(mesh)
+
+    // Start playing the video
+    video.play().catch(console.error)
+
+    // Update texture in animation loop
+    const animate = () => {
+      if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        videoTexture.needsUpdate = true
+      }
+      requestAnimationFrame(animate)
+    }
+    animate()
+
+    // UV mapping configuration
+    const updateUVMapping = (config: { startU: number, endU: number, startV: number, endV: number }) => {
+      const uvs = geometry.attributes.uv.array as Float32Array
+      uvs[0] = config.startU
+      uvs[1] = config.startV
+      uvs[2] = config.endU
+      uvs[3] = config.startV
+      uvs[4] = config.endU
+      uvs[5] = config.endV
+      uvs[6] = config.startU
+      uvs[7] = config.endV
+      geometry.attributes.uv.needsUpdate = true
+    }
+
+    // Apply initial UV mapping if provided
+    if (props.uvMapping) {
+      updateUVMapping(props.uvMapping)
+    }
+
+    // Store video data
+    this.customVideos.set(id, {
+      mesh,
+      video,
+      texture: videoTexture,
+      updateUVMapping
+    })
+
+    return id
+  }
+
+  setVideoPlaying (id: string, playing: boolean) {
+    const videoData = this.customVideos.get(id)
+    if (videoData) {
+      if (playing) {
+        videoData.video.play().catch(console.error)
+      } else {
+        videoData.video.pause()
+      }
+    }
+  }
+
+  setVideoSeeking (id: string, seconds: number) {
+    const videoData = this.customVideos.get(id)
+    if (videoData) {
+      videoData.video.currentTime = seconds
+    }
+  }
+
+  destroyVideo (id: string) {
+    const videoData = this.customVideos.get(id)
+    if (videoData) {
+      videoData.video.pause()
+      videoData.video.src = ''
+      this.scene.remove(videoData.mesh)
+      videoData.texture.dispose()
+      videoData.mesh.geometry.dispose()
+      if (videoData.mesh.material instanceof THREE.Material) {
+        videoData.mesh.material.dispose()
+      }
+      this.customVideos.delete(id)
     }
   }
 }
