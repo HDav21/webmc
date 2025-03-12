@@ -11,7 +11,9 @@ customEvents.on('mineflayerBotCreated', async () => {
     })
   })
   registerBlockModelsChannel()
-  registerMediaChannels()
+  if (options.networkRelatedCustomChannels) {
+    registerMediaChannels()
+  }
 })
 
 const registerBlockModelsChannel = () => {
@@ -329,6 +331,13 @@ const addTestVideo = (rotation = 0 as 0 | 1 | 2 | 3, scale = 1, towards = true) 
     rotation,
     // doubleSide: true,
     background: 0x00_00_00, // Black color
+    // TODO broken
+    // uvMapping: {
+    //   startU: 0,
+    //   endU: 1,
+    //   startV: 0,
+    //   endV: 1
+    // },
     opacity: 1
   })
 }

@@ -59,6 +59,7 @@ const defaultOptions = {
   packetsLoggerPreset: 'all' as 'all' | 'no-buffers',
   serversAutoVersionSelect: 'auto' as 'auto' | 'latest' | '1.20.4' | string,
   customChannels: false,
+  networkRelatedCustomChannels: false,
   packetsReplayAutoStart: false,
   preciseMouseInput: false,
   // todo ui setting, maybe enable by default?
