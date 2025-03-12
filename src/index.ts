@@ -894,8 +894,8 @@ export async function connect (connectOptions: ConnectOptions) {
 const reconnectOptions = sessionStorage.getItem('reconnectOptions') ? JSON.parse(sessionStorage.getItem('reconnectOptions')!) : undefined
 
 listenGlobalEvents()
-const unsubscribe = watchValue(miscUiState, async s => {
-  if (s.fsReady && s.appConfig) {
+const unsubscribe = subscribe(miscUiState, async () => {
+  if (miscUiState.fsReady && miscUiState.appConfig) {
     unsubscribe()
     if (reconnectOptions) {
       sessionStorage.removeItem('reconnectOptions')

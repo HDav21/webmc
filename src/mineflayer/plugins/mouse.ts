@@ -22,6 +22,7 @@ import destroyStage9 from '../../../assets/destroy_stage_9.png'
 import { options } from '../../optionsStorage'
 import { isCypress } from '../../standaloneUtils'
 import { playerState } from '../playerState'
+import { sendVideoInteraction, videoCursorInteraction } from '../../customChannels'
 
 function createDisplayManager (bot: Bot, scene: THREE.Scene, renderer: THREE.WebGLRenderer) {
   // State
@@ -179,6 +180,12 @@ const domListeners = (bot: Bot) => {
   document.addEventListener('mousedown', (e) => {
     if (e.isTrusted && !document.pointerLockElement && !isCypress()) return
     if (!isGameActive(true)) return
+
+    const videoInteraction = videoCursorInteraction()
+    if (videoInteraction) {
+      sendVideoInteraction(videoInteraction.id, videoInteraction.x, videoInteraction.y, e.button === 0)
+      return
+    }
 
     if (e.button === 0) {
       bot.leftClickStart()

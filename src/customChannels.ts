@@ -123,7 +123,7 @@ const registerMediaChannels = () => {
       { name: 'z', type: 'i32' },
       { name: 'width', type: 'f32' },
       { name: 'height', type: 'f32' },
-      { name: 'rotation', type: 'u8' }, // 0-3 for 0°, 90°, 180°, 270° (3-6 is same but double side)
+      { name: '_rotation', type: 'u8' }, // 0: 0° - towards positive z, 1: 90° - positive x, 2: 180° - negative z, 3: 270° - negative x (3-6 is same but double side)
       { name: 'source', type: ['pstring', { countType: 'i16' }] },
       { name: 'loop', type: 'bool' },
       { name: '_volume', type: 'f32' }, // 0
@@ -141,16 +141,18 @@ const registerMediaChannels = () => {
   const PLAY_CHANNEL = 'minecraft-web-client:media-play'
   const PAUSE_CHANNEL = 'minecraft-web-client:media-pause'
   const SEEK_CHANNEL = 'minecraft-web-client:media-seek'
+  const VOLUME_CHANNEL = 'minecraft-web-client:media-volume'
+  const SPEED_CHANNEL = 'minecraft-web-client:media-speed'
   const DESTROY_CHANNEL = 'minecraft-web-client:media-destroy'
 
-  const controlPacketStructure = [
+  const noDataPacketStructure = [
     'container',
     [
       { name: 'id', type: ['pstring', { countType: 'i16' }] }
     ]
   ]
 
-  const seekPacketStructure = [
+  const setNumberPacketStructure = [
     'container',
     [
       { name: 'id', type: ['pstring', { countType: 'i16' }] },
@@ -160,14 +162,21 @@ const registerMediaChannels = () => {
 
   // Register channels
   bot._client.registerChannel(ADD_CHANNEL, addPacketStructure, true)
-  bot._client.registerChannel(PLAY_CHANNEL, controlPacketStructure, true)
-  bot._client.registerChannel(PAUSE_CHANNEL, controlPacketStructure, true)
-  bot._client.registerChannel(SEEK_CHANNEL, seekPacketStructure, true)
-  bot._client.registerChannel(DESTROY_CHANNEL, controlPacketStructure, true)
+  bot._client.registerChannel(PLAY_CHANNEL, noDataPacketStructure, true)
+  bot._client.registerChannel(PAUSE_CHANNEL, noDataPacketStructure, true)
+  bot._client.registerChannel(SEEK_CHANNEL, setNumberPacketStructure, true)
+  bot._client.registerChannel(VOLUME_CHANNEL, setNumberPacketStructure, true)
+  bot._client.registerChannel(SPEED_CHANNEL, setNumberPacketStructure, true)
+  bot._client.registerChannel(DESTROY_CHANNEL, noDataPacketStructure, true)
 
   // Handle media add
   bot._client.on(ADD_CHANNEL as any, (data) => {
-    const { id, x, y, z, width, height, rotation, source, loop } = data
+    const { id, x, y, z, width, height, rotation, source, loop, background, opacity } = data
+
+    if (source.endsWith('.png') || source.endsWith('.jpg') || source.endsWith('.jpeg')) {
+      throw new Error('Image files are not supported yet, please use Minecraft maps instead')
+    }
+
     const worldRenderer = viewer.world as WorldRendererThree
 
     // Destroy existing video if it exists
@@ -179,8 +188,11 @@ const registerMediaChannels = () => {
       size: { width, height },
       side: 'towards',
       src: source,
-      rotation: rotation as 0 | 1 | 2 | 3,
-      doubleSide: false
+      // rotation: rotation as 0 | 1 | 2 | 3,
+      rotation: 0,
+      doubleSide: false,
+      background,
+      opacity: opacity / 100
     })
 
     // Set loop state
@@ -220,10 +232,80 @@ const registerMediaChannels = () => {
     worldRenderer.destroyVideo(id)
   })
 
+  // Handle media volume
+  bot._client.on(VOLUME_CHANNEL as any, (data) => {
+    const { id, volume } = data
+    const worldRenderer = viewer.world as WorldRendererThree
+    worldRenderer.setVideoVolume(id, volume)
+  })
+
+  // Handle media speed
+  bot._client.on(SPEED_CHANNEL as any, (data) => {
+    const { id, speed } = data
+    const worldRenderer = viewer.world as WorldRendererThree
+    worldRenderer.setVideoSpeed(id, speed)
+  })
+
+  // ---
+
+  // Video interaction channel
+  const interactionPacketStructure = [
+    'container',
+    [
+      { name: 'id', type: ['pstring', { countType: 'i16' }] },
+      { name: 'x', type: 'f32' },
+      { name: 'y', type: 'f32' },
+      { name: 'isRightClick', type: 'bool' }
+    ]
+  ]
+
+  bot._client.registerChannel(MEDIA_INTERACTION_CHANNEL, interactionPacketStructure, true)
+
   console.debug('Registered media channels')
 }
 
-const addTestVideo = (rotation = 0 as 0 | 1 | 2 | 3, scale = 1) => {
+const MEDIA_INTERACTION_CHANNEL = 'minecraft-web-client:media-interaction'
+
+export const sendVideoInteraction = (id: string, x: number, y: number, isRightClick: boolean) => {
+  bot._client.writeChannel(MEDIA_INTERACTION_CHANNEL, { id, x, y, isRightClick })
+}
+
+export const videoCursorInteraction = () => {
+  const worldRenderer = viewer.world as WorldRendererThree
+  const { camera } = worldRenderer
+  const raycaster = new THREE.Raycaster()
+
+  // Get mouse position at center of screen
+  const mouse = new THREE.Vector2(0, 0)
+
+  // Update the raycaster
+  raycaster.setFromCamera(mouse, camera)
+
+  // Check intersection with all video meshes
+  for (const [id, videoData] of worldRenderer.customVideos.entries()) {
+    // Get the actual mesh (first child of the group)
+    const mesh = videoData.mesh.children[0] as THREE.Mesh
+    if (!mesh) continue
+
+    const intersects = raycaster.intersectObject(mesh, false)
+    if (intersects.length > 0) {
+      const intersection = intersects[0]
+      const { uv } = intersection
+      if (!uv) return null
+
+      return {
+        id,
+        x: uv.x,
+        y: uv.y
+      }
+    }
+  }
+
+  return null
+}
+window.videoCursorInteraction = videoCursorInteraction
+
+const addTestVideo = (rotation = 0 as 0 | 1 | 2 | 3, scale = 1, towards = true) => {
   const block = window.cursorBlockRel()
   if (!block) return
   const { position: startPosition } = block
@@ -235,17 +317,19 @@ const addTestVideo = (rotation = 0 as 0 | 1 | 2 | 3, scale = 1) => {
   worldRenderer.addVideo('test-video', {
     position: {
       x: startPosition.x,
-      y: startPosition.y,
+      y: startPosition.y + 1,
       z: startPosition.z
     },
     size: {
       width: scale,
       height: scale
     },
-    side: 'towards',
-    src: 'https://threejs.org/examples/textures/sintel.mp4',
+    side: towards ? 'towards' : 'away',
+    src: 'https://bucket.mcraft.fun/test_video.mp4',
     rotation,
-    doubleSide: true
+    // doubleSide: true,
+    background: 0x00_00_00, // Black color
+    opacity: 1
   })
 }
 window.addTestVideo = addTestVideo

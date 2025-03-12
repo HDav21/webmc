@@ -21,8 +21,10 @@ interface VideoProperties {
   size: { width: number, height: number }
   side: 'towards' | 'away'
   src: string
-  rotation?: 0 | 1 | 2 | 3 // 0-3 for 0°, 90°, 180°, 270° rotation
+  rotation?: 0 | 1 | 2 | 3 // 0-3 for 0°, 90°, 180°, 270°
   doubleSide?: boolean
+  background?: number // Hexadecimal color (e.g., 0x000000 for black)
+  opacity?: number // 0-1 value for transparency
   uvMapping?: { startU: number, endU: number, startV: number, endV: number }
 }
 
@@ -499,6 +501,57 @@ export class WorldRendererThree extends WorldRendererCommon {
     return { x: baseX, y: baseY, z: baseZ }
   }
 
+  private createErrorTexture (width: number, height: number, background = 0x00_00_00): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas')
+    // Scale up the canvas size for better text quality
+    canvas.width = width * 100
+    canvas.height = height * 100
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return new THREE.CanvasTexture(canvas)
+
+    // Clear with transparent background
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    // Add background color
+    ctx.fillStyle = `rgba(${background >> 16 & 255}, ${background >> 8 & 255}, ${background & 255}, 0.5)`
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    // Add red text
+    ctx.fillStyle = '#ff0000'
+    ctx.font = 'bold 10px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('Failed to load', canvas.width / 2, canvas.height / 2, canvas.width)
+
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.minFilter = THREE.LinearFilter
+    texture.magFilter = THREE.LinearFilter
+    return texture
+  }
+
+  private createBackgroundTexture (width: number, height: number, color = 0x00_00_00, opacity = 1): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas')
+    canvas.width = 1
+    canvas.height = 1
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return new THREE.CanvasTexture(canvas)
+
+    // Convert hex color to rgba
+    const r = (color >> 16) & 255
+    const g = (color >> 8) & 255
+    const b = color & 255
+
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${opacity})`
+    ctx.fillRect(0, 0, 1, 1)
+
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.minFilter = THREE.NearestFilter
+    texture.magFilter = THREE.NearestFilter
+    return texture
+  }
+
   addVideo (id: string, props: VideoProperties) {
     // Create video element
     const video = document.createElement('video')
@@ -507,6 +560,14 @@ export class WorldRendererThree extends WorldRendererCommon {
     video.muted = true
     video.playsInline = true
     video.crossOrigin = 'anonymous'
+
+    // Create background texture first
+    const backgroundTexture = this.createBackgroundTexture(
+      props.size.width,
+      props.size.height,
+      props.background,
+      // props.opacity ?? 1
+    )
 
     // Create video texture
     const videoTexture = new THREE.VideoTexture(video)
@@ -517,10 +578,12 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     // Create a plane geometry with configurable UV mapping
     const geometry = new THREE.PlaneGeometry(1, 1)
+
+    // Create material with initial properties using background texture
     const material = new THREE.MeshBasicMaterial({
-      map: videoTexture,
+      map: backgroundTexture,
       transparent: true,
-      side: props.doubleSide ? THREE.DoubleSide : THREE.FrontSide
+      side: props.doubleSide ? THREE.DoubleSide : props.side === 'towards' ? THREE.BackSide : THREE.FrontSide,
     })
 
     // Create inner mesh for offsets
@@ -530,36 +593,46 @@ export class WorldRendererThree extends WorldRendererCommon {
     const group = new THREE.Group()
     group.add(mesh)
 
-    // Calculate base position (center of block)
-    const baseX = Math.floor(props.position.x) + 0.5
-    const baseY = Math.floor(props.position.y) + 0.5
-    const baseZ = Math.floor(props.position.z) + (props.side === 'towards' ? 1 : 0) - (props.side === 'towards' ? 0.999 : 0.001)
-
-    // Set group position to block center
-    group.position.set(baseX, baseY, baseZ)
+    const baseX = Math.floor(props.position.x)
+    const baseY = Math.floor(props.position.y)
+    const baseZ = Math.floor(props.position.z)
 
     // Set rotation if provided (0-3 for 0°, 90°, 180°, 270°)
     if (props.rotation !== undefined) {
       group.rotation.y = (props.rotation * Math.PI) / 2
     }
 
-    // Set fixed scale based on provided size
+    mesh.position.set(0, 0, (props.side === 'towards' ? 0.499 : -0.499))
     mesh.scale.set(props.size.width, props.size.height, 1)
+    this.setPosition(group, { x: baseX, y: baseY, z: baseZ }, props.size.width, props.size.height, 1)
+    group.scale.set(1, 1, 1)
 
     // Add to scene
     this.scene.add(group)
 
+    // Handle video errors and loading
+    const handleError = () => {
+      const errorTexture = this.createErrorTexture(props.size.width, props.size.height, props.background)
+      material.map = errorTexture
+      material.needsUpdate = true
+    }
+
     // Start playing the video
-    video.play().catch(console.error)
+    video.play().catch(err => {
+      console.error('Failed to play video:', err)
+      handleError()
+    })
 
     // Update texture in animation loop
-    const animate = () => {
+    mesh.onBeforeRender = () => {
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        if (material.map !== videoTexture) {
+          material.map = videoTexture
+          material.needsUpdate = true
+        }
         videoTexture.needsUpdate = true
       }
-      requestAnimationFrame(animate)
     }
-    animate()
 
     // UV mapping configuration
     const updateUVMapping = (config: { startU: number, endU: number, startV: number, endV: number }) => {
@@ -582,13 +655,41 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     // Store video data
     this.customVideos.set(id, {
-      mesh: group, // Store the group instead of just the mesh
+      mesh: group,
       video,
       texture: videoTexture,
       updateUVMapping
     })
 
     return id
+  }
+
+  // eslint-disable-next-line max-params
+  setPosition (object: THREE.Object3D, startPosition: { x: number, y: number, z: number }, width: number, height: number, depth: number) {
+    object.position.set(startPosition.x + width / 2, startPosition.y + height / 2, startPosition.z + depth / 2)
+    object.scale.set(width, height, depth)
+  }
+
+  addTestMesh () {
+    const pos = window.cursorBlockRel().position
+    const group = new THREE.Group()
+
+    const plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({
+        color: 0x00_ff_00,
+        side: THREE.DoubleSide
+      })
+    )
+    const width = 1
+    const height = 2
+    this.setPosition(plane, { x: 0, y: 0, z: 0 }, width, height, 1)
+    group.add(plane)
+    this.setPosition(group, pos, width, height, 1)
+    group.scale.set(1, 1, 1)
+    plane.rotation.y = THREE.MathUtils.degToRad(90)
+
+    viewer.scene.add(group)
   }
 
   setVideoPlaying (id: string, playing: boolean) {
@@ -606,6 +707,20 @@ export class WorldRendererThree extends WorldRendererCommon {
     const videoData = this.customVideos.get(id)
     if (videoData) {
       videoData.video.currentTime = seconds
+    }
+  }
+
+  setVideoVolume (id: string, volume: number) {
+    const videoData = this.customVideos.get(id)
+    if (videoData) {
+      videoData.video.volume = volume
+    }
+  }
+
+  setVideoSpeed (id: string, speed: number) {
+    const videoData = this.customVideos.get(id)
+    if (videoData) {
+      videoData.video.playbackRate = speed
     }
   }
 
