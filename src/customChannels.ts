@@ -1,7 +1,9 @@
 import { Vec3 } from 'vec3'
+import PItem from 'prismarine-item'
 import * as THREE from 'three'
 import { WorldRendererThree } from '../renderer/viewer/lib/worldrendererThree'
 import { options } from './optionsStorage'
+import { jeiCustomCategories } from './inventoryWindows'
 
 customEvents.on('mineflayerBotCreated', async () => {
   if (!options.customChannels) return
@@ -12,6 +14,7 @@ customEvents.on('mineflayerBotCreated', async () => {
   })
   registerBlockModelsChannel()
   registerMediaChannels()
+  registeredJeiChannel()
 })
 
 const registerBlockModelsChannel = () => {
@@ -91,7 +94,7 @@ const registeredJeiChannel = () => {
         type: ['pstring', { countType: 'i16' }]
       },
       {
-        name: 'categoryTitle',
+        name: '_categoryTitle',
         type: ['pstring', { countType: 'i16' }]
       },
       {
@@ -105,7 +108,29 @@ const registeredJeiChannel = () => {
 
   bot._client.on(CHANNEL_NAME as any, (data) => {
     const { id, categoryTitle, items } = data
-    // ...
+    if (items === '') {
+      // remove category
+      jeiCustomCategories.value = jeiCustomCategories.value.filter(x => x.id !== id)
+      return
+    }
+    const PrismarineItem = PItem(bot.version)
+    jeiCustomCategories.value.push({
+      id,
+      categoryTitle,
+      items: JSON.parse(items).map(x => {
+        const itemString = x.itemName || x.item_name || x.item || x.itemId
+        const itemId = loadedData.itemsByName[itemString.replace('minecraft:', '')]
+        if (!itemId) {
+          console.warn(`Could not add item ${itemString} to JEI category ${categoryTitle} because it was not found`)
+          return null
+        }
+        // const item = new PrismarineItem(itemId.id, x.itemCount || x.item_count || x.count || 1, x.itemDamage || x.item_damage || x.damage || 0, x.itemNbt || x.item_nbt || x.nbt || null)
+        return PrismarineItem.fromNotch({
+          ...x,
+          itemId: itemId.id,
+        })
+      })
+    })
   })
 
   console.debug(`registered custom channel ${CHANNEL_NAME} channel`)
@@ -118,18 +143,18 @@ const registerMediaChannels = () => {
     'container',
     [
       { name: 'id', type: ['pstring', { countType: 'i16' }] },
-      { name: 'x', type: 'i32' },
-      { name: 'y', type: 'i32' },
-      { name: 'z', type: 'i32' },
+      { name: 'x', type: 'f32' },
+      { name: 'y', type: 'f32' },
+      { name: 'z', type: 'f32' },
       { name: 'width', type: 'f32' },
       { name: 'height', type: 'f32' },
       { name: 'rotation', type: 'i16' }, // 0: 0° - towards positive z, 1: 90° - positive x, 2: 180° - negative z, 3: 270° - negative x (3-6 is same but double side)
       { name: 'source', type: ['pstring', { countType: 'i16' }] },
       { name: 'loop', type: 'bool' },
       { name: '_volume', type: 'f32' }, // 0
-      { name: '_aspectRatioMode', type: 'u8' }, // 0
-      { name: '_background', type: 'u8' }, // 0
-      { name: '_opacity', type: 'u8' }, // 1
+      { name: '_aspectRatioMode', type: 'i16' }, // 0
+      { name: '_background', type: 'i16' }, // 0
+      { name: '_opacity', type: 'i16' }, // 1
       { name: '_cropXStart', type: 'f32' }, // 0
       { name: '_cropYStart', type: 'f32' }, // 0
       { name: '_cropXEnd', type: 'f32' }, // 0
