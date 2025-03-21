@@ -148,6 +148,10 @@ const registerMediaChannels = () => {
       { name: 'z', type: 'f32' },
       { name: 'width', type: 'f32' },
       { name: 'height', type: 'f32' },
+      // N, 0
+      // W, 3
+      // S, 2
+      // E, 1
       { name: 'rotation', type: 'i16' }, // 0: 0° - towards positive z, 1: 90° - positive x, 2: 180° - negative z, 3: 270° - negative x (3-6 is same but double side)
       { name: 'source', type: ['pstring', { countType: 'i16' }] },
       { name: 'loop', type: 'bool' },

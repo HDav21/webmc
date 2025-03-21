@@ -476,31 +476,6 @@ export class WorldRendererThree extends WorldRendererCommon {
     }
   }
 
-  private calculateVideoPosition (position: { x: number, y: number, z: number }, side: 'towards' | 'away', rotation?: 0 | 1 | 2 | 3): { x: number, y: number, z: number } {
-    const offset = side === 'towards' ? 0.999 : 0.001
-    // Position is bottom-left corner, so we need to add half the size to center it
-    // Only apply towards/away offset to Z-axis, normalize X/Y with 0.5
-    const baseX = Math.floor(position.x) + 0.5
-    const baseY = Math.floor(position.y) + 0.5
-    const baseZ = Math.floor(position.z) + (side === 'towards' ? 1 : 0) - offset
-
-    // Adjust position based on rotation to maintain correct starting point
-    if (rotation !== undefined) {
-      switch (rotation) {
-        case 1: // 90 degrees
-          return { x: baseX + 0.5, y: baseY, z: baseZ }
-        case 2: // 180 degrees
-          return { x: baseX + 0.5, y: baseY, z: baseZ - 0.5 }
-        case 3: // 270 degrees
-          return { x: baseX, y: baseY, z: baseZ - 0.5 }
-        default: // 0 degrees
-          return { x: baseX, y: baseY, z: baseZ }
-      }
-    }
-
-    return { x: baseX, y: baseY, z: baseZ }
-  }
-
   private createErrorTexture (width: number, height: number, background = 0x00_00_00): THREE.CanvasTexture {
     const canvas = document.createElement('canvas')
     // Scale up the canvas size for better text quality
@@ -767,11 +742,11 @@ export class WorldRendererThree extends WorldRendererCommon {
       startPosition.z += 1
     }
     if (rotation === Math.PI) {
-      startPosition.x += 2
+      startPosition.x += 1
     }
     if (rotation === 3 * Math.PI / 2) {
       startPosition.z += 1
-      startPosition.x += 2
+      startPosition.x += 1
     }
 
 
