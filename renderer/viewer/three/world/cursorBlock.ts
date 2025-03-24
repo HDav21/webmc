@@ -51,6 +51,8 @@ export class CursorBlock {
     subscribeKey(this.worldRenderer.playerState.reactive, 'gameMode', () => {
       this.updateLineMaterial()
     })
+
+    this.updateLineMaterial()
   }
 
   // Update functions
