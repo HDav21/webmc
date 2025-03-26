@@ -7,6 +7,7 @@ import Button from './Button'
 import ButtonWithTooltip from './ButtonWithTooltip'
 import { pixelartIcons } from './PixelartIcon'
 import useLongPress from './useLongPress'
+import PauseLinkButtons from './PauseLinkButtons'
 
 type Action = (e: React.MouseEvent<HTMLButtonElement>) => void
 
@@ -15,7 +16,6 @@ interface Props {
   singleplayerAction?: Action
   optionsAction?: Action
   githubAction?: Action
-  linksButton?: JSX.Element
   openFileAction?: Action
   mapsProvider?: string
   versionStatus?: string
@@ -24,6 +24,7 @@ interface Props {
   bottomRightLinks?: string
   versionText?: string
   onVersionTextClick?: () => void
+  singleplayerAvailable?: boolean
 }
 
 const httpsRegex = /^https?:\/\//
@@ -34,14 +35,14 @@ export default ({
   singleplayerAction,
   optionsAction,
   githubAction,
-  linksButton,
   openFileAction,
   versionText,
   onVersionTextClick,
   versionStatus,
   versionTitle,
   onVersionStatusClick,
-  bottomRightLinks
+  bottomRightLinks,
+  singleplayerAvailable = true
 }: Props) => {
   if (!bottomRightLinks?.trim()) bottomRightLinks = undefined
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
@@ -60,8 +61,9 @@ export default ({
 
   const versionLongPress = useLongPress(
     () => {
-      const buildDate = process.env.BUILD_VERSION ? new Date(process.env.BUILD_VERSION) : null
-      alert(`BUILD INFO:\n${buildDate?.toLocaleString() || 'Development build'}`)
+      const buildDate = process.env.BUILD_VERSION ? new Date(process.env.BUILD_VERSION + ':00:00.000Z') : null
+      const hoursAgo = buildDate ? Math.round((Date.now() - buildDate.getTime()) / (1000 * 60 * 60)) : null
+      alert(`BUILD DATE:\n${buildDate?.toLocaleString() || 'Development build'}${hoursAgo ? `\nBuilt ${hoursAgo} hours ago` : ''}`)
     },
     () => onVersionTextClick?.(),
   )
@@ -107,6 +109,7 @@ export default ({
             style={{ width: 150 }}
             {...singleplayerLongPress}
             data-test-id='singleplayer-button'
+            disabled={!singleplayerAvailable}
             initialTooltip={{
               content: 'Create worlds and play offline',
               placement: 'left',
@@ -140,16 +143,7 @@ export default ({
           Options
         </Button>
         <div className={styles['menu-row']}>
-          <ButtonWithTooltip
-            initialTooltip={{
-              content: 'Report bugs or request features!',
-            }}
-            style={{ width: '98px' }}
-            onClick={githubAction}
-          >
-            GitHub
-          </ButtonWithTooltip>
-          {linksButton}
+          <PauseLinkButtons />
         </div>
       </div>
 
@@ -183,7 +177,7 @@ export default ({
               </div>
             })}
           </div>
-          <span>A Minecraft client in the browser!</span>
+          <span>A Minecraft client clone in the browser!</span>
         </span>
       </div>
     </div>

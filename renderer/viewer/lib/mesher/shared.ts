@@ -1,5 +1,6 @@
 import { BlockType } from '../../../playground/shared'
 
+// only here for easier testing
 export const defaultMesherConfig = {
   version: '',
   enableLighting: true,
@@ -37,10 +38,21 @@ export type MesherGeometryOutput = {
   heads: Record<string, any>,
   signs: Record<string, any>,
   // isFull: boolean
-  highestBlocks: Map<string, HighestBlockInfo>
+  highestBlocks: Record<string, HighestBlockInfo>
   hadErrors: boolean
   blocksCount: number
   customBlockModels?: CustomBlockModels
 }
 
 export type HighestBlockInfo = { y: number, stateId: number | undefined, biomeId: number | undefined }
+
+export type BlockStateModelInfo = {
+  cacheKey: string
+  issues: string[]
+  modelNames: string[]
+  conditions: string[]
+}
+
+export const getBlockAssetsCacheKey = (stateId: number, modelNameOverride?: string) => {
+  return modelNameOverride ? `${stateId}:${modelNameOverride}` : String(stateId)
+}

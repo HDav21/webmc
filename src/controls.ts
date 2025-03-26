@@ -6,9 +6,9 @@ import { proxy, subscribe } from 'valtio'
 import { ControMax } from 'contro-max/build/controMax'
 import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types'
 import { stringStartsWith } from 'contro-max/build/stringUtils'
-import { UserOverrideCommand, UserOverridesConfig } from 'contro-max/build/types/store'
+import { GameMode } from 'mineflayer'
 import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, hideModal, hideAllModals } from './globalState'
-import { goFullscreen, pointerLock, reloadChunks } from './utils'
+import { goFullscreen, isInRealGameSession, pointerLock, reloadChunks } from './utils'
 import { options } from './optionsStorage'
 import { openPlayerInventory } from './inventoryWindows'
 import { chatInputValueGlobal } from './react/Chat'
@@ -19,15 +19,18 @@ import { showOptionsModal } from './react/SelectOption'
 import widgets from './react/widgets'
 import { getItemFromBlock } from './chatUtils'
 import { gamepadUiCursorState, moveGamepadCursorByPx } from './react/GamepadUiCursor'
-import { completeTexturePackInstall, copyServerResourcePackToRegular, resourcePackState } from './resourcePack'
+import { completeResourcepackPackInstall, copyServerResourcePackToRegular, resourcePackState } from './resourcePack'
 import { showNotification } from './react/NotificationProvider'
 import { lastConnectOptions } from './react/AppStatusProvider'
 import { onCameraMove, onControInit } from './cameraRotationControls'
+import { createNotificationProgressReporter } from './core/progressReporter'
+import { appStorage } from './react/appStorageProvider'
+import { switchGameMode } from './packetsReplay/replayPackets'
 
 
-export const customKeymaps = proxy(JSON.parse(localStorage.keymap || '{}')) as UserOverridesConfig
+export const customKeymaps = proxy(appStorage.keybindings)
 subscribe(customKeymaps, () => {
-  localStorage.keymap = JSON.stringify(customKeymaps)
+  appStorage.keybindings = customKeymaps
 })
 
 const controlOptions = {
@@ -129,6 +132,23 @@ contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
   }
   miscUiState.usingGamepadInput = gamepadIndex !== undefined
   if (!bot || !isGameActive(false)) return
+
+  // if (viewer.world.freeFlyMode) {
+  //   // Create movement vector from input
+  //   const direction = new THREE.Vector3(0, 0, 0)
+  //   if (vector.z !== undefined) direction.z = vector.z
+  //   if (vector.x !== undefined) direction.x = vector.x
+
+  //   // Apply camera rotation to movement direction
+  //   direction.applyQuaternion(viewer.camera.quaternion)
+
+  //   // Update freeFlyState position with normalized direction
+  //   const moveSpeed = 1
+  //   direction.multiplyScalar(moveSpeed)
+  //   viewer.world.freeFlyState.position.add(new Vec3(direction.x, direction.y, direction.z))
+  //   return
+  // }
+
   // gamepadIndex will be used for splitscreen in future
   const coordToAction = [
     ['z', -1, 'forward'],
@@ -335,10 +355,20 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
     // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
     switch (command) {
       case 'general.jump':
+        // if (viewer.world.freeFlyMode) {
+        //   const moveSpeed = 0.5
+        //   viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? moveSpeed : 0, 0))
+        // } else {
         bot.setControlState('jump', pressed)
+        // }
         break
       case 'general.sneak':
+        // if (viewer.world.freeFlyMode) {
+        //   const moveSpeed = 0.5
+        //   viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? -moveSpeed : 0, 0))
+        // } else {
         setSneaking(pressed)
+        // }
         break
       case 'general.sprint':
         // todo add setting to change behavior
@@ -563,12 +593,12 @@ export const f3Keybinds: Array<{
       for (const [x, z] of loadedChunks) {
         worldView!.unloadChunk({ x, z })
       }
-      for (const child of viewer.scene.children) {
-        if (child.name === 'chunk') { // should not happen
-          viewer.scene.remove(child)
-          console.warn('forcefully removed chunk from scene')
-        }
-      }
+      // for (const child of viewer.scene.children) {
+      //   if (child.name === 'chunk') { // should not happen
+      //     viewer.scene.remove(child)
+      //     console.warn('forcefully removed chunk from scene')
+      //   }
+      // }
       if (localServer) {
         //@ts-expect-error not sure why it is private... maybe revisit api?
         localServer.players[0].world.columns = {}
@@ -581,7 +611,6 @@ export const f3Keybinds: Array<{
     key: 'KeyG',
     action () {
       options.showChunkBorders = !options.showChunkBorders
-      viewer.world.updateShowChunksBorder(options.showChunkBorders)
     },
     mobileTitle: 'Toggle chunk borders',
   },
@@ -602,7 +631,7 @@ export const f3Keybinds: Array<{
       // TODO!
       if (resourcePackState.resourcePackInstalled || gameAdditionalState.usingServerResourcePack) {
         showNotification('Reloading textures...')
-        await completeTexturePackInstall('default', 'default', gameAdditionalState.usingServerResourcePack)
+        await completeResourcepackPackInstall('default', 'default', gameAdditionalState.usingServerResourcePack, createNotificationProgressReporter())
       }
     },
     mobileTitle: 'Reload Textures'
@@ -610,28 +639,34 @@ export const f3Keybinds: Array<{
   {
     key: 'F4',
     async action () {
+      let nextGameMode: GameMode
       switch (bot.game.gameMode) {
         case 'creative': {
-          bot.chat('/gamemode survival')
+          nextGameMode = 'survival'
 
           break
         }
         case 'survival': {
-          bot.chat('/gamemode adventure')
+          nextGameMode = 'adventure'
 
           break
         }
         case 'adventure': {
-          bot.chat('/gamemode spectator')
+          nextGameMode = 'spectator'
 
           break
         }
         case 'spectator': {
-          bot.chat('/gamemode creative')
+          nextGameMode = 'creative'
 
           break
         }
       // No default
+      }
+      if (lastConnectOptions.value?.worldStateFileContents) {
+        switchGameMode(nextGameMode)
+      } else {
+        bot.chat(`/gamemode ${nextGameMode}`)
       }
     },
     mobileTitle: 'Cycle Game Mode'
@@ -643,8 +678,8 @@ export const f3Keybinds: Array<{
       const proxyPing = await bot['pingProxy']()
       void showOptionsModal(`${username}: last known total latency (ping): ${playerPing}. Connected to ${lastConnectOptions.value?.proxy} with current ping ${proxyPing}. Player UUID: ${uuid}`, [])
     },
-    mobileTitle: 'Show Proxy & Ping Details',
-    enabled: () => !!lastConnectOptions.value?.proxy
+    mobileTitle: 'Show Player & Ping Details',
+    enabled: () => !lastConnectOptions.value?.singleplayer && !!bot.player
   },
   {
     action () {
@@ -783,15 +818,16 @@ let allowFlying = false
 export const onBotCreate = () => {
   let wasSpectatorFlying = false
   bot._client.on('abilities', ({ flags }) => {
+    allowFlying = !!(flags & 4)
     if (flags & 2) { // flying
       toggleFly(true, false)
     } else {
       toggleFly(false, false)
     }
-    allowFlying = !!(flags & 4)
   })
   const gamemodeCheck = () => {
     if (bot.game.gameMode === 'spectator') {
+      allowFlying = true
       toggleFly(true, false)
       wasSpectatorFlying = true
     } else if (wasSpectatorFlying) {
@@ -838,7 +874,7 @@ const selectItem = async () => {
 
 addEventListener('mousedown', async (e) => {
   if ((e.target as HTMLElement).matches?.('#VRButton')) return
-  if (gameAdditionalState.viewerConnection && !(e.target as HTMLElement).id.includes('ui-root')) return
+  if (!isInRealGameSession() && !(e.target as HTMLElement).id.includes('ui-root')) return
   void pointerLock.requestPointerLock()
   if (!bot) return
   // wheel click
@@ -890,8 +926,15 @@ window.addEventListener('keydown', (e) => {
 
 // #region experimental debug things
 window.addEventListener('keydown', (e) => {
-  if (e.code === 'KeyL' && e.altKey) {
+  if (e.code === 'KeyL' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
     console.clear()
+  }
+  if (e.code === 'KeyK' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    if (sessionStorage.delayLoadUntilFocus) {
+      sessionStorage.removeItem('delayLoadUntilFocus')
+    } else {
+      sessionStorage.setItem('delayLoadUntilFocus', 'true')
+    }
   }
 })
 // #endregion

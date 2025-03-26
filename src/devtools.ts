@@ -1,18 +1,19 @@
 // global variables useful for debugging
 
 import fs from 'fs'
-import { WorldRendererThree } from 'renderer/viewer/lib/worldrendererThree'
+import { WorldRendererThree } from 'renderer/viewer/three/worldrendererThree'
 import { enable, disable, enabled } from 'debug'
-import { getEntityCursor } from './worldInteractions'
+import { Vec3 } from 'vec3'
 
+window.Vec3 = Vec3
 window.cursorBlockRel = (x = 0, y = 0, z = 0) => {
   const newPos = bot.blockAtCursor(5)?.position.offset(x, y, z)
   if (!newPos) return
   return bot.world.getBlock(newPos)
 }
 
-window.cursorEntity = () => {
-  return getEntityCursor()
+window.entityCursor = () => {
+  return bot.mouse.getCursorState().entity
 }
 
 // wanderer
@@ -20,17 +21,17 @@ window.inspectPlayer = () => require('fs').promises.readFile('/world/playerdata/
 
 Object.defineProperty(window, 'debugSceneChunks', {
   get () {
-    return (viewer.world as WorldRendererThree).getLoadedChunksRelative?.(following.entity.position, true)
+    return (window.world as WorldRendererThree)?.getLoadedChunksRelative?.(following?.entity?.position ?? bot.entity.position, true)
   },
 })
 
 window.chunkKey = (xRel = 0, zRel = 0) => {
-  const pos = following.entity.position
+  const pos = following?.entity?.position ?? bot.entity.position
   return `${(Math.floor(pos.x / 16) + xRel) * 16},${(Math.floor(pos.z / 16) + zRel) * 16}`
 }
 
 window.sectionKey = (xRel = 0, yRel = 0, zRel = 0) => {
-  const pos = following.entity.position
+  const pos = following?.entity?.position ?? bot.entity.position
   return `${(Math.floor(pos.x / 16) + xRel) * 16},${(Math.floor(pos.y / 16) + yRel) * 16},${(Math.floor(pos.z / 16) + zRel) * 16}`
 }
 
@@ -146,3 +147,64 @@ Object.defineProperty(window, 'debugToggle', {
     console.log('Enabled debug for', v)
   }
 })
+
+customEvents.on('gameLoaded', () => {
+  window.holdingBlock = (window.world as WorldRendererThree).holdingBlock
+})
+
+window.clearStorage = (...keysToKeep: string[]) => {
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && !keysToKeep.includes(key)) {
+      localStorage.removeItem(key)
+    }
+  }
+  return `Cleared ${localStorage.length - keysToKeep.length} items from localStorage. Kept: ${keysToKeep.join(', ')}`
+}
+
+
+// PERF DEBUG
+
+// for advanced debugging, use with watch expression
+
+window.statsPerSecAvg = {}
+let currentStatsPerSec = {} as Record<string, number[]>
+const waitingStatsPerSec = {}
+window.markStart = (label) => {
+  waitingStatsPerSec[label] ??= []
+  waitingStatsPerSec[label][0] = performance.now()
+}
+window.markEnd = (label) => {
+  if (!waitingStatsPerSec[label]?.[0]) return
+  currentStatsPerSec[label] ??= []
+  currentStatsPerSec[label].push(performance.now() - waitingStatsPerSec[label][0])
+  delete waitingStatsPerSec[label]
+}
+const updateStatsPerSecAvg = () => {
+  window.statsPerSecAvg = Object.fromEntries(Object.entries(currentStatsPerSec).map(([key, value]) => {
+    return [key, {
+      avg: value.reduce((a, b) => a + b, 0) / value.length,
+      count: value.length
+    }]
+  }))
+  currentStatsPerSec = {}
+}
+
+
+window.statsPerSec = {}
+let statsPerSecCurrent = {}
+let lastReset = performance.now()
+window.addStatPerSec = (name) => {
+  statsPerSecCurrent[name] ??= 0
+  statsPerSecCurrent[name]++
+}
+window.statsPerSecCurrent = statsPerSecCurrent
+setInterval(() => {
+  window.statsPerSec = { duration: Math.floor(performance.now() - lastReset), ...statsPerSecCurrent, }
+  statsPerSecCurrent = {}
+  window.statsPerSecCurrent = statsPerSecCurrent
+  updateStatsPerSecAvg()
+  lastReset = performance.now()
+}, 1000)
+
+// ---

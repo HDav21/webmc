@@ -46,7 +46,7 @@ export default () => {
 
   useMemo(() => {
     bot.on('entityHurt', (entity) => {
-      if (entity !== bot.entity) return
+      if (entity !== following?.entity) return
       onDamage()
     })
 
@@ -56,21 +56,23 @@ export default () => {
     })
 
     bot.on('entityEffect', (entity, effect) => {
-      if (entity !== bot.entity) return
+      if (entity !== following?.entity) return
       setEffectToAdd(prev => effect.id)
     })
 
     bot.on('entityEffectEnd', (entity, effect) => {
-      if (entity !== bot.entity) return
+      if (entity !== following?.entity) return
       setEffectToRemove(prev => effect.id)
     })
 
+    // TODO: can we track health/food/etc. for the followed entity?
     bot.on('health', () => {
       if (bot.health < healthValue) onDamage()
       updateHealth(bot.health)
       setFood(prev => bot.food)
     })
 
+    // TODO: can we track oxygen for the followed entity?
     bot.on('breath', () => {
       setOxygen(prev => bot.oxygenLevel)
     })
@@ -90,7 +92,7 @@ export default () => {
     upArmour()
   }, [])
 
-  return <div>
+  return <div className='hud-bars-container'>
     <HealthBar
       gameMode={gameMode}
       isHardcore={isHardcore}

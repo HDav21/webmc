@@ -75,8 +75,7 @@ const updateFovAnimation = () => {
       currentFov = targetFov
     }
 
-    viewer.camera.fov = currentFov
-    viewer.camera.updateProjectionMatrix()
+    appViewer.inWorldRenderingConfig.fov = currentFov
   }
   lastUpdateTime = now
 }

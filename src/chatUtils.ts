@@ -2,7 +2,7 @@
 
 import { fromFormattedString, TextComponent } from '@xmcl/text-component'
 import type { IndexedData } from 'minecraft-data'
-import { versionToNumber } from 'renderer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/common/utils'
 
 export type MessageFormatPart = Pick<TextComponent, 'hoverEvent' | 'clickEvent'> & {
   text: string
@@ -44,6 +44,7 @@ export const formatMessage = (message: MessageInput, mcData: IndexedData = globa
       obfuscated: !!msg.obfuscated
     }
 
+    if (!msg.text && typeof msg.json?.[''] === 'string') msg.text = msg.json['']
     if (msg.text) {
       msglist.push({
         ...msg,

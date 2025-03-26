@@ -1,10 +1,11 @@
 {
   "version": 1,
   "defaultHost": "<from-proxy>",
-  "defaultProxy": "mcproxy.kradle.ai",
+  "defaultProxy": "https://mcproxy.kradle.ai",
   "mapsProvider": "https://maps.mcraft.fun/",
   "peerJsServer": "",
   "peerJsServerFallback": "https://p2p.mcraft.fun",
   "allowAutoConnect": true,
-  "promoteServers": []
+  "promoteServers": [],
+  "pauseLinks": []
 }
