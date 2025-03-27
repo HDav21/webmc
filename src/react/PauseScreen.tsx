@@ -7,6 +7,7 @@ import { openURL } from 'renderer/viewer/lib/simpleUtils'
 import { Vec3 } from 'vec3'
 import { generateSpiralMatrix } from 'flying-squid/dist/utils'
 import { subscribeKey } from 'valtio/utils'
+import { ErrorBoundary } from '@zardoy/react-util'
 import {
   activeModalStack,
   showModal,
@@ -17,11 +18,13 @@ import {
 } from '../globalState'
 import { fsState } from '../loadSave'
 import { disconnect } from '../flyingSquidUtils'
-import { pointerLock } from '../utils'
+import { openGithub, pointerLock } from '../utils'
 import { setLoadingScreenStatus } from '../appStatus'
 import { closeWan, openToWanAndCopyJoinLink, getJoinLink } from '../localServerMultiplayer'
 import { collectFilesToCopy, fileExistsAsyncOptimized, mkdirRecursive, uniqueFileNameFromWorldName } from '../browserfs'
 import { appQueryParams } from '../appParams'
+import { downloadPacketsReplay, packetsRecordingState } from '../packetsReplay/packetsReplayLegacy'
+import { options } from '../optionsStorage'
 import { useIsModalActive } from './utilsApp'
 import { showOptionsModal } from './SelectOption'
 import Button from './Button'
@@ -30,6 +33,9 @@ import styles from './PauseScreen.module.css'
 import { DiscordButton } from './DiscordButton'
 import { showNotification } from './NotificationProvider'
 import { appStatusState, reconnectReload } from './AppStatusProvider'
+import NetworkStatus from './NetworkStatus'
+import PauseLinkButtons from './PauseLinkButtons'
+import { pixelartIcons } from './PixelartIcon'
 
 const waitForPotentialRender = async () => {
   return new Promise<void>(resolve => {
@@ -155,6 +161,8 @@ export default () => {
   const activeModalStackSnap = useSnapshot(activeModalStack)
   const { singleplayer, wanOpened, wanOpening } = useSnapshot(miscUiState)
   const { noConnection } = useSnapshot(gameAdditionalState)
+  const { active: packetsReplaceActive, hasRecordedPackets: packetsReplaceHasRecordedPackets } = useSnapshot(packetsRecordingState)
+  const { displayRecordButton: displayPacketsButtons } = useSnapshot(options)
 
   const handlePointerLockChange = () => {
     if (!pointerLock.hasPointerLock && activeModalStack.length === 0) {
@@ -226,23 +234,74 @@ export default () => {
 
   // eslint-disable-next-line no-unreachable
   return <Screen title='Game Menu'>
-    {/* <Button
-      icon="pixelarticons:folder"
-      style={{ position: 'fixed', top: '5px', left: 'calc(env(safe-area-inset-left) + 5px)' }}
-      onClick={async () => openWorldActions()}
-    /> */}
+    <div style={{ position: 'fixed', top: '5px', left: 'calc(env(safe-area-inset-left) + 5px)', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+      <Button
+        icon="pixelarticons:folder"
+        onClick={async () => openWorldActions()}
+      />
+      {displayPacketsButtons && (
+        <>
+          <Button
+            icon={packetsReplaceActive ? 'pixelarticons:debug-stop' : 'pixelarticons:circle'}
+            onClick={() => {
+              packetsRecordingState.active = !packetsRecordingState.active
+            }}
+          />
+          {packetsReplaceHasRecordedPackets && (
+            <Button
+              icon={pixelartIcons['briefcase-download']}
+              onClick={async () => downloadPacketsReplay()}
+            />
+          )}
+          <Button
+            icon={pixelartIcons['download']}
+            onClick={async () => bot.downloadCurrentWorldState()}
+          />
+        </>
+      )}
+    </div>
+    <ErrorBoundary renderError={() => <div>error</div>}>
+      <div style={{ position: 'fixed', top: '5px', left: 'calc(env(safe-area-inset-left) + 35px)' }}>
+        <NetworkStatus />
+      </div>
+    </ErrorBoundary>
     <div className={styles.pause_container}>
       <Button className="button" style={{ width: '204px' }} onClick={onReturnPress}>Back to Game</Button>
-      {noConnection && (
-        <Button className="button" style={{ width: '204px' }} onClick={reconnectReload}>
-          Reconnect
-        </Button>
-      )}
+      <PauseLinkButtons />
+      <Button className="button" style={{ width: '204px' }} onClick={() => openOptionsMenu('main')}>Options</Button>
+      {singleplayer ? (
+        <div className={styles.row}>
+          <Button className="button" style={{ width: '170px' }} onClick={async () => clickJoinLinkButton()}>
+            {wanOpening ? 'Opening, wait...' : wanOpened ? 'Close Wan' : 'Copy Join Link'}
+          </Button>
+          {(navigator.share as typeof navigator.share | undefined) ? (
+            <Button
+              title="Share Join Link"
+              className="button"
+              icon="pixelarticons:arrow-up"
+              style={{ width: '20px' }}
+              onClick={async () => clickWebShareButton()}
+            />
+          ) : null}
+          <Button
+            title='Display QR for the Join Link'
+            className="button"
+            icon="pixelarticons:dice"
+            style={{ width: '20px' }}
+            onClick={async () => clickJoinLinkButton(true)}
+          />
+        </div>
+      ) : null}
       {!lockConnect && <>
         <Button className="button" style={{ width: '204px' }} onClick={disconnect}>
           {localServer && !fsState.syncFs && !fsState.isReadonly ? 'Save & Quit' : 'Disconnect & Reset'}
         </Button>
       </>}
+      {noConnection && (
+        <Button className="button" style={{ width: '204px' }} onClick={reconnectReload}>
+          Reconnect
+        </Button>
+      )}
     </div>
   </Screen>
 }

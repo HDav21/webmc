@@ -7,8 +7,10 @@ import { activeModalStack, isGameActive, miscUiState } from '../globalState'
 import { currentScaling } from '../scaleInterface'
 import { watchUnloadForCleanup } from '../gameUnload'
 import { getItemNameRaw } from '../mineflayer/items'
+import { isInRealGameSession } from '../utils'
 import MessageFormattedString from './MessageFormattedString'
 import SharedHudVars from './SharedHudVars'
+import { packetsReplayState } from './state/packetsReplayState'
 
 
 const ItemName = ({ itemKey }: { itemKey: string }) => {
@@ -40,7 +42,7 @@ const ItemName = ({ itemKey }: { itemKey: string }) => {
   useEffect(() => {
     const item = bot.heldItem
     if (item) {
-      const customDisplay = getItemNameRaw(item)
+      const customDisplay = getItemNameRaw(item, appViewer.resourcesManager)
       if (customDisplay) {
         setItemName(customDisplay)
       } else {
@@ -108,7 +110,7 @@ const HotbarInner = () => {
     inv.canvas.style.pointerEvents = 'auto'
     container.current.appendChild(inv.canvas)
     const upHotbarItems = () => {
-      if (!viewer.world.currentTextureImage || !allImagesLoadedState.value) return
+      if (!appViewer.resourcesManager.currentResources?.itemsAtlasParser || !allImagesLoadedState.value) return
       upInventoryItems(true, inv)
     }
 
@@ -122,7 +124,7 @@ const HotbarInner = () => {
 
     upHotbarItems()
     bot.inventory.on('updateSlot', upHotbarItems)
-    viewer.world.renderUpdateEmitter.on('textureDownloaded', upHotbarItems)
+    appViewer.resourcesManager.on('assetsTexturesUpdated', upHotbarItems)
     const unsub2 = subscribe(allImagesLoadedState, () => {
       upHotbarItems()
     })
@@ -147,7 +149,7 @@ const HotbarInner = () => {
     bot.on('heldItemChanged' as any, heldItemChanged)
 
     document.addEventListener('wheel', (e) => {
-      if (!isGameActive(true)) return
+      if (!isInRealGameSession()) return
       e.preventDefault()
       const newSlot = ((bot.quickBarSlot + Math.sign(e.deltaY)) % 9 + 9) % 9
       setSelectedSlot(newSlot)
@@ -157,7 +159,7 @@ const HotbarInner = () => {
     })
 
     document.addEventListener('keydown', (e) => {
-      if (!isGameActive(true)) return
+      if (!isInRealGameSession()) return
       const numPressed = +((/Digit(\d)/.exec(e.code))?.[1] ?? -1)
       if (numPressed < 1 || numPressed > 9) return
       setSelectedSlot(numPressed - 1)
@@ -195,7 +197,7 @@ const HotbarInner = () => {
       inv.destroy()
       controller.abort()
       unsub2()
-      viewer.world.renderUpdateEmitter.off('textureDownloaded', upHotbarItems)
+      appViewer.resourcesManager.off('assetsTexturesUpdated', upHotbarItems)
     }
   }, [])
 

@@ -3,7 +3,7 @@ const rightOffset = 0
 
 const stats = {}
 
-let lastY = 20
+let lastY = 40
 export const addNewStat = (id: string, width = 80, x = rightOffset, y = lastY) => {
   const pane = document.createElement('div')
   pane.style.position = 'fixed'
@@ -15,7 +15,7 @@ export const addNewStat = (id: string, width = 80, x = rightOffset, y = lastY) =
   pane.style.padding = '2px'
   pane.style.fontFamily = 'monospace'
   pane.style.fontSize = '12px'
-  pane.style.zIndex = '10000'
+  pane.style.zIndex = '100'
   pane.style.pointerEvents = 'none'
   document.body.appendChild(pane)
   stats[id] = pane
@@ -38,6 +38,19 @@ export const addNewStat = (id: string, width = 80, x = rightOffset, y = lastY) =
 export const updateStatText = (id, text) => {
   if (!stats[id]) return
   stats[id].innerText = text
+}
+
+export const removeAllStats = () => {
+  // eslint-disable-next-line guard-for-in
+  for (const id in stats) {
+    removeStat(id)
+  }
+}
+
+export const removeStat = (id) => {
+  if (!stats[id]) return
+  stats[id].remove()
+  delete stats[id]
 }
 
 if (typeof customEvents !== 'undefined') {

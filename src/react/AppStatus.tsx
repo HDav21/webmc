@@ -18,7 +18,6 @@ export default ({
   children
 }) => {
   const [loadingDotIndex, setLoadingDotIndex] = useState(0)
-  const lockConnect = appQueryParams.lockConnect === 'true'
 
   useEffect(() => {
     const statusRunner = async () => {
@@ -69,10 +68,15 @@ export default ({
     >
       {isError && (
         <>
-          {showReconnect && onReconnect && <Button label="Reconnect" onClick={onReconnect} />}
-          {actionsSlot}
-          <Button onClick={() => window.location.reload()} label="Reset App (recommended)" />
-          {!lockConnect && backAction && <Button label="Back" onClick={backAction} />}
+          {/* @pranaygp - keeping this screen simple for kradle users */}
+          {/* {showReconnect && onReconnect && <Button onClick={onReconnect}>
+            <b>Reconnect</b>
+          </Button>}
+          {actionsSlot} */}
+          <Button onClick={() => window.location.reload()}>
+            <b>Reconnect</b>
+          </Button>
+          {backAction && <Button label="Back" onClick={backAction} />}
         </>
       )}
       {children}

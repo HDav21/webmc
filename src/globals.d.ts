@@ -11,9 +11,10 @@ declare const bot: Omit<import('mineflayer').Bot, 'world' | '_client'> & {
   }
 }
 declare const __type_bot: typeof bot
-declare const following: __type_bot | Player
+declare const following: typeof bot | import('mineflayer').Player
 declare const controMax: ControMax
 declare const viewer: import('renderer/viewer/lib/viewer').Viewer
+declare const appViewer: import('./appViewer').AppViewer
 declare const worldView: import('renderer/viewer/lib/worldDataEmitter').WorldDataEmitter | undefined
 declare const addStatPerSec: (name: string) => void
 declare const localServer: import('flying-squid/dist/index').FullServer & { options } | undefined
@@ -23,15 +24,15 @@ declare const loadedData: import('minecraft-data').IndexedData & { sounds: Recor
 declare const customEvents: import('typed-emitter').default<{
   /** Singleplayer load requested */
   singleplayer (): void
-  digStart ()
+  digStart (): void
   gameLoaded (): void
   mineflayerBotCreated (): void
   search (q: string): void
   activateItem (item: Item, slot: number, offhand: boolean): void
-  hurtAnimation (): void
+  hurtAnimation (yaw?: number): void
+  followingPlayer (username?: string): void // when following has begun
   'kradle:command' (data: any): void // a command to run as the bot
   'kradle:followPlayer' (data: any): void // request from kradle to follow a player
-  'followingPlayer' (username?: string): void // when following has begun
 }>
 declare const beforeRenderFrame: Array<() => void>
 

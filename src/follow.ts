@@ -1,10 +1,11 @@
+import type { Vec3 } from 'vec3'
+
 function handleMovement () {
   // Throttle the function to 30 updates per second
   const now = Date.now()
-  if (now - viewer.world.lastCamUpdate < 1000 / 30) {
+  if (now - appViewer.lastCamUpdate < 1000 / 30) {
     return
   }
-  viewer.world.lastCamUpdate = now
 
   // handle losing the entity
   if (following && !following?.entity?.position) {
@@ -16,13 +17,14 @@ function handleMovement () {
     return
   }
 
+  appViewer.lastCamUpdate = Date.now()
   setThirdPersonCamera()
-  void worldView!.updatePosition(following.entity.position)
+  void appViewer.worldView?.updatePosition(following.entity.position)
 }
 
 // Calculate the camera position and angle to follow the entity
 function getThirdPersonCameraPosition () {
-  const targetPosition = following.entity.position
+  const targetPosition: Vec3 = following.entity.position
 
   // Calculate camera position 5 blocks behind and 2 block above target
   const { yaw } = following.entity
@@ -56,7 +58,8 @@ export function setThirdPersonCamera (directionOnly = false) {
 
   // if the bot itself is being followed, just use first person camera normally
   if (following === bot) {
-    viewer.setFirstPersonCamera(directionOnly ? null : bot.entity.position, bot.entity.yaw, bot.entity.pitch)
+    const { position, yaw, pitch } = bot.entity
+    appViewer.backend?.updateCamera(directionOnly ? null : position, yaw, pitch)
     return
   }
 
@@ -68,7 +71,7 @@ export function setThirdPersonCamera (directionOnly = false) {
 
   // update the third person camera
   const { position, yaw, pitch } = getThirdPersonCameraPosition()
-  viewer.setFirstPersonCamera(directionOnly ? null : position, yaw, pitch)
+  appViewer.backend?.updateCamera(directionOnly ? null : position, yaw, pitch)
 }
 
 export function trackFollowerMovement () {
@@ -81,6 +84,8 @@ export function trackFollowerMovement () {
   bot.on('entityGone', () => handleMovement())
   bot.on('entityMoved', () => handleMovement())
   bot.on('entityUpdate', () => handleMovement())
+
+  handleMovement()
 }
 
 export async function setFollowingPlayer (username?: string) {

@@ -1,5 +1,5 @@
 import { Vec3 } from 'vec3'
-import { versionToNumber } from 'renderer/viewer/prepare/utils'
+import { versionToNumber } from 'renderer/viewer/common/utils'
 import { loadScript } from 'renderer/viewer/lib/utils'
 import type { Block } from 'prismarine-block'
 import { subscribeKey } from 'valtio/utils'
@@ -7,6 +7,7 @@ import { miscUiState } from '../globalState'
 import { options } from '../optionsStorage'
 import { loadOrPlaySound } from '../basicSounds'
 import { getActiveResourcepackBasePath, resourcePackState } from '../resourcePack'
+import { showNotification } from '../react/NotificationProvider'
 import { createSoundMap, SoundMap } from './soundsMap'
 import { musicSystem } from './musicSystem'
 
@@ -14,13 +15,14 @@ let soundMap: SoundMap | undefined
 
 const updateResourcePack = async () => {
   if (!soundMap) return
-  soundMap.activeResourcePackBasePath = await getActiveResourcepackBasePath() ?? undefined
+  // todo, rework to await
+  void soundMap.updateActiveResourcePackBasePath(await getActiveResourcepackBasePath() ?? undefined)
 }
 
 let musicInterval: ReturnType<typeof setInterval> | null = null
 
 subscribeKey(miscUiState, 'gameLoaded', async () => {
-  if (!miscUiState.gameLoaded || !loadedData.sounds) {
+  if (!miscUiState.gameLoaded) {
     stopMusicSystem()
     soundMap?.quit()
     return
@@ -28,7 +30,11 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
 
   console.log(`Loading sounds for version ${bot.version}. Resourcepack state: ${JSON.stringify(resourcePackState)}`)
   soundMap = createSoundMap(bot.version) ?? undefined
+  globalThis.soundMap = soundMap
   if (!soundMap) return
+  if (soundMap.noVersionIdMapping) {
+    showNotification('No sound ID mapping for this version', undefined, true)
+  }
   void updateResourcePack()
   startMusicSystem()
 
@@ -40,7 +46,7 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
     const isMuted = options.mutedSounds.includes(soundKey) || options.volume === 0
     if (position) {
       if (!isMuted) {
-        viewer.playSound(
+        appViewer.backend?.soundSystem?.playSound(
           position,
           soundData.url,
           soundData.volume * (options.volume / 100),
@@ -105,22 +111,21 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
     await playHardcodedSound(soundId, position, volume, pitch)
   })
 
-  bot.on('hardcodedSoundEffectHeard', async (soundIdNum, soundCategory, position, volume, pitch) => {
-    const fixOffset = versionToNumber('1.20.4') === versionToNumber(bot.version) ? -1 : 0
-    const soundKey = loadedData.sounds[soundIdNum + fixOffset]?.name
-    if (soundKey === undefined) return
-    await playGeneralSound(soundKey, position, volume, pitch)
-  })
-
   bot._client.on('sound_effect', async (packet) => {
     const soundResource = packet['soundEvent']?.resource as string | undefined
-    if (packet.soundId !== 0 || !soundResource) return
     const pos = new Vec3(packet.x / 8, packet.y / 8, packet.z / 8)
+    if (packet.soundId !== 0 || !soundResource) {
+      const soundKey = soundMap!.soundsIdToName[packet.soundId]
+      if (soundKey === undefined) return
+      await playGeneralSound(soundKey, pos, packet.volume, packet.pitch)
+      return
+    }
+
     await playHardcodedSound(soundResource.replace('minecraft:', ''), pos, packet.volume, packet.pitch)
   })
 
   bot.on('entityHurt', async (entity) => {
-    if (entity.id === bot.entity.id) {
+    if (entity.id === following?.entity?.id) {
       await playHardcodedSound('entity.player.hurt')
     }
   })
@@ -130,7 +135,7 @@ subscribeKey(miscUiState, 'gameLoaded', async () => {
     if (!bot.player || !soundMap) return // no info yet
     const VELOCITY_THRESHOLD = 0.1
     const { x, z, y } = bot.player.entity.velocity
-    if (bot.entity.onGround && Math.abs(x) < VELOCITY_THRESHOLD && (Math.abs(z) > VELOCITY_THRESHOLD || Math.abs(y) > VELOCITY_THRESHOLD)) {
+    if (following?.entity?.onGround && Math.abs(x) < VELOCITY_THRESHOLD && (Math.abs(z) > VELOCITY_THRESHOLD || Math.abs(y) > VELOCITY_THRESHOLD)) {
       // movement happening
       if (Date.now() - lastStepSound > 300) {
         const blockUnder = bot.world.getBlock(following.entity.position.offset(0, -1, 0))
