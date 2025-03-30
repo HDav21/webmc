@@ -2,8 +2,8 @@ import fs from 'fs'
 import path from 'path'
 import * as nbt from 'prismarine-nbt'
 import { proxy } from 'valtio'
-import { versionToNumber } from 'prismarine-viewer/viewer/prepare/utils'
 import { gzip } from 'node-gzip'
+import { versionToNumber } from 'renderer/viewer/common/utils'
 import { options } from './optionsStorage'
 import { nameToMcOfflineUUID, disconnect } from './flyingSquidUtils'
 import { isMajorVersionGreater } from './utils'
@@ -11,6 +11,7 @@ import { isMajorVersionGreater } from './utils'
 import { activeModalStacks, insertActiveModalStack, miscUiState } from './globalState'
 import supportedVersions from './supportedVersions.mjs'
 import { existsViaStats, initialFsState, mkdirRecursive } from './integratedServer/browserfsShared'
+import { appQueryParams } from './appParams'
 
 // todo include name of opened handle (zip)!
 // additional fs metadata
@@ -65,8 +66,7 @@ export const loadSave = async (root = '/world') => {
   let version: string | undefined | null
   let isFlat = false
   if (levelDat) {
-    const qs = new URLSearchParams(window.location.search)
-    version = qs.get('mapVersion') ?? levelDat.Version?.Name
+    version = appQueryParams.mapVersion ?? levelDat.Version?.Name
     if (!version) {
       // const newVersion = disablePrompts ? '1.8.8' : prompt(`In 1.8 and before world save doesn't contain version info, please enter version you want to use to load the world.\nSupported versions ${supportedVersions.join(', ')}`, '1.8.8')
       // if (!newVersion) return
