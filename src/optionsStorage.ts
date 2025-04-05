@@ -112,13 +112,9 @@ const defaultOptions = {
   neighborChunkUpdates: true,
   highlightBlockColor: 'auto' as 'auto' | 'blue' | 'classic',
   activeRenderer: 'webgpu',
-  rendererOptions: {
-    three: {
-      _experimentalSmoothChunkLoading: true,
-      _renderByChunks: false
-    },
-    webgpu: {
-    }
+  rendererSharedOptions: {
+    _experimentalSmoothChunkLoading: true,
+    _renderByChunks: false
   }
 }
 

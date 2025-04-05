@@ -150,7 +150,7 @@ Object.defineProperty(window, 'debugToggle', {
 })
 
 customEvents.on('gameLoaded', () => {
-  window.holdingBlock = (window.world as WorldRendererThree).holdingBlock
+  window.holdingBlock = (window.world as WorldRendererThree | undefined)?.holdingBlock
 })
 
 window.clearStorage = (...keysToKeep: string[]) => {

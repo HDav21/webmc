@@ -141,7 +141,10 @@ const handleMessage = data => {
 
       break
     }
-  // No default
+    case 'webgpuData': {
+      world.setDataForWebgpuRenderer(data.data)
+      break
+    }
   }
 }
 

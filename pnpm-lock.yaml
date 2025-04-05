@@ -362,8 +362,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       mc-assets:
-        specifier: ^0.2.47
-        version: 0.2.47
+        specifier: file:../mc-assets
+        version: file:../mc-assets
       minecraft-inventory-gui:
         specifier: github:zardoy/minecraft-inventory-gui#next
         version: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/75e940a4cd50d89e0ba03db3733d5d704917a3c8(@types/react@18.2.20)(react@18.2.0)
@@ -3568,6 +3568,10 @@ packages:
     version: 0.0.0-dev
     engines: {node: '>=8'}
 
+  '@zardoy/maxrects-packer@file:../mc-assets/temp-lib/zardoy-maxrects-packer-2.7.4.tgz':
+    resolution: {integrity: sha512-6x/zqYLfmQvH8kavweEqcqKIH+xSqGCzwTWkFcnLwCFVXQhJjc9iAb99RdG74eyP5373VFjcAiMkqSq5DCXtnQ==, tarball: file:../mc-assets/temp-lib/zardoy-maxrects-packer-2.7.4.tgz}
+    version: 2.7.4
+
   '@zardoy/react-util@0.2.4':
     resolution: {integrity: sha512-YRBbXi54QOgWGDSn3NLEMMGrWbfL/gn2khxO31HT0WPFB6IW2rSnB4hcy+S/nc+2D6PRNq4kQxGs4vTAe4a7Xg==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
@@ -6713,11 +6717,8 @@ packages:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
 
-  maxrects-packer@2.7.3:
-    resolution: {integrity: sha512-bG6qXujJ1QgttZVIH4WDanhoJtvbud/xP/XPyf6A69C9RdA61BM4TomFALCq2nrTa+tARRIBB4LuIFsnUQU2wA==}
-
-  mc-assets@0.2.47:
-    resolution: {integrity: sha512-L9tOcYctDGTUaG4QKJESw9uOiOMl8F2RZ3h0cF4NRCjBvd4c9GUrGDaaVdTaAByQZNNITXgGspmm9hNAFMWcKg==}
+  mc-assets@file:../mc-assets:
+    resolution: {directory: ../mc-assets, type: directory}
     engines: {node: '>=18.0.0'}
 
   mcraft-fun-mineflayer@0.1.14:
@@ -13735,6 +13736,8 @@ snapshots:
       - encoding
       - supports-color
 
+  '@zardoy/maxrects-packer@file:../mc-assets/temp-lib/zardoy-maxrects-packer-2.7.4.tgz': {}
+
   '@zardoy/react-util@0.2.4(react-dom@18.2.0(react@18.2.0))(react@18.2.0)':
     dependencies:
       classnames: 2.5.1
@@ -17650,11 +17653,9 @@ snapshots:
 
   math-intrinsics@1.1.0: {}
 
-  maxrects-packer@2.7.3: {}
-
-  mc-assets@0.2.47:
+  mc-assets@file:../mc-assets:
     dependencies:
-      maxrects-packer: 2.7.3
+      maxrects-packer: '@zardoy/maxrects-packer@file:../mc-assets/temp-lib/zardoy-maxrects-packer-2.7.4.tgz'
       zod: 3.24.1
 
   mcraft-fun-mineflayer@0.1.14(encoding@0.1.13)(mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/06e3050ddf4d9aa655fea6e2bed182937a81705d(encoding@0.1.13)):

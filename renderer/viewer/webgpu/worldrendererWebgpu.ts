@@ -50,6 +50,8 @@ export class WorldRendererWebgpu extends WorldRendererCommon {
       updateStatText('loaded-chunks', `${loadedChunks}/${this.chunksLength} chunks (${this.lastChunkDistance}/${this.viewDistance})`)
     })
 
+    this.rendererParams = { ...defaultWebgpuRendererParams, ...this.initOptions.rendererSpecificSettings }
+
     this.init()
   }
 
@@ -74,6 +76,12 @@ export class WorldRendererWebgpu extends WorldRendererCommon {
   updateRendererParams (params: Partial<typeof defaultWebgpuRendererParams>) {
     this.rendererParams = { ...this.rendererParams, ...params }
     this.webgpuChannel.updateConfig(this.rendererParams)
+    for (const key in params) {
+      // save only if displayed in gui
+      if (rendererParamsGui[key]) {
+        this.initOptions.setRendererSpecificSettings(key, params[key])
+      }
+    }
   }
 
   sendCameraToWorker () {
@@ -103,7 +111,7 @@ export class WorldRendererWebgpu extends WorldRendererCommon {
   override async setVersion (version): Promise<any> {
     return Promise.all([
       super.setVersion(version),
-      this.readyPromise
+      // this.readyPromise
     ])
   }
 
@@ -123,7 +131,7 @@ export class WorldRendererWebgpu extends WorldRendererCommon {
   override addColumn (x: number, z: number, data: any, _): void {
     if (this.initialChunksLoad) {
       this.updateRendererParams({
-        cameraOffset: [0, this.worldMinYRender < 0 ? Math.abs(this.worldMinYRender) : 0, 0]
+        cameraOffset: [0, this.worldMinYRender < 0 ? -this.worldMinYRender : 0, 0]
       })
     }
     super.addColumn(x, z, data, _)
@@ -148,6 +156,14 @@ export class WorldRendererWebgpu extends WorldRendererCommon {
     this.webgpuChannel.addBlocksSection(geometry.tiles, key, !this.finishedSections[key])
   }
 
+  setFirstPersonCamera (pos: Vec3 | null, yaw: number, pitch: number) {
+    const cam = this.camera
+    const yOffset = this.displayOptions.playerState.getEyeHeight()
+
+    this.camera = cam
+    this.updateCamera(pos?.offset(0, yOffset, 0) ?? null, yaw, pitch)
+  }
+
   updateCamera (pos: Vec3 | null, yaw: number, pitch: number): void {
     if (pos) {
       // new tweenJs.Tween(this.camera.position).to({ x: pos.x, y: pos.y, z: pos.z }, 50).start()
@@ -165,9 +181,11 @@ export class WorldRendererWebgpu extends WorldRendererCommon {
   updatePosDataChunk (key: string) {
   }
 
-  async updateAssetsData (resourcePackUpdate = false): Promise<void> {
-    // const { blocksDataModelDebug: blocksDataModelBefore, interestedTextureTiles } = prepareCreateWebgpuBlocksModelsData(this)
-    // const interestedBlockTiles = [...interestedTextureTiles].map(x => x.replace('block/', ''))
+  override async updateAssetsData (resourcePackUpdate = false): Promise<void> {
+    const { blocksDataModelDebug: blocksDataModelBefore, interestedTextureTiles } = prepareCreateWebgpuBlocksModelsData(this, true)
+    const interestedBlockTiles = [...interestedTextureTiles].map(x => x.replace('block/', ''))
+    this.resourcesManager.currentConfig!.includeOnlyBlocks = interestedBlockTiles
+    await this.resourcesManager.recreateBlockAtlas()
     await super.updateAssetsData()
     const { blocksDataModel, blocksDataModelDebug, allBlocksStateIdToModelIdMap } = prepareCreateWebgpuBlocksModelsData(this)
     // this.webgpuChannel.updateModels(blocksDataModel)
@@ -393,18 +411,21 @@ const addWebgpuDebugUi = (worker, isPlayground, worldRenderer: WorldRendererWebg
     setTimeout(() => {
       gui.open(false)
     }, 500)
-    // for (const rendererParam of Object.entries(viewer.world.rendererParams)) {
-    //   const [key, value] = rendererParam
-    //   if (!rendererParamsGui[key]) continue
-    //   // eslint-disable-next-line @typescript-eslint/no-loop-func
-    //   gui.add(viewer.world.rendererParams, key).onChange((newVal) => {
-    //     viewer.world.updateRendererParams({ [key]: newVal })
-    //     if (rendererParamsGui[key]?.qsReload) {
-    //       const searchParams = new URLSearchParams(window.location.search)
-    //       searchParams.set(key, String(value))
-    //       window.location.search = searchParams.toString()
-    //     }
-    //   })
-    // }
+    for (const rendererParam of Object.entries(worldRenderer.rendererParams)) {
+      const [key, value] = rendererParam
+      if (!rendererParamsGui[key]) continue
+      // eslint-disable-next-line @typescript-eslint/no-loop-func
+      gui.add(worldRenderer.rendererParams, key).onChange((newVal) => {
+        worldRenderer.updateRendererParams({ [key]: newVal })
+        if (rendererParamsGui[key]?.qsReload) {
+          const searchParams = new URLSearchParams(window.location.search)
+          searchParams.set(key, String(value))
+          window.location.search = searchParams.toString()
+        }
+      })
+    }
+    worldRenderer.abortController.signal.addEventListener('abort', () => {
+      gui.destroy()
+    })
   }
 }

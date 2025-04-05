@@ -2,7 +2,7 @@ import { Vec3 } from 'vec3'
 import worldBlockProvider, { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import legacyJson from '../../../../src/preflatMap.json'
 import { BlockType } from '../../../playground/shared'
-import { World, BlockModelPartsResolved, WorldBlock as Block } from './world'
+import { World, BlockModelPartsResolved, WorldBlock as Block, WorldBlock } from './world'
 import { BlockElement, buildRotationMatrix, elemFaces, matmul3, matmulmat3, vecadd3, vecsub3 } from './modelsGeometryCommon'
 import { INVISIBLE_BLOCKS } from './worldConstants'
 import { MesherGeometryOutput, HighestBlockInfo } from './shared'
@@ -124,7 +124,7 @@ const isCube = (block: Block) => {
   }))
 }
 
-function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, water: boolean, attr: Record<string, any>) {
+function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, liquidType: 'water' | 'lava', attr: Record<string, any>) {
   const heights: number[] = []
   for (let z = -1; z <= 1; z++) {
     for (let x = -1; x <= 1; x++) {
@@ -151,8 +151,8 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
     const isGlass = neighbor.name.includes('glass')
     if ((isCube(neighbor) && !isUp) || neighbor.material === 'plant' || neighbor.getProperties().waterlogged) continue
 
-    let tint = [1, 1, 1]
-    if (water) {
+    let tint = [1, 1, 1] as [number, number, number]
+    if (liquidType === 'water') {
       let m = 1 // Fake lighting to improve lisibility
       if (Math.abs(dir[0]) > 0) m = 0.6
       else if (Math.abs(dir[2]) > 0) m = 0.8
@@ -162,15 +162,20 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
 
     if (needTiles) {
       const tiles = attr.tiles as Tiles
-      tiles[`${cursor.x},${cursor.y},${cursor.z}`] ??= {
-        block: 'water',
+      const blockKey = `${cursor.x},${cursor.y},${cursor.z}`
+      const stateId = world.liquidBlocks[liquidType]
+      tiles[blockKey] ??= {
+        block: liquidType,
         faces: [],
+        visibleFaces: [],
+        modelId: world.webgpuModelsMapping[stateId],
+        transparent: liquidType === 'water',
       }
-      tiles[`${cursor.x},${cursor.y},${cursor.z}`].faces.push({
+      tiles[blockKey].faces!.push({
         face,
         neighbor: `${neighborPos.x},${neighborPos.y},${neighborPos.z}`,
         side: 0, // todo
-        textureIndex: 0,
+        tint,
         // texture: eFace.texture.name,
       })
     }
@@ -234,16 +239,14 @@ const identicalCull = (currentElement: BlockElement, neighbor: Block, direction:
 
 let needSectionRecomputeOnChange = false
 
-function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO: boolean, attr: MesherGeometryOutput, globalMatrix: any, globalShift: any, block: Block, biome: string) {
+function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO: boolean, attr: MesherGeometryOutput, globalMatrix: any, globalShift: any, block: WorldBlock, biome: string) {
   const position = cursor
-  // const key = `${position.x},${position.y},${position.z}`
-  // if (!globalThis.allowedBlocks.includes(key)) return
   const cullIfIdentical = block.name.includes('glass') || block.name.includes('ice')
 
   // eslint-disable-next-line guard-for-in
   for (const face in element.faces) {
     const eFace = element.faces[face]
-    const { corners, mask1, mask2, side } = elemFaces[face]
+    const { corners, mask1, mask2, side, webgpuSide } = elemFaces[face] as (typeof elemFaces)['down']
     const dir = matmul3(globalMatrix, elemFaces[face].dir)
 
     if (eFace.cullface) {
@@ -401,23 +404,31 @@ function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO:
 
     if (needTiles) {
       const tiles = attr.tiles as Tiles
-      tiles[`${cursor.x},${cursor.y},${cursor.z}`] ??= {
-        block: block.name,
-        faces: [],
-      }
-      const needsOnlyOneFace = false
-      const isTilesEmpty = tiles[`${cursor.x},${cursor.y},${cursor.z}`].faces.length < 1
-      if (isTilesEmpty || !needsOnlyOneFace) {
-        tiles[`${cursor.x},${cursor.y},${cursor.z}`].faces.push({
-          face,
-          side,
-          textureIndex: eFace.texture.tileIndex,
-          neighbor: `${neighborPos.x},${neighborPos.y},${neighborPos.z}`,
-          light: baseLight,
+      const blockKey = `${cursor.x},${cursor.y},${cursor.z}`
+      const modelId = world.webgpuModelsMapping[block.stateId]
+      if (modelId !== undefined) {
+        tiles[blockKey] ??= {
+          block: block.name,
+          visibleFaces: [],
+          faces: [],
+          modelId,
+          transparent: block.transparent,
           tint: lightWithColor,
-          //@ts-expect-error debug prop
-          texture: eFace.texture.debugName || block.name,
-        } satisfies BlockType['faces'][number])
+        }
+        const needsOnlyOneFace = false
+        const isTilesEmpty = tiles[blockKey].faces!.length < 1
+        if (isTilesEmpty || !needsOnlyOneFace) {
+          tiles[blockKey].visibleFaces.push(webgpuSide)
+          tiles[blockKey].faces!.push({
+            face,
+            side,
+            neighbor: `${neighborPos.x},${neighborPos.y},${neighborPos.z}`,
+            light: baseLight,
+            tint: lightWithColor,
+            //@ts-expect-error debug
+            texture: eFace.texture.debugName || block.name,
+          })
+        }
       }
     }
 
@@ -539,11 +550,11 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
           const pos = cursor.clone()
           // eslint-disable-next-line @typescript-eslint/no-loop-func
           delayedRender.push(() => {
-            renderLiquid(world, pos, blockProvider.getTextureInfo('water_still'), block.type, biome, true, attr)
+            renderLiquid(world, pos, blockProvider.getTextureInfo('water_still'), block.type, biome, 'water', attr)
           })
           attr.blocksCount++
         } else if (block.name === 'lava') {
-          renderLiquid(world, cursor, blockProvider.getTextureInfo('lava_still'), block.type, biome, false, attr)
+          renderLiquid(world, cursor, blockProvider.getTextureInfo('lava_still'), block.type, biome, 'lava', attr)
           attr.blocksCount++
         }
         if (block.name !== 'water' && block.name !== 'lava' && !INVISIBLE_BLOCKS.has(block.name)) {

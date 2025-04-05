@@ -6,7 +6,6 @@ import { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import moreBlockDataGeneratedJson from '../moreBlockDataGenerated.json'
 import type { AllBlocksStateIdToModelIdMap } from '../../../playground/webgpuBlockModels'
 import { BlockStateModelInfo, CustomBlockModels, defaultMesherConfig, getBlockAssetsCacheKey, MesherGeometryOutput } from './shared'
-import legacyJson from '../../../../src/preflatMap.json'
 import { INVISIBLE_BLOCKS } from './worldConstants'
 import { getPreflatBlock } from './getPreflatBlock'
 
@@ -46,6 +45,10 @@ export class World {
   customBlockModels = new Map<string, CustomBlockModels>() // chunkKey -> blockModels
   sentBlockStateModels = new Set<string>()
   blockStateModelInfo = new Map<string, BlockStateModelInfo>()
+  liquidBlocks = {
+    water: (globalThis as any).mcData.blocks.find(x => x.name === 'water').defaultState,
+    lava: (globalThis as any).mcData.blocks.find(x => x.name === 'lava').defaultState
+  }
 
   constructor (version) {
     this.Chunk = Chunks(version) as any
@@ -126,7 +129,7 @@ export class World {
     const key = columnKey(Math.floor(pos.x / 16) * 16, Math.floor(pos.z / 16) * 16)
     const blockPosKey = `${pos.x},${pos.y},${pos.z}`
     const modelOverride = this.customBlockModels.get(key)?.[blockPosKey]
-    
+
     const column = this.columns[key]
     // null column means chunk not loaded
     if (!column) return null

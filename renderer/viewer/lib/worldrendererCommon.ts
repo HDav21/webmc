@@ -7,6 +7,7 @@ import TypedEmitter from 'typed-emitter'
 import { ItemsRenderer } from 'mc-assets/dist/itemsRenderer'
 import { WorldBlockProvider } from 'mc-assets/dist/worldBlockProvider'
 import { generateSpiralMatrix } from 'flying-squid/dist/utils'
+import { subscribeKey } from 'valtio/utils'
 import { dynamicMcDataFiles } from '../../buildMesherConfig.mjs'
 import { toMajorVersion } from '../../../src/utils'
 import { ResourcesManager } from '../../../src/resourcesManager'
@@ -164,6 +165,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
 
   init () {
     if (this.active) throw new Error('WorldRendererCommon is already initialized')
+    this.watchReactivePlayerState()
     void this.setVersion(this.version).then(() => {
       this.resourcesManager.on('assetsTexturesUpdated', () => {
         if (!this.active) return
@@ -235,6 +237,17 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       if (worker.on) worker.on('message', (data) => { worker.onmessage({ data }) })
       this.workers.push(worker)
     }
+  }
+
+  onReactiveValueUpdated<T extends keyof typeof this.displayOptions.playerState.reactive>(key: T, callback: (value: typeof this.displayOptions.playerState.reactive[T]) => void) {
+    callback(this.displayOptions.playerState.reactive[key])
+    subscribeKey(this.displayOptions.playerState.reactive, key, callback)
+  }
+
+  watchReactivePlayerState () {
+    this.onReactiveValueUpdated('backgroundColor', (value) => {
+      this.changeBackgroundColor(value)
+    })
   }
 
   async processMessageQueue () {

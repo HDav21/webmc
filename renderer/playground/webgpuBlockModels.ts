@@ -6,7 +6,7 @@ import { getPreflatBlock } from '../viewer/lib/mesher/getPreflatBlock'
 import { WorldRendererWebgpu } from '../viewer/webgpu/worldrendererWebgpu'
 import { WEBGPU_FULL_TEXTURES_LIMIT } from './webgpuRendererShared'
 
-export const prepareCreateWebgpuBlocksModelsData = (worldRenderer: WorldRendererWebgpu) => {
+export const prepareCreateWebgpuBlocksModelsData = (worldRenderer: WorldRendererWebgpu, onlyGetInterestedTiles = false) => {
   const blocksMap = {
     'double_stone_slab': 'stone',
     'stone_slab': 'stone',
@@ -38,11 +38,18 @@ export const prepareCreateWebgpuBlocksModelsData = (worldRenderer: WorldRenderer
   let i = 0
   const allBlocksStateIdToModelIdMap = {} as AllBlocksStateIdToModelIdMap
 
+  const validateTileIndex = (tileIndex: number, blockName: string) => {
+    if (onlyGetInterestedTiles) return
+    if (tileIndex < 0 || tileIndex >= WEBGPU_FULL_TEXTURES_LIMIT) {
+      throw new Error(`Tile index ${tileIndex} is out of range for block ${blockName}`)
+    }
+  }
   const addBlockModel = (state: number, name: string, props: Record<string, any>, mcBlockData?: IndexedBlock, defaultState = false) => {
+    const possibleIssues = [] as string[]
     const models = worldRenderer.resourcesManager.currentResources!.worldBlockProvider.getAllResolvedModels0_1({
       name,
       properties: props
-    }, isPreflat)
+    }, isPreflat, possibleIssues, [], [], true)
     // skipping composite blocks
     if (models.length !== 1 || !models[0]![0].elements) {
       return
@@ -73,6 +80,7 @@ export const prepareCreateWebgpuBlocksModelsData = (worldRenderer: WorldRenderer
       if (faceIndex === -1) {
         throw new Error(`Unknown face ${face}`)
       }
+      validateTileIndex(texture.tileIndex, name)
       blockData.textures[faceIndex] = texture.tileIndex
       blockData.rotation[faceIndex] = rotation / 90
       if (Math.floor(blockData.rotation[faceIndex]) !== blockData.rotation[faceIndex]) {
@@ -120,6 +128,7 @@ export const prepareCreateWebgpuBlocksModelsData = (worldRenderer: WorldRenderer
         }
         const texIndex = texture.tileIndex
         allBlocksStateIdToModelIdMap[state] = k
+        validateTileIndex(texIndex, block.name)
         const blockData: BlocksModelData = {
           textures: [texIndex, texIndex, texIndex, texIndex, texIndex, texIndex],
           rotation: [0, 0, 0, 0, 0, 0],

@@ -14,7 +14,7 @@ const createWebgpuBackend = (initOptions: WebgpuInitOptions) => {
     startPanorama () {
 
     },
-    startWorld (displayOptions) {
+    async startWorld (displayOptions) {
       const onSettingsUpdate = () => {
         displayOptions.worldView.allowPositionUpdate = initOptions.rendererSpecificSettings.allowChunksViewUpdate ?? false
         updateLocalServerSettings({
@@ -24,6 +24,7 @@ const createWebgpuBackend = (initOptions: WebgpuInitOptions) => {
       onSettingsUpdate()
 
       worldRenderer = new WorldRendererWebgpu(initOptions, displayOptions)
+      await worldRenderer.readyPromise
     },
     disconnect () {
 
@@ -33,7 +34,7 @@ const createWebgpuBackend = (initOptions: WebgpuInitOptions) => {
 
     },
     updateCamera (pos, yaw, pitch) {
-      worldRenderer?.updateCamera(pos, yaw, pitch)
+      worldRenderer?.setFirstPersonCamera(pos, yaw, pitch)
     },
     backendMethods: {}
   }

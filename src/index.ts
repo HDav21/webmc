@@ -114,7 +114,11 @@ onAppLoad()
 if (appQueryParams.testCrashApp === '2') throw new Error('test')
 
 const loadBackend = () => {
-  appViewer.loadBackend(createWebgpuBackend)
+  if (options.activeRenderer === 'webgpu') {
+    appViewer.loadBackend(createWebgpuBackend)
+  } else {
+    appViewer.loadBackend(createGraphicsBackend)
+  }
 }
 window.loadBackend = loadBackend
 if (process.env.SINGLE_FILE_BUILD_MODE) {
@@ -716,7 +720,7 @@ export async function connect (connectOptions: ConnectOptions) {
 
 
     console.log('bot spawned - starting viewer')
-    appViewer.startWorld(bot.world, renderDistance)
+    await appViewer.startWorld(bot.world, renderDistance)
     appViewer.worldView!.listenToBot(bot)
 
     initMotionTracking()
