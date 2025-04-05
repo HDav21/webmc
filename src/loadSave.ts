@@ -162,6 +162,7 @@ export const loadSave = async (root = '/world') => {
 
   // todo should not be set here
   fsState.saveLoaded = true
+  fsState.inMemorySavePath = root
   window.dispatchEvent(new CustomEvent('singleplayer', {
     // todo check gamemode level.dat data etc
     detail: {

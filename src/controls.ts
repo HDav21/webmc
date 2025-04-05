@@ -580,7 +580,7 @@ contro.on('release', ({ command }) => {
 
 export const f3Keybinds: Array<{
   key?: string,
-  action: () => void,
+  action: () => void | Promise<void>,
   mobileTitle: string
   enabled?: () => boolean
 }> = [
@@ -699,7 +699,7 @@ document.addEventListener('keydown', (e) => {
   if (hardcodedPressedKeys.has('F3')) {
     const keybind = f3Keybinds.find((v) => v.key === e.code)
     if (keybind && (keybind.enabled?.() ?? true)) {
-      keybind.action()
+      void keybind.action()
       e.stopPropagation()
     }
     return

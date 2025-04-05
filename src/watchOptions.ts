@@ -12,6 +12,8 @@ import { updateLocalServerSettings } from './integratedServer/main'
 
 globalThis.viewer ??= { world: {} }
 
+globalThis.viewer ??= { world: {} }
+
 subscribeKey(options, 'renderDistance', reloadChunks)
 subscribeKey(options, 'multiplayerRenderDistance', reloadChunks)
 

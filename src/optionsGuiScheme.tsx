@@ -72,7 +72,7 @@ export const guiOptionsScheme: {
       activeRenderer: {
         text: 'Renderer',
         values: [
-          ['three', 'Three.js (stable)'],
+          ['threejs', 'Three.js (stable)'],
           ['webgpu', 'WebGPU (new)'],
         ],
       },

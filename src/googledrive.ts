@@ -66,7 +66,7 @@ export const possiblyHandleStateVariable = async () => {
       }
       setLoadingScreenStatus('Opening world in read only mode...')
       googleProviderState.accessToken = response.access_token
-      await mountGoogleDriveFolder(true, parsed.ids[0])
+      // await mountGoogleDriveFolder(true, parsed.ids[0])
       await loadInMemorySave('/google')
     }
   })

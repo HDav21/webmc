@@ -3571,6 +3571,9 @@ packages:
   '@zardoy/maxrects-packer@2.7.4':
     resolution: {integrity: sha512-ZIDcSdtSg6EhKFxGYWCcTnA/0YVbpixBL+psUS6ncw4IvdDF5hWauMU3XeCfYwrT/88QFgAq/Pafxt+P9OJyoQ==}
 
+  '@zardoy/maxrects-packer@2.7.4':
+    resolution: {integrity: sha512-ZIDcSdtSg6EhKFxGYWCcTnA/0YVbpixBL+psUS6ncw4IvdDF5hWauMU3XeCfYwrT/88QFgAq/Pafxt+P9OJyoQ==}
+
   '@zardoy/react-util@0.2.4':
     resolution: {integrity: sha512-YRBbXi54QOgWGDSn3NLEMMGrWbfL/gn2khxO31HT0WPFB6IW2rSnB4hcy+S/nc+2D6PRNq4kQxGs4vTAe4a7Xg==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
@@ -13737,6 +13740,8 @@ snapshots:
     transitivePeerDependencies:
       - encoding
       - supports-color
+
+  '@zardoy/maxrects-packer@2.7.4': {}
 
   '@zardoy/maxrects-packer@2.7.4': {}
 

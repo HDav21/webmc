@@ -163,7 +163,7 @@ export const setRenderDistance = () => {
   prevRenderDistance = renderDistance
 }
 export const reloadChunks = async () => {
-  if (!worldView) return
+  if (!bot || !worldView) return
   setRenderDistance()
   await worldView.updatePosition(bot.entity.position, true)
 }
