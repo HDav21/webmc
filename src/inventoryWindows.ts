@@ -258,6 +258,8 @@ const itemToVisualKey = (slot: RenderItem | Item | null) => {
   if (!slot) return ''
   const keys = [
     slot.name,
+    slot.durabilityUsed,
+    slot.maxDurability,
     slot['count'],
     slot['metadata'],
     slot.nbt ? JSON.stringify(slot.nbt) : '',
@@ -273,7 +275,7 @@ const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
     if (!isJei) {
       const oldKey = lastMappedSlots[i]?.cacheKey
       const newKey = itemToVisualKey(slot)
-      slot['cacheKey'] = newKey
+      slot['cacheKey'] = i + '|' + newKey
       if (oldKey && oldKey === newKey) {
         return lastMappedSlots[i]
       }
@@ -476,6 +478,10 @@ const openWindow = (type: string | undefined) => {
     }
   }
   lastWindow.pwindow.onJeiClick = (slotItem, _index, isRightclick) => {
+    if (versionToNumber(bot.version) < versionToNumber('1.13')) {
+      alert('Item give is broken on 1.12.2 and below, we are working on it!')
+      return
+    }
     // slotItem is the slot from mapSlots
     const itemId = loadedData.itemsByName[slotItem.name]?.id
     if (!itemId) {
