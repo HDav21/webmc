@@ -27,7 +27,6 @@ import { options } from './optionsStorage'
 import './reactUi'
 import { lockUrl, onBotCreate } from './controls'
 import './dragndrop'
-import { watchOptionsAfterViewerInit, watchOptionsAfterWorldViewInit } from './watchOptions'
 import downloadAndOpenFile from './downloadAndOpenFile'
 
 import fs from 'fs'
@@ -53,7 +52,7 @@ import { parseServerAddress } from './parseServerAddress'
 import { setLoadingScreenStatus } from './appStatus'
 import { isCypress } from './standaloneUtils'
 
-import { startLocalServer, unsupportedLocalServerFeatures } from './createLocalServer'
+import { unsupportedLocalServerFeatures } from './createLocalServer'
 import defaultServerOptions from './defaultLocalServerOptions'
 import dayCycle from './dayCycle'
 
@@ -71,7 +70,7 @@ import { showNotification } from './react/NotificationProvider'
 import { saveToBrowserMemory } from './react/PauseScreen'
 import './devReload'
 import './water'
-import { ConnectOptions, loadMinecraftData, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
+import { ConnectOptions, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
@@ -90,12 +89,10 @@ import ping from './mineflayer/plugins/ping'
 import mouse from './mineflayer/plugins/mouse'
 import { startLocalReplayServer } from './packetsReplay/replayPackets'
 import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
-import { createConsoleLogProgressReporter, createFullScreenProgressReporter, ProgressReporter } from './core/progressReporter'
+import { createFullScreenProgressReporter, ProgressReporter } from './core/progressReporter'
 import { appViewer } from './appViewer'
-import createGraphicsBackend from 'renderer/viewer/three/graphicsBackend'
-import { subscribeKey } from 'valtio/utils'
 import { destroyLocalServerMain, startLocalServerMain } from './integratedServer/main'
-import createWebgpuBackend from 'renderer/viewer/webgpu/graphicsBackendWebgpu'
+import './appViewerLoad'
 
 window.debug = debug
 window.beforeRenderFrame = []
@@ -112,34 +109,6 @@ packetsPatcher()
 onAppLoad()
 
 if (appQueryParams.testCrashApp === '2') throw new Error('test')
-
-const loadBackend = () => {
-  if (options.activeRenderer === 'webgpu') {
-    appViewer.loadBackend(createWebgpuBackend)
-  } else {
-    appViewer.loadBackend(createGraphicsBackend)
-  }
-}
-window.loadBackend = loadBackend
-if (process.env.SINGLE_FILE_BUILD_MODE) {
-  const unsub = subscribeKey(miscUiState, 'fsReady', () => {
-    if (miscUiState.fsReady) {
-      // don't do it earlier to load fs and display menu faster
-      loadBackend()
-      unsub()
-    }
-  })
-} else {
-  loadBackend()
-}
-
-const animLoop = () => {
-  for (const fn of beforeRenderFrame) fn()
-  requestAnimationFrame(animLoop)
-}
-requestAnimationFrame(animLoop)
-
-watchOptionsAfterViewerInit()
 
 function hideCurrentScreens () {
   activeModalStacks['main-menu'] = [...activeModalStack]

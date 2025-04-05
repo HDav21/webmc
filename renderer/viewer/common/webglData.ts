@@ -1,10 +1,9 @@
 import { join } from 'path'
 import fs from 'fs'
-import { JsonAtlas } from './atlas'
 
 export type WebglData = ReturnType<typeof prepareWebglData>
 
-export const prepareWebglData = (blockTexturesDir: string, atlas: JsonAtlas) => {
+export const prepareWebglData = (blockTexturesDir: string, atlas: any) => {
   // todo
   return Object.fromEntries(Object.entries(atlas.textures).map(([texture, { animatedFrames }]) => {
     if (!animatedFrames) return null!

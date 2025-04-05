@@ -1,6 +1,7 @@
 import fs from 'fs'
 import { join } from 'path'
 import JSZip from 'jszip'
+import { miscUiState } from 'src/globalState'
 import { fsState, readLevelDat } from './loadSave'
 import { closeWan, openToWanAndCopyJoinLink } from './localServerMultiplayer'
 import { saveServer } from './flyingSquidUtils'
@@ -133,12 +134,12 @@ export const commands: Array<{
 ]
 //@ts-format-ignore-endregion
 
-export const getBuiltinCommandsList = () => commands.filter(command => command.alwaysAvailable || localServer).flatMap(command => command.command)
+export const getBuiltinCommandsList = () => commands.filter(command => command.alwaysAvailable || miscUiState.singleplayer).flatMap(command => command.command)
 
 export const tryHandleBuiltinCommand = (message: string) => {
   const [userCommand, ...args] = message.split(' ')
 
-  for (const command of commands.filter(command => command.alwaysAvailable || localServer)) {
+  for (const command of commands.filter(command => command.alwaysAvailable || miscUiState.singleplayer)) {
     if (command.command.includes(userCommand)) {
       void command.invoke(args) // ignoring for now
       return true

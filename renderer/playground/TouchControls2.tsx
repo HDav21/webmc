@@ -4,9 +4,7 @@ import { css } from '@emotion/css'
 import { renderToDom } from '@zardoy/react-util'
 import { Vec3 } from 'vec3'
 import * as THREE from 'three'
-import { Viewer } from '../viewer/lib/viewer'
 
-declare const viewer: Viewer
 const Controls = () => {
   // todo setting
   const usingTouch = navigator.maxTouchPoints > 0

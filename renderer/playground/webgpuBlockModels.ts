@@ -25,7 +25,7 @@ export const prepareCreateWebgpuBlocksModelsData = (worldRenderer: WorldRenderer
     'red_sandstone_stairs': 'red_sandstone',
     'stone_slab2': 'stone_slab',
     'purpur_stairs': 'purpur_block',
-    'purpur_slab': 'purpur_block'
+    'purpur_slab': 'purpur_block',
   }
 
   const isPreflat = versionToNumber(worldRenderer.version) < versionToNumber('1.13')
@@ -104,7 +104,7 @@ export const prepareCreateWebgpuBlocksModelsData = (worldRenderer: WorldRenderer
   addBlockModel(-1, 'unknown', {})
   const textureOverrideFullBlocks = {
     water: 'water_still',
-    lava: 'lava_still'
+    lava: 'lava_still',
   }
   outer: for (const b of loadedData.blocksArray) {
     for (let state = b.minStateId; state <= b.maxStateId; state++) {

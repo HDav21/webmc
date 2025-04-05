@@ -16,7 +16,7 @@ import { SoundSystem } from '../three/threeJsSound'
 import { buildCleanupDecorator } from './cleanupDecorator'
 import { HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
-import { removeStat, updateStatText } from './ui/newStats'
+import { removeAllStats, removeStat, updateStatText } from './ui/newStats'
 import { WorldDataEmitter } from './worldDataEmitter'
 import { IPlayerState } from './basePlayerState'
 
@@ -842,7 +842,6 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.renderUpdateEmitter.removeAllListeners()
     this.displayOptions.worldView.removeAllListeners() // todo
     this.abortController.abort()
-    removeStat('chunks-loaded')
-    removeStat('chunks-read')
+    removeAllStats()
   }
 }

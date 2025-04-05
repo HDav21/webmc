@@ -1053,7 +1053,6 @@ export class WorldRendererThree extends WorldRendererCommon {
   }
 
   destroy (): void {
-    removeAllStats()
     super.destroy()
   }
 }

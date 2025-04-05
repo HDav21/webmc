@@ -253,19 +253,19 @@ const initialMenuStart = async () => {
   if (appViewer.currentDisplay === 'world') {
     appViewer.resetBackend(true)
   }
-  appViewer.startPanorama()
+  // appViewer.startPanorama()
 
-  // const version = '1.21.4'
   // const version = '1.18.2'
-  // await appViewer.resourcesManager.loadMcData(version)
-  // const world = getSyncWorld(version)
-  // world.setBlockStateId(new Vec3(0, 64, 0), loadedData.blocksByName.grass_block.defaultState)
-  // appViewer.resourcesManager.currentConfig = { version }
-  // await appViewer.resourcesManager.updateAssetsData({})
-  // appViewer.playerState = new BasePlayerState() as any
-  // appViewer.startWorld(world, 3)
-  // appViewer.backend?.updateCamera(new Vec3(0, 64, 2), 0, 0)
-  // void appViewer.worldView!.init(new Vec3(0, 64, 0))
+  const version = '1.21.4'
+  await appViewer.resourcesManager.loadMcData(version)
+  const world = getSyncWorld(version)
+  world.setBlockStateId(new Vec3(0, 64, 0), loadedData.blocksByName.water.defaultState)
+  appViewer.resourcesManager.currentConfig = { version }
+  await appViewer.resourcesManager.updateAssetsData({})
+  appViewer.playerState = new BasePlayerState() as any
+  await appViewer.startWorld(world, 3)
+  appViewer.backend?.updateCamera(new Vec3(0, 64, 2), 0, 0)
+  void appViewer.worldView!.init(new Vec3(0, 64, 0))
 }
 window.initialMenuStart = initialMenuStart
 

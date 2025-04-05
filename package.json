@@ -155,7 +155,7 @@
     "http-browserify": "^1.7.0",
     "http-server": "^14.1.1",
     "https-browserify": "^1.0.0",
-    "mc-assets": "file:../mc-assets",
+    "mc-assets": "^0.2.52",
     "mineflayer-mouse": "^0.1.7",
     "minecraft-inventory-gui": "github:zardoy/minecraft-inventory-gui#next",
     "mineflayer": "github:zardoy/mineflayer",

@@ -141,7 +141,7 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
 
   // eslint-disable-next-line guard-for-in
   for (const face in elemFaces) {
-    const { dir, corners } = elemFaces[face]
+    const { dir, corners, webgpuSide } = elemFaces[face] as (typeof elemFaces)['down']
     const isUp = dir[1] === 1
 
     const neighborPos = cursor.offset(...dir as [number, number, number])
@@ -170,6 +170,7 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
         visibleFaces: [],
         modelId: world.webgpuModelsMapping[stateId],
         transparent: liquidType === 'water',
+        tint
       }
       tiles[blockKey].faces!.push({
         face,
@@ -178,6 +179,7 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
         tint,
         // texture: eFace.texture.name,
       })
+      tiles[blockKey].visibleFaces.push(webgpuSide)
     }
 
     const { u } = texture
