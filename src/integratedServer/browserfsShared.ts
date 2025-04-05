@@ -183,7 +183,7 @@ export const mkdirRecursive = async (path: string) => {
 
 export const mountRemoteFsBackend = async (fsState: typeof localFsState) => {
   const index = await fetch(fsState.usingIndexFileUrl).then(async (res) => res.json())
-  await new Promise<void>(async resolve => {
+  await new Promise<void>((resolve) => {
     browserfs.configure({
       fs: 'MountableFileSystem',
       options: {
