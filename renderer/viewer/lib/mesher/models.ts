@@ -8,6 +8,16 @@ import { INVISIBLE_BLOCKS } from './worldConstants'
 import { MesherGeometryOutput, HighestBlockInfo } from './shared'
 
 
+let specialBlockState: undefined | Record<string, any>
+export const setSpecialBlockState = (blockState) => {
+  specialBlockState = blockState
+}
+// eslint-disable-next-line import/no-mutable-exports
+export let world: World
+export const setWorld = (_world) => {
+  world = _world
+}
+
 let blockProvider: WorldBlockProvider
 
 const tints: any = {}
@@ -409,6 +419,11 @@ function renderElement (world: World, cursor: Vec3, element: BlockElement, doAO:
       const blockKey = `${cursor.x},${cursor.y},${cursor.z}`
       const modelId = world.webgpuModelsMapping[block.stateId]
       if (modelId !== undefined) {
+        if (specialBlockState?.value === 'highlight' && specialBlockState.position.x === cursor.x && specialBlockState.position.y === cursor.y && specialBlockState.position.z === cursor.z) {
+          lightWithColor[0] *= 0.5
+          lightWithColor[1] *= 0.5
+          lightWithColor[2] *= 0.5
+        }
         tiles[blockKey] ??= {
           block: block.name,
           visibleFaces: [],
@@ -579,16 +594,18 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
             // #region 10%
             let globalMatrix = null as any
             let globalShift = null as any
-            for (const axis of ['x', 'y', 'z'] as const) {
-              if (axis in model) {
-                globalMatrix = globalMatrix ?
-                  matmulmat3(globalMatrix, buildRotationMatrix(axis, -(model[axis] ?? 0))) :
-                  buildRotationMatrix(axis, -(model[axis] ?? 0))
+            if (!world.webgpuModelsMapping) {
+              for (const axis of ['x', 'y', 'z'] as const) {
+                if (axis in model) {
+                  globalMatrix = globalMatrix ?
+                    matmulmat3(globalMatrix, buildRotationMatrix(axis, -(model[axis] ?? 0))) :
+                    buildRotationMatrix(axis, -(model[axis] ?? 0))
+                }
               }
-            }
-            if (globalMatrix) {
-              globalShift = [8, 8, 8]
-              globalShift = vecsub3(globalShift, matmul3(globalMatrix, globalShift))
+              if (globalMatrix) {
+                globalShift = [8, 8, 8]
+                globalShift = vecsub3(globalShift, matmul3(globalMatrix, globalShift))
+              }
             }
             // #endregion
 
@@ -653,6 +670,9 @@ export function getSectionGeometry (sx, sy, sz, world: World) {
 }
 
 export const setBlockStatesData = (blockstatesModels, blocksAtlas: any, _needTiles = false, useUnknownBlockModel = true, version = 'latest') => {
+  if (world) {
+    world.blockCache = {}
+  }
   blockProvider = worldBlockProvider(blockstatesModels, blocksAtlas, version)
   globalThis.blockProvider = blockProvider
   if (useUnknownBlockModel) {

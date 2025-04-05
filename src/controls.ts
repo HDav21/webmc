@@ -699,7 +699,7 @@ document.addEventListener('keydown', (e) => {
   if (hardcodedPressedKeys.has('F3')) {
     const keybind = f3Keybinds.find((v) => v.key === e.code)
     if (keybind && (keybind.enabled?.() ?? true)) {
-      void keybind.action()
+      keybind.action()
       e.stopPropagation()
     }
     return
@@ -948,6 +948,9 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyK' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
     // eslint-disable-next-line no-debugger
     debugger
+  }
+  if (e.code === 'KeyJ' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    options.activeRenderer = options.activeRenderer === 'webgpu' ? 'threejs' : 'webgpu'
   }
 })
 // #endregion

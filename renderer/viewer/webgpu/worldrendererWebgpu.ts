@@ -94,7 +94,7 @@ export class WorldRendererWebgpu extends WorldRendererCommon {
     }, {}) as any
     this.webgpuChannel.camera({
       ...cameraVectors,
-      fov: this.camera.fov
+      fov: this.displayOptions.inWorldRenderingConfig.fov
     })
   }
 
@@ -137,8 +137,20 @@ export class WorldRendererWebgpu extends WorldRendererCommon {
     super.addColumn(x, z, data, _)
   }
 
+  override watchReactivePlayerState () {
+    void this.readyWorkerPromise.then(async () => {
+      // todo hack, allow init to be executed in code outsde
+      await new Promise(resolve => {
+        setTimeout(resolve,)
+      })
+      super.watchReactivePlayerState()
+      this.onReactiveValueUpdated('lookingAtBlock', (value) => {
+        this.setHighlightCursorBlock(value ? new Vec3(value.x, value.y, value.z) : undefined)
+      })
+    })
+  }
+
   allChunksLoaded (): void {
-    console.log('allChunksLoaded')
     this.webgpuChannel.addBlocksSectionDone()
   }
 
@@ -206,7 +218,7 @@ export class WorldRendererWebgpu extends WorldRendererCommon {
   }
 
   cursorBlockPosition: Vec3 | undefined
-  setHighlightCursorBlock (position: Vec3): void {
+  setHighlightCursorBlock (position?: Vec3): void {
     const useChangeWorker = true
     if (this.cursorBlockPosition) {
       const worker = this.workers[this.getWorkerNumber(this.cursorBlockPosition, useChangeWorker)]
