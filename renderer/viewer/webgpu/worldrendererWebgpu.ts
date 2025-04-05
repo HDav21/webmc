@@ -207,6 +207,10 @@ export class WorldRendererWebgpu extends WorldRendererCommon {
       const blob = await fetch(this.resourcesManager.currentResources!.blocksAtlasParser.latestImage).then(async (res) => res.blob())
       this.webgpuChannel.updateTexture(blob)
     }
+
+    // restore block assets parser for gui
+    this.resourcesManager.currentConfig!.includeOnlyBlocks = undefined
+    await this.resourcesManager.recreateBlockAtlas()
   }
 
   updateShowChunksBorder (value: boolean) {

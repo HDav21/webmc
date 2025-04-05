@@ -16,7 +16,7 @@ import { SoundSystem } from '../three/threeJsSound'
 import { buildCleanupDecorator } from './cleanupDecorator'
 import { HighestBlockInfo, MesherGeometryOutput, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
-import { removeAllStats, removeStat, updateStatText } from './ui/newStats'
+import { addNewStat, removeAllStats, removeStat, updateStatText } from './ui/newStats'
 import { WorldDataEmitter } from './worldDataEmitter'
 import { IPlayerState } from './basePlayerState'
 
@@ -156,13 +156,15 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       updateStatText('loaded-chunks', `${loadedChunks}/${this.chunksLength} chunks (${this.lastChunkDistance}/${this.viewDistance})`)
     })
 
+    addNewStat('downloaded-chunks', 100, 140, 20)
+
     this.connect(this.displayOptions.worldView)
 
     setInterval(() => {
       this.geometryReceiveCountPerSec = Object.values(this.geometryReceiveCount).reduce((acc, curr) => acc + curr, 0)
       this.geometryReceiveCount = {}
       this.updateChunksStats()
-    }, 1000)
+    }, 500)
   }
 
   logWorkerWork (message: string | (() => string)) {
@@ -523,7 +525,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.displayOptions.nonReactiveState.world.chunksTotalNumber = this.chunksLength
     this.reactiveState.world.allChunksLoaded = this.allChunksFinished
 
-    updateStatText('downloaded-chunks', `${Object.keys(this.loadedChunks).length}/${this.chunksLength} chunks D (${this.workers.length}:${this.workersProcessAverageTime.toFixed(0)}ms/${this.geometryReceiveCountPerSec}ss/${this.allLoadedIn?.toFixed(1) ?? '-'}s)`)
+    updateStatText('downloaded-chunks', `Q: ${this.messageQueue.length} ${Object.keys(this.loadedChunks).length}/${this.chunksLength} chunks D (${this.workers.length}:${this.workersProcessAverageTime.toFixed(0)}ms/${this.geometryReceiveCountPerSec}ss/${this.allLoadedIn?.toFixed(1) ?? '-'}s)`)
   }
 
   addColumn (x: number, z: number, chunk: any, isLightUpdate: boolean) {
@@ -574,7 +576,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     this.logWorkerWork(`-> unloadChunk ${JSON.stringify({ x, z })}`)
     delete this.finishedChunks[`${x},${z}`]
     this.allChunksFinished = Object.keys(this.finishedChunks).length === this.chunksLength
-    if (!this.allChunksFinished) {
+    if (Object.keys(this.finishedChunks).length === 0) {
       this.allLoadedIn = undefined
       this.initialChunkLoadWasStartedIn = undefined
     }
