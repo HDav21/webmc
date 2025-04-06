@@ -1,5 +1,6 @@
 import { WorldRendererWebgpu } from 'renderer/viewer/webgpu/worldrendererWebgpu'
 import { updateLocalServerSettings } from 'src/integratedServer/main'
+import { defaultWebgpuRendererParams } from 'renderer/playground/webgpuRendererShared'
 import { GraphicsBackend, GraphicsInitOptions } from '../../../src/appViewer'
 
 export type WebgpuInitOptions = GraphicsInitOptions<{
@@ -15,8 +16,9 @@ const createWebgpuBackend = (initOptions: WebgpuInitOptions) => {
 
     },
     async startWorld (displayOptions) {
+      initOptions.rendererSpecificSettings.allowChunksViewUpdate ??= defaultWebgpuRendererParams.allowChunksViewUpdate
       const onSettingsUpdate = () => {
-        displayOptions.worldView.allowPositionUpdate = initOptions.rendererSpecificSettings.allowChunksViewUpdate ?? false
+        displayOptions.worldView.allowPositionUpdate = initOptions.rendererSpecificSettings.allowChunksViewUpdate!
         updateLocalServerSettings({
           stopLoad: !displayOptions.worldView.allowPositionUpdate
         })
@@ -24,9 +26,11 @@ const createWebgpuBackend = (initOptions: WebgpuInitOptions) => {
       onSettingsUpdate()
 
       worldRenderer = new WorldRendererWebgpu(initOptions, displayOptions)
+      globalThis.world = worldRenderer
       await worldRenderer.readyPromise
     },
     disconnect () {
+      globalThis.world = undefined
       worldRenderer?.destroy()
     },
     soundSystem: undefined,
