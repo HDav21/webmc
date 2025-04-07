@@ -193,6 +193,8 @@ export const openBenchmark = async (renderDistance = DEFAULT_RENDER_DISTANCE) =>
   options.renderDistance = renderDistance
   disabledSettings.value.add('renderDebug')
   options.renderDebug = 'advanced'
+  disabledSettings.value.add('waitForChunksRender')
+  options.waitForChunksRender = false
 
   void downloadAndOpenMapFromUrl(fixture.urlZip, undefined, fixture.urlDir, fixture.replayFileUrl, {
     connectEvents: {
