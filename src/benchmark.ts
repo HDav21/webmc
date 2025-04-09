@@ -295,7 +295,7 @@ export const registerOpenBenchmarkListener = () => {
       e.preventDefault()
       // add ?openBenchmark=true to url without reload
       const url = new URL(window.location.href)
-      url.searchParams.set('openBenchmark', 'true')
+      url.searchParams.set('openBenchmark', 'dir')
       window.history.replaceState({}, '', url.toString())
       void openBenchmark()
     }

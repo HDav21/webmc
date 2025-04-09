@@ -598,10 +598,14 @@ export const f3Keybinds: Array<{
       //     console.warn('forcefully removed chunk from scene')
       //   }
       // }
-      if (localServer) {
-        //@ts-expect-error not sure why it is private... maybe revisit api?
-        localServer.players[0].world.columns = {}
-      }
+
+      // viewer.world.chunksReset() // todo
+
+      // TODO!
+      // if (localServer) {
+      //   //@ts-expect-error not sure why it is private... maybe revisit api?
+      //   localServer.players[0].world.columns = {}
+      // }
       void reloadChunks()
     },
     mobileTitle: 'Reload chunks',
@@ -944,6 +948,9 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyK' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
     // eslint-disable-next-line no-debugger
     debugger
+  }
+  if (e.code === 'KeyJ' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    options.activeRenderer = options.activeRenderer === 'webgpu' ? 'threejs' : 'webgpu'
   }
 })
 // #endregion

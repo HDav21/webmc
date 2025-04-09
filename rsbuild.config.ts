@@ -111,6 +111,7 @@ const appConfig = defineConfig({
             js: 'source-map',
             css: true,
         },
+        cleanDistPath: false,
         distPath: SINGLE_FILE_BUILD ? {
             html: './single',
         } : undefined,
@@ -193,6 +194,12 @@ const appConfig = defineConfig({
                         fs.copyFileSync('./renderer/dist/mesher.js.map', './dist/mesher.js.map')
                     } else if (!dev) {
                         await execAsync('pnpm run build-mesher')
+                    }
+                    if (fs.existsSync('./renderer/dist/webgpuRendererWorker.js')) {
+                        // copy worker
+                        fs.copyFileSync('./renderer/dist/webgpuRendererWorker.js', './dist/webgpuRendererWorker.js')
+                    } else {
+                        await execAsync('pnpm run build-other-workers')
                     }
                     fs.writeFileSync('./dist/version.txt', buildingVersion, 'utf-8')
                     console.timeEnd('total-prep')

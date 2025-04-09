@@ -4,7 +4,7 @@ import fs from 'fs'
 import JSZip from 'jszip'
 import { proxy, subscribe } from 'valtio'
 import { armorTextures } from 'renderer/viewer/three/entity/armorModels'
-import { copyFilesAsyncWithProgress, mkdirRecursive, removeFileRecursiveAsync } from './browserfs'
+import { copyFilesAsyncWithProgress, } from './browserfs'
 import { showNotification } from './react/NotificationProvider'
 import { options } from './optionsStorage'
 import { showOptionsModal } from './react/SelectOption'
@@ -12,6 +12,7 @@ import { appReplacableResources, resourcesContentOriginal } from './generated/re
 import { gameAdditionalState, miscUiState } from './globalState'
 import { watchUnloadForCleanup } from './gameUnload'
 import { createConsoleLogProgressReporter, createFullScreenProgressReporter, ProgressReporter } from './core/progressReporter'
+import { mkdirRecursive, removeFileRecursiveAsync } from './integratedServer/browserfsShared'
 
 export const resourcePackState = proxy({
   resourcePackInstalled: false,

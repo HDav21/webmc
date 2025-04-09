@@ -21,7 +21,7 @@ import { disconnect } from '../flyingSquidUtils'
 import { openGithub, pointerLock } from '../utils'
 import { setLoadingScreenStatus } from '../appStatus'
 import { closeWan, openToWanAndCopyJoinLink, getJoinLink } from '../localServerMultiplayer'
-import { collectFilesToCopy, fileExistsAsyncOptimized, mkdirRecursive, uniqueFileNameFromWorldName } from '../browserfs'
+import { collectFilesToCopy, fileExistsAsyncOptimized, mkdirRecursive, uniqueFileNameFromWorldName } from '../integratedServer/browserfsShared'
 import { appQueryParams } from '../appParams'
 import { downloadPacketsReplay, packetsRecordingState } from '../packetsReplay/packetsReplayLegacy'
 import { options } from '../optionsStorage'
@@ -213,7 +213,10 @@ export default () => {
     if (fsStateSnap.inMemorySave || !singleplayer) {
       return showOptionsModal('World actions...', [])
     }
-    const action = await showOptionsModal('World actions...', ['Save to browser memory'])
+    const action = await showOptionsModal('World actions...', [
+      ...!fsStateSnap.inMemorySave && singleplayer ? ['Save to browser memory'] : [],
+      'Dump loaded chunks'
+    ])
     if (action === 'Save to browser memory') {
       const path = await saveToBrowserMemory()
       if (!path) return
@@ -223,6 +226,9 @@ export default () => {
       // fsState.syncFs = false
       // fsState.isReadonly = false
       // fsState.remoteBackend = false
+    }
+    if (action === 'Dump loaded chunks') {
+      // viewer.world.exportLoadedTiles()
     }
   }
 

@@ -141,11 +141,12 @@ export const setRenderDistance = () => {
   if (zeroRenderDistance) {
     renderDistance = 1 // mineflayer limitation workaround
   }
-  bot.setSettings({
+  bot?.setSettings({
     viewDistance: renderDistance
   })
   if (zeroRenderDistance) {
-    localServer!.players[0].view = 0
+    // TODO!!
+    // localServer!.players[0].view = 0
     renderDistance = 0
   }
   worldView?.updateViewDistance(renderDistance)

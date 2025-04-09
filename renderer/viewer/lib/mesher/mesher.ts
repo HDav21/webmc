@@ -1,6 +1,6 @@
 import { Vec3 } from 'vec3'
 import { World } from './world'
-import { getSectionGeometry, setBlockStatesData as setMesherData } from './models'
+import { getSectionGeometry, setBlockStatesData as setMesherData, setSpecialBlockState, setWorld } from './models'
 import { BlockStateModelInfo } from './shared'
 
 globalThis.structuredClone ??= (value) => JSON.parse(JSON.stringify(value))
@@ -66,9 +66,10 @@ function setSectionDirty (pos, value = true) {
 }
 
 const softCleanup = () => {
-  // clean block cache and loaded chunks
-  world = new World(world.config.version)
-  globalThis.world = world
+  if (world) {
+    world.blockCache = {}
+    world.blockStateModelInfo = new Map()
+  }
 }
 
 const handleMessage = data => {
@@ -85,7 +86,10 @@ const handleMessage = data => {
       world.erroredBlockModel = undefined
     }
 
-    world ??= new World(data.config.version)
+    if (!world) {
+      world = new World(data.config.version)
+      setWorld(new World(data.config.version))
+    }
     world.config = { ...world.config, ...data.config }
     globalThis.world = world
     globalThis.Vec3 = Vec3
@@ -133,12 +137,22 @@ const handleMessage = data => {
     }
     case 'reset': {
       world = undefined as any
+      setWorld(undefined as any)
       // blocksStates = null
       dirtySections = new Map()
       // todo also remove cached
       globalVar.mcData = null
       allDataReady = false
 
+      break
+    }
+    case 'specialBlockState': {
+      setSpecialBlockState(data.data)
+
+      break
+    }
+    case 'webgpuData': {
+      world.setDataForWebgpuRenderer(data.data)
       break
     }
     case 'getCustomBlockModel': {
@@ -148,7 +162,6 @@ const handleMessage = data => {
       global.postMessage({ type: 'customBlockModel', chunkKey, customBlockModel })
       break
     }
-  // No default
   }
 }
 

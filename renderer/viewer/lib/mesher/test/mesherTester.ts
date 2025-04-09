@@ -19,7 +19,7 @@ export const setup = (version, initialBlocks: Array<[number[], string]>) => {
 
   const getGeometry = () => {
     const sectionGeometry = getSectionGeometry(0, 0, 0, mesherWorld)
-    const centerFaces = sectionGeometry.tiles[`${pos.x},${pos.y},${pos.z}`]?.faces.length ?? 0
+    const centerFaces = sectionGeometry.tiles[`${pos.x},${pos.y},${pos.z}`]?.faces?.length ?? 0
     const totalTiles = Object.values(sectionGeometry.tiles).reduce((acc, val: any) => acc + val.faces.length, 0)
     const centerTileNeighbors = Object.entries(sectionGeometry.tiles).reduce((acc, [key, val]: any) => {
       return acc + val.faces.filter((face: any) => face.neighbor === `${pos.x},${pos.y},${pos.z}`).length

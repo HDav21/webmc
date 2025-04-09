@@ -1,12 +1,10 @@
-import fs from 'fs'
 import { Transition } from 'react-transition-group'
 import { proxy, subscribe, useSnapshot } from 'valtio'
 import { useEffect, useState } from 'react'
 import { activeModalStack, miscUiState, openOptionsMenu, showModal } from '../globalState'
 import { openGithub } from '../utils'
-import { setLoadingScreenStatus } from '../appStatus'
-import { openFilePicker, copyFilesAsync, mkdirRecursive, openWorldDirectory, removeFileRecursiveAsync } from '../browserfs'
 
+import { openWorldDirectory, openFilePicker } from '../browserfs'
 import MainMenu from './MainMenu'
 
 const isMainMenu = () => {

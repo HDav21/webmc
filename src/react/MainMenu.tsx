@@ -94,16 +94,6 @@ export default ({
       </div>
 
       <div className={styles.menu}>
-        <ButtonWithTooltip
-          initialTooltip={{
-            content: 'Connect to Java servers!',
-            placement: 'top',
-          }}
-          {...connectToServerLongPress}
-          data-test-id='servers-screen-button'
-        >
-          Connect to server
-        </ButtonWithTooltip>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <ButtonWithTooltip
             style={{ width: 150 }}
@@ -111,8 +101,8 @@ export default ({
             data-test-id='singleplayer-button'
             disabled={!singleplayerAvailable}
             initialTooltip={{
-              content: 'Create worlds and play offline',
-              placement: 'left',
+              content: 'Create worlds to play offline',
+              placement: 'top-start',
               offset: -40
             }}
           >
@@ -123,8 +113,9 @@ export default ({
             disabled={!mapsProvider}
             // className={styles['maps-provider']}
             icon={pixelartIcons.map}
-            initialTooltip={{ content: 'Explore maps to play from provider!', placement: 'top-start' }}
+            initialTooltip={{ content: 'Explore maps to play from provider!', placement: 'top' }}
             onClick={() => mapsProvider && openURL(httpsRegex.test(mapsProvider) ? mapsProvider : 'https://' + mapsProvider, false)}
+            alwaysTooltip='CHECK MAPS PERF!'
           />
 
           <ButtonWithTooltip
@@ -137,6 +128,16 @@ export default ({
             }}
           />
         </div>
+        <ButtonWithTooltip
+          initialTooltip={{
+            content: 'Connect to Java servers!',
+            placement: 'bottom',
+          }}
+          onClick={connectToServerAction}
+          data-test-id='servers-screen-button'
+        >
+          Multiplayer
+        </ButtonWithTooltip>
         <Button
           onClick={optionsAction}
         >

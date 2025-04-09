@@ -3,10 +3,14 @@
 import { subscribeKey } from 'valtio/utils'
 import { isMobile } from 'renderer/viewer/lib/simpleUtils'
 import { WorldDataEmitter } from 'renderer/viewer/lib/worldDataEmitter'
+import { WorldRendererWebgpu } from 'renderer/viewer/webgpu/worldrendererWebgpu'
 import { options, watchValue } from './optionsStorage'
 import { reloadChunks } from './utils'
 import { miscUiState } from './globalState'
 import { isCypress } from './standaloneUtils'
+import { updateLocalServerSettings } from './integratedServer/main'
+
+globalThis.viewer ??= { world: {} }
 
 globalThis.viewer ??= { world: {} }
 

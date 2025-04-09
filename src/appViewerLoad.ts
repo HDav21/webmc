@@ -1,4 +1,5 @@
 import { subscribeKey } from 'valtio/utils'
+import createWebgpuBackend from 'renderer/viewer/webgpu/graphicsBackendWebgpu'
 import createGraphicsBackend from 'renderer/viewer/three/graphicsBackend'
 import { options } from './optionsStorage'
 import { appViewer } from './appViewer'
@@ -8,6 +9,7 @@ import { showNotification } from './react/NotificationProvider'
 
 const backends = [
   createGraphicsBackend,
+  createWebgpuBackend,
 ]
 const loadBackend = () => {
   let backend = backends.find(backend => backend.id === options.activeRenderer)
@@ -37,3 +39,13 @@ const animLoop = () => {
 requestAnimationFrame(animLoop)
 
 watchOptionsAfterViewerInit()
+
+// reset backend when renderer changes
+
+subscribeKey(options, 'activeRenderer', () => {
+  if (appViewer.currentDisplay === 'world' && bot) {
+    appViewer.resetBackend(true)
+    loadBackend()
+    void appViewer.startWithBot()
+  }
+})

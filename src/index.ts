@@ -27,8 +27,6 @@ import { options } from './optionsStorage'
 import './reactUi'
 import { lockUrl, onBotCreate } from './controls'
 import './dragndrop'
-import { possiblyCleanHandle, resetStateAfterDisconnect } from './browserfs'
-import { watchOptionsAfterViewerInit, watchOptionsAfterWorldViewInit } from './watchOptions'
 import downloadAndOpenFile from './downloadAndOpenFile'
 
 import fs from 'fs'
@@ -54,13 +52,12 @@ import { parseServerAddress } from './parseServerAddress'
 import { setLoadingScreenStatus } from './appStatus'
 import { isCypress } from './standaloneUtils'
 
-import { startLocalServer, unsupportedLocalServerFeatures } from './createLocalServer'
+import { unsupportedLocalServerFeatures } from './createLocalServer'
 import defaultServerOptions from './defaultLocalServerOptions'
 import dayCycle from './dayCycle'
 
 import { onAppLoad, resourcepackReload, resourcePackState } from './resourcePack'
 import { ConnectPeerOptions, connectToPeer } from './localServerMultiplayer'
-import CustomChannelClient from './customClient'
 import { registerServiceWorker } from './serviceWorker'
 import { appStatusState, lastConnectOptions } from './react/AppStatusProvider'
 
@@ -69,12 +66,11 @@ import { watchFov } from './rendererUtils'
 import { loadInMemorySave } from './react/SingleplayerProvider'
 
 import { possiblyHandleStateVariable } from './googledrive'
-import flyingSquidEvents from './flyingSquidEvents'
 import { showNotification } from './react/NotificationProvider'
 import { saveToBrowserMemory } from './react/PauseScreen'
 import './devReload'
 import './water'
-import { ConnectOptions, loadMinecraftData, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
+import { ConnectOptions, getVersionAutoSelect, downloadOtherGameData, downloadAllMinecraftData } from './connect'
 import { ref, subscribe } from 'valtio'
 import { signInMessageState } from './react/SignInMessageProvider'
 import { updateAuthenticatedAccountData, updateLoadedServerData, updateServerConnectionHistory } from './react/serversStorage'
@@ -93,8 +89,9 @@ import ping from './mineflayer/plugins/ping'
 import mouse from './mineflayer/plugins/mouse'
 import { startLocalReplayServer } from './packetsReplay/replayPackets'
 import { localRelayServerPlugin } from './mineflayer/plugins/packetsRecording'
-import { createConsoleLogProgressReporter, createFullScreenProgressReporter, ProgressReporter } from './core/progressReporter'
+import { createFullScreenProgressReporter, ProgressReporter } from './core/progressReporter'
 import { appViewer } from './appViewer'
+import { destroyLocalServerMain, startLocalServerMain } from './integratedServer/main'
 import './appViewerLoad'
 import { registerOpenBenchmarkListener } from './benchmark'
 
@@ -181,8 +178,6 @@ export async function connect (connectOptions: ConnectOptions) {
     updateServerConnectionHistory(parsedServer.host, connectOptions.botVersion)
   }
 
-  const { renderDistance: renderDistanceSingleplayer, multiplayerRenderDistance } = options
-
   const parsedServer = parseServerAddress(connectOptions.server)
   const server = { host: parsedServer.host, port: parsedServer.port }
   if (connectOptions.proxy?.startsWith(':')) {
@@ -214,7 +209,7 @@ export async function connect (connectOptions: ConnectOptions) {
     ended = true
     progress.end()
     // dont reset viewer so we can still do debugging
-    localServer = window.localServer = window.server = undefined
+    void destroyLocalServerMain(false)
     gameAdditionalState.viewerConnection = false
 
     if (bot) {
@@ -232,9 +227,9 @@ export async function connect (connectOptions: ConnectOptions) {
   }
   const cleanFs = () => {
     if (singleplayer && !fsState.inMemorySave) {
-      possiblyCleanHandle(() => {
-        // todo: this is not enough, we need to wait for all async operations to finish
-      })
+      // possiblyCleanHandle(() => {
+      //   // todo: this is not enough, we need to wait for all async operations to finish
+      // })
     }
   }
   let lastPacket = undefined as string | undefined
@@ -283,7 +278,7 @@ export async function connect (connectOptions: ConnectOptions) {
     net['setProxy']({ hostname: proxy.host, port: proxy.port })
   }
 
-  const renderDistance = singleplayer ? renderDistanceSingleplayer : multiplayerRenderDistance
+  const renderDistance = miscUiState.singleplayer ? options.renderDistance : options.multiplayerRenderDistance
   let updateDataAfterJoin = () => { }
   let localServer
   let localReplaySession: ReturnType<typeof startLocalReplayServer> | undefined
@@ -347,6 +342,7 @@ export async function connect (connectOptions: ConnectOptions) {
       finalVersion = localReplaySession.version
     }
 
+    let CustomClient: any
     if (singleplayer) {
       // SINGLEPLAYER EXPLAINER:
       // Note 1: here we have custom sync communication between server Client (flying-squid) and game client (mineflayer)
@@ -359,28 +355,28 @@ export async function connect (connectOptions: ConnectOptions) {
       // Client (class) of flying-squid (in server/login.js of mc-protocol): onLogin handler: skip most logic & go to loginClient() which assigns uuid and sends 'success' back to client (onLogin handler) and emits 'login' on the server (login.js in flying-squid handler)
       // flying-squid: 'login' -> player.login -> now sends 'login' event to the client (handled in many plugins in mineflayer) -> then 'update_health' is sent which emits 'spawn' in mineflayer
 
-      localServer = window.localServer = window.server = startLocalServer(serverOptions)
+      CustomClient = (await startLocalServerMain(serverOptions)).CustomClient
       connectOptions?.connectEvents?.serverCreated?.()
-      // todo need just to call quit if started
-      // loadingScreen.maybeRecoverable = false
-      // init world, todo: do it for any async plugins
-      if (!localServer.pluginsReady) {
-        await progress.executeWithMessage(
-          'Starting local server',
-          async () => {
-            await new Promise(resolve => {
-              localServer.once('pluginsReady', resolve)
-            })
-          }
-        )
-      }
+      // // todo need just to call quit if started
+      // // loadingScreen.maybeRecoverable = false
+      // // init world, todo: do it for any async plugins
+      // if (!localServer.pluginsReady) {
+      //   await progress.executeWithMessage(
+      //     'Starting local server',
+      //     async () => {
+      //       await new Promise(resolve => {
+      //         localServer.once('pluginsReady', resolve)
+      //       })
+      //     }
+      //   )
+      // }
 
-      localServer.on('newPlayer', (player) => {
-        player.on('loadingStatus', (newStatus) => {
-          progress.setMessage(newStatus)
-        })
-      })
-      flyingSquidEvents()
+      // localServer.on('newPlayer', (player) => {
+      //   player.on('loadingStatus', (newStatus) => {
+      //     progress.setMessage(newStatus)
+      //   })
+      // })
+      // flyingSquidEvents()
     }
 
     if (connectOptions.authenticatedAccount) username = 'you'
@@ -468,11 +464,11 @@ export async function connect (connectOptions: ConnectOptions) {
       ...singleplayer ? {
         version: serverOptions.version,
         connect () { },
-        Client: CustomChannelClient as any,
+        Client: CustomClient,
       } : {},
       ...localReplaySession ? {
         connect () { },
-        Client: CustomChannelClient as any,
+        // Client: CustomChannelClient as any,
       } : {},
       onMsaCode (data) {
         signInMessageState.code = data.user_code
@@ -724,8 +720,7 @@ export async function connect (connectOptions: ConnectOptions) {
 
 
       console.log('bot spawned - starting viewer')
-      await appViewer.startWorld(bot.world, renderDistance)
-      appViewer.worldView!.listenToBot(bot)
+      await appViewer.startWithBot()
 
       initMotionTracking()
       dayCycle()

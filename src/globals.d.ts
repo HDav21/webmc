@@ -14,7 +14,6 @@ declare const __type_bot: typeof bot
 declare const appViewer: import('./appViewer').AppViewer
 declare const worldView: import('renderer/viewer/lib/worldDataEmitter').WorldDataEmitter | undefined
 declare const addStatPerSec: (name: string) => void
-declare const localServer: import('flying-squid/dist/index').FullServer & { options } | undefined
 /** all currently loaded mc data */
 declare const mcData: Record<string, any>
 declare const loadedData: import('minecraft-data').IndexedData & { sounds: Record<string, { id, name }> }

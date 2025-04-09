@@ -151,6 +151,12 @@ export class WorldRendererThree extends WorldRendererCommon {
       if (!value) return
       this.directionalLight.intensity = value
     })
+    this.onReactiveValueUpdated('lookingAtBlock', (value) => {
+      this.cursorBlock.setHighlightCursorBlock(value ? new Vec3(value.x, value.y, value.z) : null, value?.shapes)
+    })
+    this.onReactiveValueUpdated('diggingBlock', (value) => {
+      this.cursorBlock.updateBreakAnimation(value ? { x: value.x, y: value.y, z: value.z } : undefined, value?.stage ?? null, value?.mergedShape)
+    })
   }
 
   changeHandSwingingState (isAnimationPlaying: boolean, isLeft = false) {
