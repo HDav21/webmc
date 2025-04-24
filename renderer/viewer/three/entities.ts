@@ -17,10 +17,12 @@ import { BlockModel } from 'mc-assets'
 import { isEntityAttackable } from 'mineflayer-mouse/dist/attackableEntity'
 import { Vec3 } from 'vec3'
 import { Team } from 'mineflayer'
+import PrismarineChatLoader from 'prismarine-chat'
 import { EntityMetadataVersions } from '../../../src/mcDataTypes'
 import { ItemSpecificContextProperties } from '../lib/basePlayerState'
 import { loadSkinImage, loadSkinFromUsername, stevePngUrl, steveTexture, createCanvas } from '../lib/utils/skins'
 import { loadTexture } from '../lib/utils'
+import { renderComponent } from '../sign-renderer'
 import { getBlockMeshFromModel } from './holdingBlock'
 import * as Entity from './entity/EntityMesh'
 import { getMesh } from './entity/EntityMesh'
@@ -96,8 +98,11 @@ function getUsernameTexture ({
   username,
   nameTagBackgroundColor = 'rgba(0, 0, 0, 0.3)',
   nameTagTextOpacity = 255
-}: any, { fontFamily = 'sans-serif' }: any) {
+}: any, { fontFamily = 'mojangles' }: any, version: string) {
   const canvas = createCanvas(64, 64)
+
+  const PrismarineChat = PrismarineChatLoader(version)
+
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Could not get 2d context')
 
@@ -105,35 +110,36 @@ function getUsernameTexture ({
   const padding = 5
   ctx.font = `${fontSize}px ${fontFamily}`
 
-  const lines = String(username).split('\n')
-
+  const plainLines = String(typeof username === 'string' ? username : new PrismarineChat(username).toString()).split('\n')
   let textWidth = 0
-  for (const line of lines) {
+  for (const line of plainLines) {
     const width = ctx.measureText(line).width + padding * 2
     if (width > textWidth) textWidth = width
   }
 
   canvas.width = textWidth
-  canvas.height = (fontSize + padding) * lines.length
+  canvas.height = (fontSize + padding) * plainLines.length
 
   ctx.fillStyle = nameTagBackgroundColor
   ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-  ctx.font = `${fontSize}px ${fontFamily}`
-  ctx.fillStyle = `rgba(255, 255, 255, ${nameTagTextOpacity / 255})`
-  let i = 0
-  for (const line of lines) {
-    i++
-    ctx.fillText(line, (textWidth - ctx.measureText(line).width) / 2, -padding + fontSize * i)
-  }
+  ctx.globalAlpha = nameTagTextOpacity / 255
+
+  renderComponent(username, PrismarineChat, canvas, fontSize, 'white', -padding + fontSize)
+
+  ctx.globalAlpha = 1
 
   return canvas
 }
 
-const addNametag = (entity, options, mesh) => {
+const addNametag = (entity, options: { fontFamily: string }, mesh, version: string) => {
+  for (const c of mesh.children) {
+    if (c.name === 'nametag') {
+      c.removeFromParent()
+    }
+  }
   if (entity.username !== undefined) {
-    if (mesh.children.some(c => c.name === 'nametag')) return // todo update
-    const canvas = getUsernameTexture(entity, options)
+    const canvas = getUsernameTexture(entity, options, version)
     const tex = new THREE.Texture(canvas)
     tex.needsUpdate = true
     let nameTag
@@ -174,7 +180,7 @@ const nametags = {}
 
 const isFirstUpperCase = (str) => str.charAt(0) === str.charAt(0).toUpperCase()
 
-function getEntityMesh (entity: import('prismarine-entity').Entity & { delete?: any; pos?: any; name?: any }, world: WorldRendererThree | undefined, options: { fontFamily: string }, overrides) {
+function getEntityMesh (entity: import('prismarine-entity').Entity & { delete?: any; pos?: any; name?: any }, world: WorldRendererThree, options: { fontFamily: string }, overrides) {
   if (entity.name) {
     try {
       // https://github.com/PrismarineJS/prismarine-viewer/pull/410
@@ -182,7 +188,7 @@ function getEntityMesh (entity: import('prismarine-entity').Entity & { delete?: 
       const e = new Entity.EntityMesh('1.16.4', entityName, world, overrides)
 
       if (e.mesh) {
-        addNametag(entity, options, e.mesh)
+        addNametag(entity, options, e.mesh, world.version)
         return e.mesh
       }
     } catch (err) {
@@ -200,7 +206,7 @@ function getEntityMesh (entity: import('prismarine-entity').Entity & { delete?: 
     addNametag({
       username: entity.name,
       height: entity.height,
-    }, options, cube)
+    }, options, cube, world.version)
   }
   return cube
 }
@@ -967,21 +973,22 @@ export class Entities {
     // entity specific meta
     const textDisplayMeta = getSpecificEntityMetadata('text_display', entity)
     const displayTextRaw = textDisplayMeta?.text || meta.custom_name_visible && meta.custom_name
-    const displayText = this.parseEntityLabel(displayTextRaw)
-    if (entity.name !== 'player' && displayText) {
+    if (entity.name !== 'player' && displayTextRaw) {
       const nameTagFixed = textDisplayMeta && (textDisplayMeta.billboard_render_constraints === 'fixed' || !textDisplayMeta.billboard_render_constraints)
-      const nameTagBackgroundColor = textDisplayMeta && toRgba(textDisplayMeta.background_color)
+      const nameTagBackgroundColor = (textDisplayMeta && (parseInt(textDisplayMeta.style_flags, 10) & 0x04) === 0) ? toRgba(textDisplayMeta.background_color) : undefined
       let nameTagTextOpacity: any
       if (textDisplayMeta?.text_opacity) {
         const rawOpacity = parseInt(textDisplayMeta?.text_opacity, 10)
         nameTagTextOpacity = rawOpacity > 0 ? rawOpacity : 256 - rawOpacity
       }
       addNametag(
-        { ...entity, username: displayText, nameTagBackgroundColor, nameTagTextOpacity, nameTagFixed,
+        { ...entity, username: typeof displayTextRaw === 'string' ? mojangson.simplify(mojangson.parse(displayTextRaw)) : nbt.simplify(displayTextRaw),
+          nameTagBackgroundColor, nameTagTextOpacity, nameTagFixed,
           nameTagScale: textDisplayMeta?.scale, nameTagTranslation: textDisplayMeta && (textDisplayMeta.translation || new THREE.Vector3(0, 0, 0)),
           nameTagRotationLeft: toQuaternion(textDisplayMeta?.left_rotation), nameTagRotationRight: toQuaternion(textDisplayMeta?.right_rotation) },
         this.entitiesOptions,
-        mesh
+        mesh,
+        this.worldRenderer.version
       )
     }
 
