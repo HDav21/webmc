@@ -6,6 +6,8 @@ import { videoCursorInteraction } from '../customChannels'
 import PixelartIcon, { pixelartIcons } from './PixelartIcon'
 import styles from './TouchInteractionHint.module.css'
 import { useUsingTouch } from './utilsApp'
+import Button from './Button'
+
 
 export default () => {
   const usingTouch = useUsingTouch()
@@ -42,11 +44,17 @@ export default () => {
 
   if (!usingTouch || touchInteractionType !== 'classic' || modalStack.length > 0) return null
   if (!hintText) return null
-
+  // Add a button with the text "Use"  as a button
+  const handleButtonClick = () => {
+    document.dispatchEvent(new MouseEvent('mousedown', { button: 2 }))
+    bot.mouse.update()
+    document.dispatchEvent(new MouseEvent('mouseup', { button: 2 }))
+  }
   return (
     <div className={`${styles.hint_container} interaction-hint`}>
       <PixelartIcon iconName={pixelartIcons['sun-alt']} width={14} />
       <span className={styles.hint_text}>{hintText}</span>
+      <Button onClick={handleButtonClick}>Use</Button>
     </div>
   )
 }
