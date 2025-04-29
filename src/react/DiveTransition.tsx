@@ -30,9 +30,9 @@ export default ({ children, open }) => {
       {open && (
         <div className={styles.container}>
           <motion.div
-            initial={{ opacity: 0, z: -150 }}
-            animate={{ opacity: 1, z: 0 }}
-            exit={{ opacity: 0, z: 150 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             transition={{ duration: durationInSeconds }}
             className={styles.main}
           >
