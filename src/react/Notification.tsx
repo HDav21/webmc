@@ -12,7 +12,7 @@ export default ({ type = 'message', message, subMessage = '', open, icon = '', a
   return <AnimatePresence>
     {open && (
       <motion.div
-        initial={{ opacity: 0, y: '100%' }}
+        initial={{ opacity: 0, y: 0 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: '-100%' }}
         transition={{ duration }}
