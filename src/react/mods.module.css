@@ -44,12 +44,14 @@
 
 .verticalContent .modList {
   height: 50%;
-  min-height: 200px;
+  min-height: 100px;
 }
 
 .verticalContent .sidebar {
   height: 50%;
+  min-height: 50px;
   width: 100%;
+  overflow: auto;
 }
 
 .modList {
