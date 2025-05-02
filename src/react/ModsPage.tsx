@@ -493,5 +493,3 @@ export default () => {
     </div>
   </Screen>
 }
-
-/* eslint-disable object-shorthand */
