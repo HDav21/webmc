@@ -46,7 +46,7 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
   const parsedInitialIp = parseServerAddress(initialData?.ip)
 
   const [serverName, setServerName] = React.useState(initialData?.name ?? qsParamName ?? '')
-  const [serverIp, setServerIp] = React.useState(parsedQsIp.host || parsedInitialIp.host || '')
+  const [serverIp, setServerIp] = React.useState(parsedQsIp.host || parsedInitialIp.serverIpFull || '')
   const [versionOverride, setVersionOverride] = React.useState(initialData?.versionOverride ?? /* legacy */ initialData?.['version'] ?? qsParamVersion ?? '')
   const [proxyOverride, setProxyOverride] = React.useState(initialData?.proxyOverride ?? qsParamProxy ?? '')
   const [usernameOverride, setUsernameOverride] = React.useState(initialData?.usernameOverride ?? qsParamUsername ?? '')
