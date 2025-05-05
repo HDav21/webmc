@@ -5,6 +5,8 @@ interface CssExports {
   hintText: string;
   hint_container: string;
   hint_text: string;
+  useButton: string;
+  use_button: string;
 }
 declare const cssExports: CssExports;
 export default cssExports;

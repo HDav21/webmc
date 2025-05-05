@@ -17,3 +17,11 @@
   color: white;
   font-size: 10px;
 }
+
+.use_button {
+  pointer-events: auto;
+  margin-left: 8px;
+  padding: 4px 8px;
+  font-size: 10px;
+  min-width: 40px;
+}

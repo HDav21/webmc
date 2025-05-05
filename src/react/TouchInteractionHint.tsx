@@ -8,25 +8,32 @@ import styles from './TouchInteractionHint.module.css'
 import { useUsingTouch } from './utilsApp'
 import Button from './Button'
 
-
 export default () => {
   const usingTouch = useUsingTouch()
   const modalStack = useSnapshot(activeModalStack)
   const { touchInteractionType } = useSnapshot(options)
   const [hintText, setHintText] = useState<string | null>(null)
+  const [entityName, setEntityName] = useState<string | null>(null)
+  const [debugInfo, setDebugInfo] = useState<string>('No entity detected')
 
   useEffect(() => {
     const update = () => {
       const videoInteraction = videoCursorInteraction()
       if (videoInteraction) {
         setHintText(`Interact with video`)
+        setEntityName(null)
+        setDebugInfo('Video interaction')
       } else {
         const cursorState = bot.mouse.getCursorState()
         if (cursorState.entity) {
-          const entityName = cursorState.entity.displayName ?? cursorState.entity.name
-          setHintText(`Attack ${entityName}`)
+          const name = cursorState.entity.displayName ?? cursorState.entity.name ?? 'Entity'
+          setHintText(`Attack ${name}`)
+          setEntityName(name)
+          setDebugInfo(`Entity detected: ${name}`)
         } else {
           setHintText(null)
+          setEntityName(null)
+          setDebugInfo('No entity detected')
         }
       }
     }
@@ -42,19 +49,30 @@ export default () => {
     }
   }, [])
 
-  if (!usingTouch || touchInteractionType !== 'classic' || modalStack.length > 0) return null
-  if (!hintText) return null
-  // Add a button with the text "Use"  as a button
-  const handleButtonClick = () => {
+  const handleUseButtonClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    // Правая кнопка мыши (код 2)
     document.dispatchEvent(new MouseEvent('mousedown', { button: 2 }))
     bot.mouse.update()
     document.dispatchEvent(new MouseEvent('mouseup', { button: 2 }))
   }
+
+  if (!usingTouch || touchInteractionType !== 'classic' || modalStack.length > 0) return null
+  if (!hintText && !entityName) return null
+
   return (
-    <div className={`${styles.hint_container} interaction-hint`}>
+    <div className={`${styles.hint_container} interaction-hint`} style={{ pointerEvents: 'none' }}>
       <PixelartIcon iconName={pixelartIcons['sun-alt']} width={14} />
-      <span className={styles.hint_text}>{hintText}</span>
-      <Button onClick={handleButtonClick}>Use</Button>
+      <span className={styles.hint_text}>{usingTouch ? `Touch: ${touchInteractionType}, Entity: ${debugInfo}` : 'Touch disabled'}</span>
+      <Button
+        className={styles.use_button}
+        onClick={handleUseButtonClick}
+        style={{ pointerEvents: 'auto' }}
+      >
+        Use {entityName || ''}
+      </Button>
     </div>
   )
 }
