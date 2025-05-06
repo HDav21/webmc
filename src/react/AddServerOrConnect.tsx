@@ -148,11 +148,6 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
         })
       }}
       >
-        {!lockConnect && <>
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <InputWithLabel label="Server Name" value={serverName} onChange={({ target: { value } }) => setServerName(value)} placeholder='Defaults to IP' />
-          </div>
-        </>}
         <InputWithLabel
           required
           label="Server IP"
@@ -166,6 +161,11 @@ export default ({ onBack, onConfirm, title = 'Add a Server', initialData, parseQ
           validateInput={serverOnline === null || fetchedServerInfoIp !== serverIp ? undefined : validateServerIp}
           placeholder="IP address (e.g. 192.168.0.82:25566)"
         />
+        {!lockConnect && <>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <InputWithLabel label="Server Name" value={serverName} onChange={({ target: { value } }) => setServerName(value)} placeholder='Defaults to IP' />
+          </div>
+        </>}
         {isSmallHeight ? <div style={{ gridColumn: 'span 2', marginTop: 10, }} /> : <div style={{ gridColumn: smallWidth ? '' : 'span 2' }}>Overrides:</div>}
         <div style={{
           display: 'flex',
