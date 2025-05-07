@@ -3,7 +3,7 @@ import { useSnapshot } from 'valtio'
 import { options } from '../optionsStorage'
 import { activeModalStack } from '../globalState'
 import { videoCursorInteraction } from '../customChannels'
-import PixelartIcon, { pixelartIcons } from './PixelartIcon'
+// import PixelartIcon, { pixelartIcons } from './PixelartIcon'
 import styles from './TouchInteractionHint.module.css'
 import { useUsingTouch } from './utilsApp'
 import Button from './Button'
@@ -45,11 +45,11 @@ export default () => {
     }
   }, [])
 
+
   const handleUseButtonClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
 
-    // Правая кнопка мыши (код 2)
     document.dispatchEvent(new MouseEvent('mousedown', { button: 2 }))
     bot.mouse.update()
     document.dispatchEvent(new MouseEvent('mouseup', { button: 2 }))
@@ -59,13 +59,16 @@ export default () => {
   if (!hintText && !entityName) return null
 
   return (
-    <div className={`${styles.hint_container} interaction-hint`}>
-      <PixelartIcon iconName={pixelartIcons['sun-alt']} width={14} />
-      <span className={styles.hint_text}>{hintText}</span>
+    <div
+      className={`${styles.hint_container} interaction-hint`}
+    >
+      {/* temporary hide hint indicator and text */}
+      {/* <PixelartIcon iconName={pixelartIcons['sun-alt']} width={14} />
+      <span className={styles.hint_text}>{hintText || 'Attack entity'}</span> */}
       <Button
         onClick={handleUseButtonClick}
       >
-        {entityName}
+        {`Use ${entityName}`}
       </Button>
     </div>
   )
