@@ -45,7 +45,6 @@ export default () => {
     }
   }, [])
 
-
   const handleUseButtonClick = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
