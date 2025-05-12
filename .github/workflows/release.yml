@@ -45,6 +45,14 @@ jobs:
         with:
           run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }} --prod
         id: deploy
+      - name: Get releasing alias
+        run: node scripts/githubActions.mjs getReleasingAlias
+        id: alias
+      - name: Set deployment alias
+        run: |
+          for alias in $(echo ${{ steps.alias.outputs.alias }} | tr "," "\n"); do
+            vercel alias set ${{ steps.deploy.outputs.stdout }} $alias --token=${{ secrets.VERCEL_TOKEN }} --scope=zaro
+          done
       # publish to github
       - run: cp vercel.json .vercel/output/static/vercel.json
       - uses: peaceiris/actions-gh-pages@v3
@@ -70,7 +78,7 @@ jobs:
           zip -r ../self-host.zip .
 
       - run: |
-          pnpx zardoy-release node --footer "This release URL: ${{ steps.deploy.outputs.stdout }}"
+          pnpx zardoy-release node --footer "This release URL: https://$(echo ${{ steps.alias.outputs.alias }} | cut -d',' -f1) (Vercel URL: ${{ steps.deploy.outputs.stdout }})"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # has possible output: tag

@@ -103,8 +103,8 @@ function tintToGl (tint) {
   return [r / 255, g / 255, b / 255]
 }
 
-function getLiquidRenderHeight (world: World, block: WorldBlock | null, type: number, pos: Vec3, isRealWater: boolean) {
-  if (!isRealWater || (block && isBlockWaterlogged(block))) return 8 / 9
+function getLiquidRenderHeight (world: World, block: WorldBlock | null, type: number, pos: Vec3, isWater: boolean, isRealWater: boolean) {
+  if ((isWater && !isRealWater) || (block && isBlockWaterlogged(block))) return 8 / 9
   if (!block || block.type !== type) return 1 / 9
   if (block.metadata === 0) { // source block
     const blockAbove = world.getBlock(pos.offset(0, 1, 0))
@@ -125,12 +125,19 @@ const isCube = (block: Block) => {
   }))
 }
 
+const getVec = (v: Vec3, dir: Vec3) => {
+  for (const coord of ['x', 'y', 'z']) {
+    if (Math.abs(dir[coord]) > 0) v[coord] = 0
+  }
+  return v.plus(dir)
+}
+
 function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, type: number, biome: string, water: boolean, attr: Record<string, any>, isRealWater: boolean) {
   const heights: number[] = []
   for (let z = -1; z <= 1; z++) {
     for (let x = -1; x <= 1; x++) {
       const pos = cursor.offset(x, 0, z)
-      heights.push(getLiquidRenderHeight(world, world.getBlock(pos), type, pos, isRealWater))
+      heights.push(getLiquidRenderHeight(world, world.getBlock(pos), type, pos, water, isRealWater))
     }
   }
   const cornerHeights = [
@@ -142,7 +149,7 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
 
   // eslint-disable-next-line guard-for-in
   for (const face in elemFaces) {
-    const { dir, corners } = elemFaces[face]
+    const { dir, corners, mask1, mask2 } = elemFaces[face]
     const isUp = dir[1] === 1
 
     const neighborPos = cursor.offset(...dir as [number, number, number])
@@ -180,6 +187,9 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
     const { su } = texture
     const { sv } = texture
 
+    // Get base light value for the face
+    const baseLight = world.getLight(neighborPos, undefined, undefined, water ? 'water' : 'lava') / 15
+
     for (const pos of corners) {
       const height = cornerHeights[pos[2] * 2 + pos[0]]
       attr.t_positions.push(
@@ -189,7 +199,31 @@ function renderLiquid (world: World, cursor: Vec3, texture: any | undefined, typ
       )
       attr.t_normals.push(...dir)
       attr.t_uvs.push(pos[3] * su + u, pos[4] * sv * (pos[1] ? 1 : height) + v)
-      attr.t_colors.push(tint[0], tint[1], tint[2])
+
+      let cornerLightResult = baseLight
+      if (world.config.smoothLighting) {
+        const dx = pos[0] * 2 - 1
+        const dy = pos[1] * 2 - 1
+        const dz = pos[2] * 2 - 1
+        const cornerDir: [number, number, number] = [dx, dy, dz]
+        const side1Dir: [number, number, number] = [dx * mask1[0], dy * mask1[1], dz * mask1[2]]
+        const side2Dir: [number, number, number] = [dx * mask2[0], dy * mask2[1], dz * mask2[2]]
+
+        const dirVec = new Vec3(...dir as [number, number, number])
+
+        const side1LightDir = getVec(new Vec3(...side1Dir), dirVec)
+        const side1Light = world.getLight(cursor.plus(side1LightDir)) / 15
+        const side2DirLight = getVec(new Vec3(...side2Dir), dirVec)
+        const side2Light = world.getLight(cursor.plus(side2DirLight)) / 15
+        const cornerLightDir = getVec(new Vec3(...cornerDir), dirVec)
+        const cornerLight = world.getLight(cursor.plus(cornerLightDir)) / 15
+        // interpolate
+        const lights = [side1Light, side2Light, cornerLight, baseLight]
+        cornerLightResult = lights.reduce((acc, cur) => acc + cur, 0) / lights.length
+      }
+
+      // Apply light value to tint
+      attr.t_colors.push(tint[0] * cornerLightResult, tint[1] * cornerLightResult, tint[2] * cornerLightResult)
     }
   }
 }
