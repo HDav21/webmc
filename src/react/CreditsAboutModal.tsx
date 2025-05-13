@@ -34,9 +34,7 @@ export default () => {
 
           <h3 className={styles.sectionTitle}>Major contributors:</h3>
           <ul className={styles.list}>
-            <li className={styles.listItem}>- <span className={styles.link}>Zartrix</span> - Development Lead</li>
-            <li className={styles.listItem}>- <span className={styles.link}>PrismarineJS</span> - Core Libraries</li>
-            <li className={styles.listItem}>- <span className={styles.link}>MinecraftJS</span> - Rendering Engine</li>
+            <li className={styles.listItem}>- <span className={styles.link}><a className={styles.link} href="https://github.com/mgDentist" target="_blank" rel="noopener noreferrer">Maxim Grigorev</a></span> - React UI & Core Developer Maintainer</li>
             <li className={styles.listItem}>- And many more community contributors!</li>
           </ul>
 
