@@ -1,18 +1,18 @@
 .creditsButton {
   position: absolute;
-  top: 0;
-  right: -10px;
+  top: 1px;
+  right: -30px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: none;
   border: none;
-  padding: 8px;
   cursor: pointer;
-  transition: transform 0.2s ease;
   color: white;
+  opacity: 1;
+  transition: opacity 0.2s ease;
 }
 
 .creditsButton:hover {
-  transform: scale(1.1);
+  opacity: 0.8;
 }

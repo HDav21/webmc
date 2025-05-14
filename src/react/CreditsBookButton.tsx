@@ -16,7 +16,7 @@ export default () => {
     >
       <PixelartIcon
         iconName={pixelartIcons.loader}
-        width={24}
+        width={18}
       />
     </button>
   )
