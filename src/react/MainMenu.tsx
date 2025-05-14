@@ -10,6 +10,7 @@ import ButtonWithTooltip from './ButtonWithTooltip'
 import { pixelartIcons } from './PixelartIcon'
 import useLongPress from './useLongPress'
 import PauseLinkButtons from './PauseLinkButtons'
+import CreditsBookButton from './CreditsBookButton'
 
 type Action = (e: React.MouseEvent<HTMLButtonElement>) => void
 
@@ -27,7 +28,6 @@ interface Props {
   versionText?: string
   onVersionTextClick?: () => void
   singleplayerAvailable?: boolean
-  creditsAction?: Action
 }
 
 const httpsRegex = /^https?:\/\//
@@ -46,7 +46,6 @@ export default ({
   onVersionStatusClick,
   bottomRightLinks,
   singleplayerAvailable = true,
-  creditsAction
 }: Props) => {
   const { appConfig } = useSnapshot(miscUiState)
 
@@ -100,6 +99,7 @@ export default ({
       </div>
 
       <div className={styles.menu}>
+        <CreditsBookButton />
         <ButtonWithTooltip
           initialTooltip={{
             content: 'Connect to Java servers!',
@@ -147,11 +147,6 @@ export default ({
           onClick={optionsAction}
         >
           Options
-        </Button>
-        <Button
-          onClick={creditsAction}
-        >
-          Credits
         </Button>
         <div className={styles['menu-row']}>
           <PauseLinkButtons />

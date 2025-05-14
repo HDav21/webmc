@@ -137,7 +137,6 @@ export default () => {
             }}
             githubAction={() => openGithub()}
             optionsAction={() => openOptionsMenu('main')}
-            creditsAction={() => showModal({ reactType: 'credits-about' })}
             bottomRightLinks={process.env.MAIN_MENU_LINKS}
             openFileAction={e => {
               if (!!window.showDirectoryPicker && !e.shiftKey) {
