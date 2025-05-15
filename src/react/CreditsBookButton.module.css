@@ -20,3 +20,8 @@
 .creditsButton:focus:not(:hover) {
   outline: 1px solid #fff;
 }
+
+.creditsButton svg {
+  width: 15px;
+  height: 15px;
+}
