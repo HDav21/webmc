@@ -150,7 +150,7 @@
     "http-browserify": "^1.7.0",
     "http-server": "^14.1.1",
     "https-browserify": "^1.0.0",
-    "mc-assets": "^0.2.54",
+    "mc-assets": "^0.2.53",
     "minecraft-inventory-gui": "github:zardoy/minecraft-inventory-gui#next",
     "mineflayer": "github:zardoy/mineflayer#gen-the-master",
     "mineflayer-mouse": "^0.1.10",
@@ -207,7 +207,8 @@
       "minecraft-protocol": "github:PrismarineJS/node-minecraft-protocol#master",
       "react": "^18.2.0",
       "prismarine-chunk": "github:zardoy/prismarine-chunk#master",
-      "prismarine-item": "latest"
+      "prismarine-item": "latest",
+      "sharp": "0.34.1"
     },
     "updateConfig": {
       "ignoreDependencies": []
