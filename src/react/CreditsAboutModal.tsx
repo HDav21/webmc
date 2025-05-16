@@ -32,7 +32,7 @@ export default () => {
             <li className={styles.listItem}>- <span><a className={styles.link} href="https://github.com/atxi/Polymer" target="_blank" rel="noopener noreferrer">[Polymer]</a></span> (c++ project) for providing fast & accurate server light implementation</li>
           </ul>
 
-          <h3 className={styles.sectionTitle}>Major contributors:</h3>
+          <h3 className={styles.sectionTitle}>Current contributors:</h3>
           <ul className={styles.list}>
             <li className={styles.listItem}>- <span className={styles.link}><a className={styles.link} href="https://github.com/mgDentist" target="_blank" rel="noopener noreferrer">Maxim Grigorev</a></span> - React UI & Core Developer Maintainer</li>
             <li className={styles.listItem}>- And many more community contributors!</li>
