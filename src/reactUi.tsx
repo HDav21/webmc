@@ -61,6 +61,7 @@ import ControDebug from './react/ControDebug'
 import ChunksDebug from './react/ChunksDebug'
 import ChunksDebugScreen from './react/ChunksDebugScreen'
 import DebugResponseTimeIndicator from './react/debugs/DebugResponseTimeIndicator'
+import CreditsAboutModal from './react/CreditsAboutModal'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
 if (isFirefox) {
@@ -239,7 +240,7 @@ const App = () => {
             <ModsPage />
 
             <SelectOption />
-
+            <CreditsAboutModal />
             <NoModalFoundProvider />
           </RobustPortal>
           <RobustPortal to={document.body}>
