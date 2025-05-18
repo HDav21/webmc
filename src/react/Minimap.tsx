@@ -85,6 +85,7 @@ export default (
           top: '0px',
           padding: '5px 5px 0px 0px',
           textAlign: 'center',
+          zIndex: 7,
         }}
         onClick={() => {
           toggleFullMap?.()
