@@ -14,6 +14,7 @@ export default () => {
   const [clientId, setClientId] = useState(bot._client.uuid)
   const [players, setPlayers] = useState<Players>({})
   const [isOpen, setIsOpen] = useState(false)
+  const [counter, setCounter] = useState(0)
 
   const handleKeyDown = (e) => {
     if (!isGameActive(true)) return
@@ -60,9 +61,13 @@ export default () => {
     document.addEventListener('keydown', handleKeyDown)
     document.addEventListener('keyup', handleKeyUp)
 
+    const playerlistHeader = () => setCounter(prev => prev + 1)
+    bot._client.on('playerlist_header', playerlistHeader)
+
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
       document.removeEventListener('keyup', handleKeyUp)
+      bot?._client.removeListener('playerlist_header', playerlistHeader)
     }
   }, [serverIp])
 

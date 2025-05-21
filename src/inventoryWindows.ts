@@ -338,6 +338,7 @@ const implementedContainersGuiMap = {
   'minecraft:generic_3x3': 'DropDispenseWin',
   'minecraft:furnace': 'FurnaceWin',
   'minecraft:smoker': 'FurnaceWin',
+  'minecraft:blast_furnace': 'FurnaceWin',
   'minecraft:crafting': 'CraftingWin',
   'minecraft:crafting3x3': 'CraftingWin', // todo different result slot
   'minecraft:anvil': 'AnvilWin',
