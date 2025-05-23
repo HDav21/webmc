@@ -6,7 +6,7 @@ import PixelartIcon, { pixelartIcons } from './PixelartIcon'
 import { useUsingTouch } from './utilsApp'
 
 export const displayHintsState = proxy({
-  captureMouseHint: true
+  captureMouseHint: false
 })
 
 export default () => {
