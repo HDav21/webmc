@@ -56,8 +56,11 @@
       "label": "Q"
     },
     {
-      "action": "F3",
-      "actionHold": "",
+      "action": "general.f3",
+      "actionHold": {
+        "command": "general.f3",
+        "longPressAction": "onF3LongPress"
+      },
       "label": "F3"
     },
     {

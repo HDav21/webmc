@@ -2,10 +2,14 @@ import { useEffect, useRef } from 'react'
 import { useSnapshot } from 'valtio'
 import { f3Keybinds, contro } from '../controls'
 import { watchValue } from '../optionsStorage'
-import { MobileButtonConfig } from '../appConfig'
+import { MobileButtonConfig, ActionHoldConfig } from '../appConfig'
 import { showModal, miscUiState, activeModalStack, hideCurrentModal, gameAdditionalState } from '../globalState'
 import { showOptionsModal } from './SelectOption'
 import styles from './MobileTopButtons.module.css'
+
+interface ExtendedActionHoldConfig extends ActionHoldConfig {
+  longPressAction?: string;
+}
 
 export default () => {
   const elRef = useRef<HTMLDivElement | null>(null)
@@ -45,37 +49,33 @@ export default () => {
     }
   }
 
-  const handleCommand = (command: string, isDown: boolean) => {
+  const handleCommand = (command: string | ActionHoldConfig, isDown: boolean) => {
+    const commandString = typeof command === 'string' ? command : command.command
+
     if (isDown) {
-      switch (command) {
+      switch (commandString) {
         case 'chat':
           onChatClick()
           break
         case 'pause':
           showModal({ reactType: 'pause-screen' })
           break
-        case 'F3':
-          document.dispatchEvent(new KeyboardEvent('keydown', { code: 'F3' }))
-          break
         default:
-          if (command.startsWith('general.')) {
-            if (command === 'general.inventory') {
+          if (commandString.startsWith('general.')) {
+            if (commandString === 'general.inventory') {
               if (activeModalStack.at(-1)?.reactType?.startsWith?.('player_win:')) {
                 hideCurrentModal()
               } else {
                 document.exitPointerLock?.()
-                contro.emit('trigger', { command } as any)
+                contro.emit('trigger', { command: commandString } as any)
               }
             } else {
-              contro.emit('trigger', { command } as any)
+              contro.emit('trigger', { command: commandString } as any)
             }
           }
       }
     } else {
-      switch (command) {
-        case 'F3':
-          document.dispatchEvent(new KeyboardEvent('keyup', { code: 'F3' }))
-          break
+      switch (commandString) {
         case 'chat':
         case 'pause':
         case 'general.inventory':
@@ -83,8 +83,8 @@ export default () => {
           // No release action needed
           break
         default:
-          if (command.startsWith('general.')) {
-            contro.emit('release', { command } as any)
+          if (commandString.startsWith('general.')) {
+            contro.emit('release', { command: commandString } as any)
           }
       }
     }
@@ -108,7 +108,18 @@ export default () => {
         elem.setPointerCapture(e.pointerId)
 
         if (button.actionHold) {
-          handleCommand(button.actionHold, true)
+          const actionHold = button.actionHold as ExtendedActionHoldConfig
+          if (actionHold.longPressAction) {
+            const timerId = window.setTimeout(() => {
+              if (actionHold.longPressAction === 'onF3LongPress') {
+                void onF3LongPress()
+              }
+            }, 500)
+            elem.dataset.longPressTimer = String(timerId)
+            handleCommand(actionHold.command, true)
+          } else {
+            handleCommand(button.actionHold, true)
+          }
         } else {
           handleCommand(button.action, true)
         }
@@ -118,8 +129,20 @@ export default () => {
         const elem = e.currentTarget as HTMLElement
         elem.releasePointerCapture(e.pointerId)
 
+        // Очищаем таймер long press если он есть
+        const timerId = elem.dataset.longPressTimer
+        if (timerId) {
+          clearTimeout(parseInt(timerId, 10))
+          delete elem.dataset.longPressTimer
+        }
+
         if (button.actionHold) {
-          handleCommand(button.actionHold, false)
+          const actionHold = button.actionHold as ExtendedActionHoldConfig
+          if (actionHold.longPressAction) {
+            handleCommand(actionHold.command, false)
+          } else {
+            handleCommand(button.actionHold, false)
+          }
         } else {
           handleCommand(button.action, false)
         }

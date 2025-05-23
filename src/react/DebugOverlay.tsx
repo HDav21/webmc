@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSnapshot } from 'valtio'
 import type { Block } from 'prismarine-block'
 import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
+import { miscUiState } from '../globalState'
 import { getFixedFilesize } from '../downloadAndOpenFile'
 import { options } from '../optionsStorage'
 import { BlockStateModelInfo } from '../../renderer/viewer/lib/mesher/shared'
@@ -28,7 +30,7 @@ export default () => {
   window.packetsCountByName = packetsCountByName
   const ignoredPackets = useRef(new Set([] as any[]))
   const [packetsString, setPacketsString] = useState('')
-  const [showDebug, setShowDebug] = useState(false)
+  const { showDebugHud } = useSnapshot(miscUiState)
   const [pos, setPos] = useState<{ x: number, y: number, z: number }>({ x: 0, y: 0, z: 0 })
   const [skyL, setSkyL] = useState(0)
   const [blockL, setBlockL] = useState(0)
@@ -55,7 +57,7 @@ export default () => {
 
   const handleF3 = (e) => {
     if (e.code === 'F3') {
-      setShowDebug(prev => !prev)
+      miscUiState.showDebugHud = !miscUiState.showDebugHud
       e.preventDefault()
     }
   }
@@ -174,7 +176,7 @@ export default () => {
     minecraftQuad.current = Math.floor(((minecraftYaw.current + 180) / 90 + 0.5) % 4)
   }, [bot.entity.yaw])
 
-  if (!showDebug) return null
+  if (!showDebugHud) return null
 
   return <>
     <div className={`debug-left-side ${styles['debug-left-side']}`}>

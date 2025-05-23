@@ -65,6 +65,7 @@ export const contro = new ControMax({
       // client side
       zoom: ['KeyC'],
       viewerConsole: ['Backquote'],
+      f3: ['F3'],
     },
     ui: {
       toggleFullscreen: ['F11'],
@@ -399,6 +400,22 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
       case 'general.zoom':
         gameAdditionalState.isZooming = pressed
         break
+      case 'general.f3':
+        if (pressed) {
+          hardcodedPressedKeys.add('F3')
+          const pressedKey = [...contro.pressedKeys].find(key => key !== 'F3')
+          if (pressedKey) {
+            const keybind = f3Keybinds.find((v) => v.key === pressedKey)
+            if (keybind && (keybind.enabled?.() ?? true)) {
+              void keybind.action()
+            }
+          } else {
+            miscUiState.showDebugHud = !miscUiState.showDebugHud
+          }
+        } else {
+          hardcodedPressedKeys.delete('F3')
+        }
+        break
       case 'general.rotateCameraLeft':
       case 'general.rotateCameraRight':
       case 'general.rotateCameraUp':
@@ -494,6 +511,7 @@ contro.on('trigger', ({ command }) => {
       case 'general.rotateCameraRight':
       case 'general.rotateCameraUp':
       case 'general.rotateCameraDown':
+      case 'general.f3':
         // no-op
         break
       case 'general.swapHands': {

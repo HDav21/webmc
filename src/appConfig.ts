@@ -5,11 +5,20 @@ import { setLoadingScreenStatus } from './appStatus'
 import { setStorageDataOnAppConfigLoad } from './react/appStorageProvider'
 import { customKeymaps, updateBinds } from './controls'
 
+export type ActionHoldConfig = {
+  command: string
+  // TODO: add any other params when actionHold is object
+  // duration?: number
+  // threshold?: number
+  // callback?: () => void
+  [key: string]: any
+}
+
 export type MobileButtonConfig = {
   label?: string
   icon?: string
   action: string
-  actionHold?: string
+  actionHold?: string | ActionHoldConfig
 }
 
 export type AppConfig = {
