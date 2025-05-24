@@ -63,10 +63,11 @@ export const contro = new ControMax({
       // ui?
       chat: [['KeyT', 'Enter']],
       command: ['Slash'],
+      playersList: ['Tab'],
+      f3: ['F3'],
       // client side
       zoom: ['KeyC'],
       viewerConsole: ['Backquote'],
-      f3: ['F3'],
     },
     ui: {
       toggleFullscreen: ['F11'],
@@ -516,6 +517,7 @@ contro.on('trigger', ({ command }) => {
       case 'general.rotateCameraUp':
       case 'general.rotateCameraDown':
       case 'general.f3':
+      case 'general.playersList':
         // no-op
         break
       case 'general.swapHands': {

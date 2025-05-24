@@ -37,10 +37,6 @@ export default () => {
     if (f3Keybind) void f3Keybind.action()
   }
 
-  const onChatLongPress = () => {
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }))
-  }
-
   const onChatClick = () => {
     if (activeModalStack.at(-1)?.reactType === 'chat') {
       hideCurrentModal()
@@ -129,7 +125,6 @@ export default () => {
         const elem = e.currentTarget as HTMLElement
         elem.releasePointerCapture(e.pointerId)
 
-        // Очищаем таймер long press если он есть
         const timerId = elem.dataset.longPressTimer
         if (timerId) {
           clearTimeout(parseInt(timerId, 10))

@@ -72,6 +72,11 @@
       "action": "pause",
       "actionHold": "",
       "label": ""
+    },
+    {
+      "action": "general.playersList",
+      "actionHold": "",
+      "label": "TAB"
     }
   ]
 }
