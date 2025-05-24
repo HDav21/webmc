@@ -64,7 +64,7 @@
       "label": "F3"
     },
     {
-      "action": "chat",
+      "action": "general.chat",
       "actionHold": "",
       "label": ""
     },

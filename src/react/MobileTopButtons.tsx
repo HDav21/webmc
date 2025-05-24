@@ -37,45 +37,22 @@ export default () => {
     if (f3Keybind) void f3Keybind.action()
   }
 
-  const onChatClick = () => {
-    if (activeModalStack.at(-1)?.reactType === 'chat') {
-      hideCurrentModal()
-    } else {
-      showModal({ reactType: 'chat' })
-    }
-  }
-
   const handleCommand = (command: string | ActionHoldConfig, isDown: boolean) => {
     const commandString = typeof command === 'string' ? command : command.command
 
     if (isDown) {
       switch (commandString) {
-        case 'chat':
-          onChatClick()
-          break
         case 'pause':
           showModal({ reactType: 'pause-screen' })
           break
         default:
           if (commandString.startsWith('general.')) {
-            if (commandString === 'general.inventory') {
-              if (activeModalStack.at(-1)?.reactType?.startsWith?.('player_win:')) {
-                hideCurrentModal()
-              } else {
-                document.exitPointerLock?.()
-                contro.emit('trigger', { command: commandString } as any)
-              }
-            } else {
-              contro.emit('trigger', { command: commandString } as any)
-            }
+            contro.emit('trigger', { command: commandString } as any)
           }
       }
     } else {
       switch (commandString) {
-        case 'chat':
         case 'pause':
-        case 'general.inventory':
-        case 'general.drop':
           // No release action needed
           break
         default:
@@ -91,7 +68,7 @@ export default () => {
       let className = styles['debug-btn']
       let label = button.label || button.icon || '?'
 
-      if (button.action === 'chat') {
+      if (button.action === 'general.chat') {
         className = styles['chat-btn']
         label = ''
       } else if (button.action === 'pause') {
