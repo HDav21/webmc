@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react'
 import { useSnapshot } from 'valtio'
 import { stringStartsWith } from 'contro-max/build/stringUtils'
-import { f3Keybinds, contro } from '../controls'
+import { f3Keybinds, contro, onF3LongPress } from '../controls'
 import { watchValue } from '../optionsStorage'
 import { MobileButtonConfig, ActionHoldConfig } from '../appConfig'
 import { showModal, miscUiState, activeModalStack, hideCurrentModal, gameAdditionalState } from '../globalState'
 import { showOptionsModal } from './SelectOption'
 import styles from './MobileTopButtons.module.css'
+import PixelartIcon from './PixelartIcon'
 
 interface ExtendedActionHoldConfig extends ActionHoldConfig {
   longPressAction?: string;
@@ -27,17 +28,6 @@ export default () => {
     })
   }, [])
 
-  const onF3LongPress = async () => {
-    const select = await showOptionsModal('', f3Keybinds.filter(f3Keybind => {
-      return f3Keybind.mobileTitle && (f3Keybind.enabled?.() ?? true)
-    }).map(f3Keybind => {
-      return `${f3Keybind.mobileTitle}${f3Keybind.key ? ` (F3+${f3Keybind.key})` : ''}`
-    }))
-    if (!select) return
-    const f3Keybind = f3Keybinds.find(f3Keybind => f3Keybind.mobileTitle === select)
-    if (f3Keybind) void f3Keybind.action()
-  }
-
   const handleCommand = (command: string | ActionHoldConfig, isDown: boolean) => {
     const commandString = typeof command === 'string' ? command : command.command
 
@@ -53,14 +43,23 @@ export default () => {
   const renderConfigButtons = () => {
     return mobileButtonsConfig?.map((button, index) => {
       let className = styles['debug-btn']
-      let label = button.icon || button.label || '?'
+      let label: string | JSX.Element = button.icon || button.label || '?'
 
-      if (button.action === 'general.chat') {
-        className = styles['chat-btn']
-        label = ''
-      } else if (button.action === 'ui.back') {
-        className = styles['pause-btn']
-        label = ''
+      const tabIcon = <PixelartIcon iconName="users" />
+
+      switch (button.action) {
+        case 'general.chat':
+          className = styles['chat-btn']
+          label = ''
+          break
+        case 'ui.back':
+          className = styles['pause-btn']
+          label = ''
+          break
+        case 'general.playersList':
+          className = styles['tab-btn']
+          label = tabIcon
+          break
       }
 
       const onPointerDown = (e) => {
