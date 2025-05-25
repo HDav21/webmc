@@ -45,7 +45,10 @@ export default () => {
       let className = styles['debug-btn']
       let label: string | JSX.Element = button.icon || button.label || '?'
 
-      const tabIcon = <PixelartIcon iconName="users" />
+      if (typeof label === 'string' && label.startsWith('pixelarticons:')) {
+        const iconName = label.replace('pixelarticons:', '')
+        label = <PixelartIcon iconName={iconName}/>
+      }
 
       switch (button.action) {
         case 'general.chat':
@@ -58,7 +61,6 @@ export default () => {
           break
         case 'general.playersList':
           className = styles['tab-btn']
-          label = tabIcon
           break
       }
 

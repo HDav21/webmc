@@ -76,7 +76,7 @@
     {
       "action": "general.playersList",
       "actionHold": "",
-      "icon": "",
+      "icon": "pixelarticons:users",
       "label": "TAB"
     }
   ]
