@@ -129,7 +129,7 @@ export default () => {
           className={className}
           onPointerDown={onPointerDown}
           onPointerUp={onPointerUp}
-          onLostPointerCapture={onPointerUp}
+          onLostPointerCapture={onPointerUp} // Important for when pointer leaves element while pressed
         >
           {label}
         </div>
