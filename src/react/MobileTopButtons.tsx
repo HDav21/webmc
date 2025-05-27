@@ -1,13 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { useSnapshot } from 'valtio'
-import { stringStartsWith } from 'contro-max/build/stringUtils'
-import type { CommandEventArgument } from 'contro-max/build/types'
-import { contro, onF3LongPress } from '../controls'
-import type { Command } from '../controls'
+import { handleMobileButtonActionCommand, handleMobileButtonLongPress } from '../controls'
 import { watchValue } from '../optionsStorage'
-import { MobileButtonConfig, ActionHoldConfig, ActionType, CustomAction } from '../appConfig'
+import { type MobileButtonConfig, type ActionHoldConfig, type ActionType, type CustomAction } from '../appConfig'
 import { miscUiState } from '../globalState'
-import { customCommandsConfig } from '../customCommands'
 import PixelartIcon from './PixelartIcon'
 import styles from './MobileTopButtons.module.css'
 
@@ -30,44 +26,6 @@ export default () => {
       showMobileControls(Boolean(o.currentTouch))
     })
   }, [])
-
-  const handleCustomAction = (action: CustomAction) => {
-    const handler = customCommandsConfig[action.type]?.handler
-    if (handler) {
-      handler([...action.input])
-    }
-  }
-
-  const handleCommand = (command: ActionType | ActionHoldConfig, isDown: boolean) => {
-    const commandValue = typeof command === 'string' ? command : 'command' in command ? command.command : command
-
-    if (typeof commandValue === 'string' && !stringStartsWith(commandValue, 'custom')) {
-      const event: CommandEventArgument<typeof contro['_commandsRaw']> = {
-        command: commandValue as Command,
-        schema: {
-          keys: [],
-          gamepad: []
-        }
-      }
-      if (isDown) {
-        contro.emit('trigger', event)
-      } else {
-        contro.emit('release', event)
-      }
-    } else if (typeof commandValue === 'object') {
-      if (isDown) {
-        handleCustomAction(commandValue)
-      }
-    }
-  }
-
-  const handleLongPress = (actionHold: ActionHoldConfig) => {
-    if (typeof actionHold.longPressAction === 'string' && actionHold.longPressAction === 'general.debugOverlayHelpMenu') {
-      void onF3LongPress()
-    } else if (actionHold.longPressAction) {
-      handleCommand(actionHold.longPressAction, true)
-    }
-  }
 
   const getButtonClassName = (action: ActionType): string => {
     if (typeof action === 'string') {
@@ -109,7 +67,7 @@ export default () => {
 
         if (actionHold) {
           if (typeof actionHold === 'string' || (typeof actionHold === 'object' && !('command' in actionHold))) {
-            handleCommand(actionHold, true)
+            handleMobileButtonActionCommand(actionHold, true)
           } else {
             const config = actionHold
             const { command, longPressAction, duration } = config
@@ -117,16 +75,16 @@ export default () => {
             if (longPressAction) {
               actionToShortPressRef.current = command
               longPressTimerIdRef.current = window.setTimeout(() => {
-                handleLongPress(config)
+                handleMobileButtonLongPress(config)
                 actionToShortPressRef.current = null
                 longPressTimerIdRef.current = null
               }, duration || 500)
             } else {
-              handleCommand(command, true)
+              handleMobileButtonActionCommand(command, true)
             }
           }
         } else if (action) {
-          handleCommand(action, true)
+          handleMobileButtonActionCommand(action, true)
         }
       }
 
@@ -141,8 +99,8 @@ export default () => {
           clearTimeout(longPressTimerIdRef.current)
           longPressTimerIdRef.current = null
           if (actionToShortPressRef.current) {
-            handleCommand(actionToShortPressRef.current, true)
-            handleCommand(actionToShortPressRef.current, false)
+            handleMobileButtonActionCommand(actionToShortPressRef.current, true)
+            handleMobileButtonActionCommand(actionToShortPressRef.current, false)
             wasShortPress = true
           }
         }
@@ -151,15 +109,15 @@ export default () => {
           if (actionHold) {
             if (typeof actionHold === 'object' && 'longPressAction' in actionHold && actionHold.longPressAction) {
               if (actionToShortPressRef.current === null && typeof actionHold.longPressAction === 'string') {
-                handleCommand(actionHold.longPressAction, false)
+                handleMobileButtonActionCommand(actionHold.longPressAction, false)
               }
             } else if (typeof actionHold === 'string') {
-              handleCommand(actionHold, false)
+              handleMobileButtonActionCommand(actionHold, false)
             } else if (typeof actionHold === 'object' && 'command' in actionHold) {
-              handleCommand(actionHold.command, false)
+              handleMobileButtonActionCommand(actionHold.command, false)
             }
           } else if (action) {
-            handleCommand(action, false)
+            handleMobileButtonActionCommand(action, false)
           }
         }
         actionToShortPressRef.current = null

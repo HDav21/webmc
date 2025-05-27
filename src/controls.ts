@@ -28,6 +28,7 @@ import { createNotificationProgressReporter } from './core/progressReporter'
 import { appStorage } from './react/appStorageProvider'
 import { switchGameMode } from './packetsReplay/replayPackets'
 import { tabListState } from './react/PlayerListOverlayProvider'
+import { type ActionType, type ActionHoldConfig, type CustomAction } from './appConfig'
 
 
 export const customKeymaps = proxy(appStorage.keybindings)
@@ -944,4 +945,42 @@ export const onF3LongPress = async () => {
   if (!select) return
   const f3Keybind = f3Keybinds.find(f3Keybind => f3Keybind.mobileTitle === select)
   if (f3Keybind) void f3Keybind.action()
+}
+
+export const handleMobileButtonCustomAction = (action: CustomAction) => {
+  const handler = customCommandsConfig[action.type]?.handler
+  if (handler) {
+    handler([...action.input])
+  }
+}
+
+export const handleMobileButtonActionCommand = (command: ActionType | ActionHoldConfig, isDown: boolean) => {
+  const commandValue = typeof command === 'string' ? command : 'command' in command ? command.command : command
+
+  if (typeof commandValue === 'string' && !stringStartsWith(commandValue, 'custom')) {
+    const event: CommandEventArgument<typeof contro['_commandsRaw']> = {
+      command: commandValue as Command,
+      schema: {
+        keys: [],
+        gamepad: []
+      }
+    }
+    if (isDown) {
+      contro.emit('trigger', event)
+    } else {
+      contro.emit('release', event)
+    }
+  } else if (typeof commandValue === 'object') {
+    if (isDown) {
+      handleMobileButtonCustomAction(commandValue)
+    }
+  }
+}
+
+export const handleMobileButtonLongPress = (actionHold: ActionHoldConfig) => {
+  if (typeof actionHold.longPressAction === 'string' && actionHold.longPressAction === 'general.debugOverlayHelpMenu') {
+    void onF3LongPress()
+  } else if (actionHold.longPressAction) {
+    handleMobileButtonActionCommand(actionHold.longPressAction, true)
+  }
 }
