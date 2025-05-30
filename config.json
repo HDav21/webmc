@@ -40,17 +40,6 @@
   ],
   "mobileButtons": [
     {
-      "action": "general.zoom",
-      "actionHold": "",
-      "label": "Zoom",
-      "icon": ""
-    },
-    {
-      "action": "general.inventory",
-      "actionHold": "",
-      "label": "I"
-    },
-    {
       "action": "general.drop",
       "actionHold": "",
       "label": "Q"
@@ -59,6 +48,12 @@
       "action": "general.debugOverlay",
       "actionHold": "general.debugOverlayHelpMenu",
       "label": "F3"
+    },
+     {
+      "action": "general.playersList",
+      "actionHold": "",
+      "icon": "pixelarticons:users",
+      "label": "TAB"
     },
     {
       "action": "general.chat",
@@ -69,12 +64,6 @@
       "action": "ui.back",
       "actionHold": "",
       "label": ""
-    },
-    {
-      "action": "general.playersList",
-      "actionHold": "",
-      "icon": "pixelarticons:users",
-      "label": "TAB"
     }
   ]
 }
