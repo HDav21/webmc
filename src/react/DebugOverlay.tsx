@@ -55,13 +55,6 @@ export default () => {
 
   const viewDegToMinecraft = (yaw) => yaw % 360 - 180 * (yaw < 0 ? -1 : 1)
 
-  const handleF3 = (e) => {
-    if (e.code === 'F3') {
-      miscUiState.showDebugHud = !miscUiState.showDebugHud
-      e.preventDefault()
-    }
-  }
-
   const readPacket = (data, { name }, _buf, fullBuffer) => {
     if (fullBuffer) {
       const size = fullBuffer.byteLength
@@ -107,7 +100,6 @@ export default () => {
       }
     }
 
-    document.addEventListener('keydown', handleF3)
     let update = 0
     const packetsUpdateInterval = setInterval(() => {
       setPacketsString(`↓ ${received.current.count} (${(received.current.size / 1024).toFixed(2)} KB/s, ${getFixedFilesize(receivedTotal.current)}) ↑ ${sent.current.count}`)
@@ -163,7 +155,6 @@ export default () => {
     })
 
     return () => {
-      document.removeEventListener('keydown', handleF3)
       clearInterval(packetsUpdateInterval)
       clearInterval(freqUpdateInterval)
       clearInterval(notFrequentUpdateInterval)

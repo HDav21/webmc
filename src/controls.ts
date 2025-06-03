@@ -30,7 +30,6 @@ import { switchGameMode } from './packetsReplay/replayPackets'
 import { tabListState } from './react/PlayerListOverlayProvider'
 import { type ActionType, type ActionHoldConfig, type CustomAction } from './appConfig'
 
-
 export const customKeymaps = proxy(appStorage.keybindings)
 subscribe(customKeymaps, () => {
   appStorage.keybindings = customKeymaps
