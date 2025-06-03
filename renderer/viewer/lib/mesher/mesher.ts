@@ -161,7 +161,7 @@ const handleMessage = data => {
           blockPos.z = blockZ
           blockPos.y = world.config.worldMaxY
           let block = world.getBlock(blockPos)
-          while (block && INVISIBLE_BLOCKS.has(block.name)) {
+          while (block && INVISIBLE_BLOCKS.has(block.name) && blockPos.y > world.config.worldMinY) {
             blockPos.y -= 1
             block = world.getBlock(blockPos)
           }
