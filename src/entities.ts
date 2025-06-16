@@ -156,9 +156,7 @@ customEvents.on('gameLoaded', () => {
 
   bot._client.on('player_info', (packet) => {
     for (const playerEntry of packet.data) {
-      // Switch player nametag visibility based on gamemode (spectator doesn't show nametags)
       if (playerEntry.gamemode && playerEntry.uuid === bot.player.uuid) {
-        getThreeJsRendererMethods()?.togglePlayerNametags(playerEntry.gamemode !== 3)
         appViewer.cameraEntity = undefined
       }
       // Texture override from packet properties

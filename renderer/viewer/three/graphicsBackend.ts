@@ -22,7 +22,6 @@ const getBackendMethods = (worldRenderer: WorldRendererThree) => {
     playEntityAnimation: worldRenderer.entities.playAnimation.bind(worldRenderer.entities),
     damageEntity: worldRenderer.entities.handleDamageEvent.bind(worldRenderer.entities),
     updatePlayerSkin: worldRenderer.entities.updatePlayerSkin.bind(worldRenderer.entities),
-    togglePlayerNametags: worldRenderer.entities.togglePlayerNametags.bind(worldRenderer.entities),
     changeHandSwingingState: worldRenderer.changeHandSwingingState.bind(worldRenderer),
     getHighestBlocks: worldRenderer.getHighestBlocks.bind(worldRenderer),
     rerenderAllChunks: worldRenderer.rerenderAllChunks.bind(worldRenderer),

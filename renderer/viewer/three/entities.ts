@@ -781,9 +781,6 @@ export class Entities {
           nameTag.position.y = playerObject.position.y + playerObject.scale.y * 16 + 3
           nameTag.renderOrder = 1000
 
-          nameTag.name = 'nametag'
-          nameTag.visible = bot.game.gameMode !== 'spectator'
-
           //@ts-expect-error
           wrapper.add(nameTag)
         }
@@ -1061,18 +1058,6 @@ export class Entities {
   playerPerAnimation = {} as Record<number, string>
   onRemoveEntity (entity: import('prismarine-entity').Entity) {
     this.loadedSkinEntityIds.delete(entity.id.toString())
-  }
-
-  togglePlayerNametags (show: boolean) {
-    for (const entity of Object.values(this.entities)) {
-      if (entity['realName'] === 'player') {
-        entity.traverse(c => {
-          if (c.name === 'nametag') {
-            c.visible = show
-          }
-        })
-      }
-    }
   }
 
   updateMap (mapNumber: string | number, data: string) {
