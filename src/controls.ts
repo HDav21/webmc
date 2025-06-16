@@ -133,7 +133,7 @@ const setSprinting = (state: boolean) => {
 
 contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
   // Don't allow movement while spectating an entity
-  if (appViewer.cameraEntity !== undefined) return
+  if (appViewer.playerState.isSpectatingEntity) return
 
   if (gamepadIndex !== undefined && gamepadUiCursorState.display) {
     const deadzone = 0.1 // TODO make deadzone configurable
@@ -344,7 +344,7 @@ const cameraRotationControls = {
   },
   handleCommand (command: string, pressed: boolean) {
     // Don't allow movement while spectating an entity
-    if (appViewer.cameraEntity !== undefined) return
+    if (appViewer.playerState.isSpectatingEntity) return
 
     const directionMap = {
       'general.rotateCameraLeft': 'left',
@@ -365,9 +365,6 @@ const cameraRotationControls = {
 window.cameraRotationControls = cameraRotationControls
 
 const setSneaking = (state: boolean) => {
-  if (appViewer.cameraEntity !== undefined) {
-    appViewer.cameraEntity = undefined
-  }
   gameAdditionalState.isSneaking = state
   bot.setControlState('sneak', state)
 
@@ -381,7 +378,7 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
     // eslint-disable-next-line @typescript-eslint/switch-exhaustiveness-check
     switch (command) {
       case 'general.jump':
-        if (appViewer.cameraEntity !== undefined) break
+        if (appViewer.playerState.isSpectatingEntity) break
         // if (viewer.world.freeFlyMode) {
         //   const moveSpeed = 0.5
         //   viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? moveSpeed : 0, 0))
@@ -390,11 +387,6 @@ const onTriggerOrReleased = (command: Command, pressed: boolean) => {
         // }
         break
       case 'general.sneak':
-        bot._client.write('entity_action', {
-          entityId: bot.entity.id,
-          actionId: pressed ? 0 : 1,
-          jumpBoost: 0
-        })
         // if (viewer.world.freeFlyMode) {
         //   const moveSpeed = 0.5
         //   viewer.world.freeFlyState.position.add(new Vec3(0, pressed ? -moveSpeed : 0, 0))
@@ -561,7 +553,7 @@ contro.on('trigger', ({ command }) => {
         // no-op
         break
       case 'general.swapHands': {
-        if (appViewer.cameraEntity !== undefined) break
+        if (appViewer.playerState.isSpectatingEntity) break
         bot._client.write('block_dig', {
           'status': 6,
           'location': {
@@ -577,12 +569,12 @@ contro.on('trigger', ({ command }) => {
         // handled in onTriggerOrReleased
         break
       case 'general.inventory':
-        if (appViewer.cameraEntity !== undefined) break
+        if (appViewer.playerState.isSpectatingEntity) break
         document.exitPointerLock?.()
         openPlayerInventory()
         break
       case 'general.drop': {
-        if (appViewer.cameraEntity !== undefined) break
+        if (appViewer.playerState.isSpectatingEntity) break
         // if (bot.heldItem/* && ctrl */) bot.tossStack(bot.heldItem)
         bot._client.write('block_dig', {
           'status': 4,
@@ -616,15 +608,15 @@ contro.on('trigger', ({ command }) => {
         showModal({ reactType: 'chat' })
         break
       case 'general.selectItem':
-        if (appViewer.cameraEntity !== undefined) break
+        if (appViewer.playerState.isSpectatingEntity) break
         void selectItem()
         break
       case 'general.nextHotbarSlot':
-        if (appViewer.cameraEntity !== undefined) break
+        if (appViewer.playerState.isSpectatingEntity) break
         cycleHotbarSlot(1)
         break
       case 'general.prevHotbarSlot':
-        if (appViewer.cameraEntity !== undefined) break
+        if (appViewer.playerState.isSpectatingEntity) break
         cycleHotbarSlot(-1)
         break
       case 'general.zoom':

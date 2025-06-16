@@ -39,7 +39,7 @@ export class CameraShake {
   }
 
   update () {
-    if (appViewer.cameraEntity !== undefined) {
+    if (this.worldRenderer.playerState.isSpectatingEntity) {
       // Remove any shaking when spectating
       this.rollAngle = 0
       this.rollAnimation = undefined

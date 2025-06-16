@@ -32,7 +32,9 @@ export interface IPlayerState {
   username?: string
   onlineMode?: boolean
   lightingDisabled?: boolean
-  shouldHideHand?: boolean
+  isSpectator: boolean
+  cameraEntity?: number
+  isSpectatingEntity: boolean
 
   events: TypedEmitter<PlayerStateEvents>
 
@@ -77,6 +79,9 @@ export class BasePlayerState implements IPlayerState {
   protected sneaking = false
   protected flying = false
   protected sprinting = false
+  public isSpectator = false
+  public cameraEntity?: number = undefined
+  public isSpectatingEntity = false
   readonly events = new EventEmitter() as TypedEmitter<PlayerStateEvents>
 
   getEyeHeight (): number {

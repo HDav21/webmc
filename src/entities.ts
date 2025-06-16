@@ -98,7 +98,7 @@ customEvents.on('gameLoaded', () => {
 
   const updateCamera = (entity: Entity) => {
     if (bot.game.gameMode !== 'spectator') return
-    bot.entity.position = entity.position
+    bot.entity.position = entity.position.clone()
     void bot.look(entity.yaw, entity.pitch, true)
     bot.entity.yaw = entity.yaw
     bot.entity.pitch = entity.pitch
@@ -110,7 +110,7 @@ customEvents.on('gameLoaded', () => {
 
   bot.on('entityMoved', (e) => {
     entityData(e)
-    if (appViewer.cameraEntity === e.id) {
+    if (appViewer.playerState.cameraEntity === e.id) {
       updateCamera(e)
     }
   })
@@ -128,7 +128,7 @@ customEvents.on('gameLoaded', () => {
 
   bot.on('entitySpawn', (e) => {
     entityData(e)
-    if (appViewer.cameraEntity === e.id) {
+    if (appViewer.playerState.cameraEntity === e.id) {
       updateCamera(e)
     }
   })
@@ -137,16 +137,16 @@ customEvents.on('gameLoaded', () => {
 
   bot._client.on('camera', (packet) => {
     if (bot.player.entity.id === packet.cameraId) {
-      if (appViewer.cameraEntity) {
-        const entity = bot.entities[appViewer.cameraEntity]
-        appViewer.cameraEntity = undefined
+      if (appViewer.playerState.cameraEntity) {
+        const entity = bot.entities[appViewer.playerState.cameraEntity]
+        appViewer.playerState.cameraEntity = undefined
         if (entity) {
           appViewer.backend?.updateEntity(entity)
         }
       }
-    } else if (bot.game.gameMode === 'spectator') {
+    } else if (appViewer.playerState.isSpectator) {
       const entity = bot.entities[packet.cameraId]
-      appViewer.cameraEntity = packet.cameraId
+      appViewer.playerState.cameraEntity = packet.cameraId
       if (entity) {
         updateCamera(entity)
         appViewer.backend?.updateEntity(entity)
@@ -154,12 +154,9 @@ customEvents.on('gameLoaded', () => {
     }
   })
 
+  // Texture override from packet properties
   bot._client.on('player_info', (packet) => {
     for (const playerEntry of packet.data) {
-      if (playerEntry.gamemode && playerEntry.uuid === bot.player.uuid) {
-        appViewer.cameraEntity = undefined
-      }
-      // Texture override from packet properties
       if (!playerEntry.player && !playerEntry.properties) continue
       let textureProperty = playerEntry.properties?.find(prop => prop?.name === 'textures')
       if (!textureProperty) {

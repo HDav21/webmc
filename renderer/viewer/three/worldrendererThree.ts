@@ -454,11 +454,11 @@ export class WorldRendererThree extends WorldRendererCommon {
       }
 
       this.currentPosTween?.stop()
-      this.currentPosTween = new tweenJs.Tween(this.cameraObject.position).to({ x: pos.x, y: pos.y, z: pos.z }, appViewer.cameraEntity ? 150 : 50).start()
+      this.currentPosTween = new tweenJs.Tween(this.cameraObject.position).to({ x: pos.x, y: pos.y, z: pos.z }, this.playerState.isSpectatingEntity ? 150 : 50).start()
       // this.freeFlyState.position = pos
     }
 
-    if (appViewer.cameraEntity) {
+    if (this.playerState.isSpectatingEntity) {
       const rotation = this.cameraShake.getBaseRotation()
       // wrap in the correct direction
       let yawOffset = 0
@@ -530,7 +530,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     const cam = this.cameraGroupVr instanceof THREE.Group ? this.cameraGroupVr.children.find(child => child instanceof THREE.PerspectiveCamera) as THREE.PerspectiveCamera : this.camera
     this.renderer.render(this.scene, cam)
 
-    if (this.displayOptions.inWorldRenderingConfig.showHand && !this.playerState.shouldHideHand /*  && !this.freeFlyMode */ && !this.renderer.xr.isPresenting) {
+    if (this.displayOptions.inWorldRenderingConfig.showHand && !this.playerState.isSpectator /*  && !this.freeFlyMode */ && !this.renderer.xr.isPresenting) {
       this.holdingBlock.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
       this.holdingBlockLeft.render(this.camera, this.renderer, this.ambientLight, this.directionalLight)
     }

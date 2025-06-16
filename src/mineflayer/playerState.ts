@@ -25,6 +25,10 @@ export class PlayerStateManager implements IPlayerState {
   private isUsingItem = false
   private ready = false
   public lightingDisabled = false
+  public cameraEntity?: number
+  get isSpectatingEntity () {
+    return this.isSpectator && this.cameraEntity !== undefined
+  }
   onlineMode = false
   get username () {
     return bot.username ?? ''
@@ -91,7 +95,7 @@ export class PlayerStateManager implements IPlayerState {
     this.reactive.gameMode = bot.game?.gameMode
   }
 
-  get shouldHideHand () {
+  get isSpectator () {
     return this.reactive.gameMode === 'spectator'
   }
 

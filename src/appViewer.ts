@@ -108,7 +108,6 @@ export class AppViewer {
   currentDisplay = null as 'menu' | 'world' | null
   inWorldRenderingConfig: WorldRendererConfig = proxy(defaultWorldRendererConfig)
   lastCamUpdate = 0
-  cameraEntity: number | undefined
   playerState = playerState
   rendererState = proxy(getDefaultRendererState())
   nonReactiveState: NonReactiveState = getDefaultRendererState()

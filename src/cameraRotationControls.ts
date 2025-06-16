@@ -18,7 +18,7 @@ export function onCameraMove (e: MouseEvent | CameraMoveEvent) {
   if (!isGameActive(true)) return
   if (e.type === 'mousemove' && !document.pointerLockElement) return
   e.stopPropagation?.()
-  if (appViewer.cameraEntity !== undefined) return
+  if (appViewer.playerState.isSpectatingEntity) return
   const now = performance.now()
   // todo: limit camera movement for now to avoid unexpected jumps
   if (now - lastMouseMove < 4 && !options.preciseMouseInput) return
