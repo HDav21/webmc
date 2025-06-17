@@ -83,7 +83,7 @@ export interface GraphicsBackend {
   setRendering: (rendering: boolean) => void
   getDebugOverlay?: () => Record<string, any>
   updateCamera: (pos: Vec3 | null, yaw: number, pitch: number) => void
-  updateEntity: (e) => void
+  updateEntity: (e: import('prismarine-entity').Entity) => void
   setRoll?: (roll: number) => void
   soundSystem: SoundSystem | undefined
 

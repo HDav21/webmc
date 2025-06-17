@@ -128,7 +128,7 @@ const createGraphicsBackend: GraphicsBackendLoader = (initOptions: GraphicsInitO
     updateCamera (pos: Vec3 | null, yaw: number, pitch: number) {
       worldRenderer?.setFirstPersonCamera(pos, yaw, pitch)
     },
-    updateEntity (e) {
+    updateEntity (e: import('prismarine-entity').Entity) {
       worldRenderer?.updateEntity(e)
     },
     get soundSystem () {
