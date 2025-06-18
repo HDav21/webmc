@@ -180,7 +180,7 @@ export class AppViewer {
     this.worldView!.listenToBot(bot)
   }
 
-  async startWorld (world, renderDistance: number, playerStateSend: PlayerStateRenderer = this.playerState) {
+  async startWorld (world, renderDistance: number, playerStateSend: PlayerStateRenderer = this.playerState.reactive) {
     if (this.currentDisplay === 'world') throw new Error('World already started')
     this.currentDisplay = 'world'
     const startPosition = bot.entity?.position ?? new Vec3(0, 64, 0)
@@ -192,7 +192,7 @@ export class AppViewer {
       version: this.resourcesManager.currentConfig!.version,
       worldView: this.worldView,
       inWorldRenderingConfig: this.inWorldRenderingConfig,
-      playerStateReactive: playerStateSend.reactive,
+      playerStateReactive: playerStateSend,
       rendererState: this.rendererState,
       nonReactiveState: this.nonReactiveState
     }

@@ -217,7 +217,7 @@ const mapSlots = (slots: Array<RenderItem | Item | null>, isJei = false) => {
     try {
       if (slot.durabilityUsed && slot.maxDurability) slot.durabilityUsed = Math.min(slot.durabilityUsed, slot.maxDurability)
       const debugIsQuickbar = !isJei && i === bot.inventory.hotbarStart + bot.quickBarSlot
-      const modelName = getItemModelName(slot, { 'minecraft:display_context': 'gui', }, appViewer.resourcesManager, playerState)
+      const modelName = getItemModelName(slot, { 'minecraft:display_context': 'gui', }, appViewer.resourcesManager, appViewer.playerState.reactive)
       const slotCustomProps = renderSlot({ modelName, originalItemName: slot.name }, appViewer.resourcesManager, debugIsQuickbar)
       const itemCustomName = getItemName(slot)
       Object.assign(slot, { ...slotCustomProps, displayName: itemCustomName ?? slot.displayName })

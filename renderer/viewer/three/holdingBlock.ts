@@ -116,12 +116,10 @@ export default class HoldingBlock {
   offHandModeLegacy = false
 
   swingAnimator: HandSwingAnimator | undefined
-  playerState: PlayerStateRenderer
   config: WorldRendererConfig
 
   constructor (public worldRenderer: WorldRendererThree, public offHand = false) {
     this.initCameraGroup()
-    this.playerState = worldRenderer.displayOptions.playerState
     this.worldRenderer.onReactivePlayerStateUpdated('heldItemMain', () => {
       if (!this.offHand) {
         this.updateItem()
@@ -146,9 +144,9 @@ export default class HoldingBlock {
         // now watch over the player skin
         watchProperty(
           async () => {
-            return getMyHand(this.playerState.reactive.playerSkin, this.playerState.reactive.onlineMode ? this.playerState.reactive.username : undefined)
+            return getMyHand(this.worldRenderer.playerStateReactive.playerSkin, this.worldRenderer.playerStateReactive.onlineMode ? this.worldRenderer.playerStateReactive.username : undefined)
           },
-          this.playerState.reactive,
+          this.worldRenderer.playerStateReactive,
           'playerSkin',
           (newHand) => {
             if (newHand) {
@@ -167,7 +165,7 @@ export default class HoldingBlock {
 
   updateItem () {
     if (!this.ready) return
-    const item = this.offHand ? this.playerState.reactive.heldItemOff : this.playerState.reactive.heldItemMain
+    const item = this.offHand ? this.worldRenderer.playerStateReactive.heldItemOff : this.worldRenderer.playerStateReactive.heldItemMain
     if (item) {
       void this.setNewItem(item)
     } else if (this.offHand) {
@@ -357,8 +355,8 @@ export default class HoldingBlock {
         itemId: handItem.id,
       }, {
         'minecraft:display_context': 'firstperson',
-        'minecraft:use_duration': this.playerState.reactive.itemUsageTicks,
-        'minecraft:using_item': !!this.playerState.reactive.itemUsageTicks,
+        'minecraft:use_duration': this.worldRenderer.playerStateReactive.itemUsageTicks,
+        'minecraft:using_item': !!this.worldRenderer.playerStateReactive.itemUsageTicks,
       }, this.lastItemModelName)
       if (result) {
         const { mesh: itemMesh, isBlock, modelName } = result
@@ -475,7 +473,7 @@ export default class HoldingBlock {
     this.swingAnimator = new HandSwingAnimator(this.holdingBlockInnerGroup)
     this.swingAnimator.type = result.type
     if (this.config.viewBobbing) {
-      this.idleAnimator = new HandIdleAnimator(this.holdingBlockInnerGroup, this.playerState)
+      this.idleAnimator = new HandIdleAnimator(this.holdingBlockInnerGroup, this.worldRenderer.playerStateReactive)
     }
   }
 
@@ -710,7 +708,7 @@ class HandIdleAnimator {
 
     // Check for state changes from player state
     if (this.playerState) {
-      const newState = this.playerState.reactive.movementState
+      const newState = this.playerState.movementState
       if (newState !== this.targetState) {
         this.setState(newState)
       }
