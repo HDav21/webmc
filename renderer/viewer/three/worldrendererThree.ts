@@ -452,11 +452,14 @@ export class WorldRendererThree extends WorldRendererCommon {
       }
 
       this.currentPosTween?.stop()
-      this.currentPosTween = new tweenJs.Tween(this.cameraObject.position).to({ x: pos.x, y: pos.y, z: pos.z }, this.playerState.isSpectatingEntity ? 150 : 50).start()
+      this.currentPosTween = new tweenJs.Tween(this.cameraObject.position).to({ x: pos.x, y: pos.y, z: pos.z }, this.playerState.reactive.cameraSpectatingEntity === undefined ? 50 : 150).start()
       // this.freeFlyState.position = pos
     }
 
-    if (this.playerState.isSpectatingEntity) {
+    if (this.playerState.reactive.cameraSpectatingEntity === undefined) {
+      this.currentRotTween?.stop()
+      this.cameraShake.setBaseRotation(pitch, yaw)
+    } else {
       const rotation = this.cameraShake.getBaseRotation()
       // wrap in the correct direction
       let yawOffset = 0
@@ -469,9 +472,6 @@ export class WorldRendererThree extends WorldRendererCommon {
       this.currentRotTween?.stop()
       this.currentRotTween = new tweenJs.Tween(rotation).to({ pitch, yaw: yaw + yawOffset }, 100)
         .onUpdate(params => this.cameraShake.setBaseRotation(params.pitch, params.yaw - yawOffset)).start()
-    } else {
-      this.currentRotTween?.stop()
-      this.cameraShake.setBaseRotation(pitch, yaw)
     }
   }
 

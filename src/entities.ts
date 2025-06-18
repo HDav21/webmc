@@ -43,7 +43,7 @@ customEvents.on('gameLoaded', () => {
   updateAutoJump()
 
   const playerPerAnimation = {} as Record<string, string>
-  const entityData = (e: Entity) => {
+  const checkEntityData = (e: Entity) => {
     if (!e.username) return
     window.debugEntityMetadata ??= {}
     window.debugEntityMetadata[e.username] = e
@@ -109,47 +109,49 @@ customEvents.on('gameLoaded', () => {
   })
 
   bot.on('entityMoved', (e) => {
-    entityData(e)
-    if (appViewer.playerState.cameraEntity === e.id) {
+    checkEntityData(e)
+    if (appViewer.playerState.reactive.cameraSpectatingEntity === e.id) {
       updateCamera(e)
     }
   })
   bot._client.on('entity_velocity', (packet) => {
     const e = bot.entities[packet.entityId]
     if (!e) return
-    entityData(e)
+    checkEntityData(e)
   })
 
   for (const entity of Object.values(bot.entities)) {
     if (entity !== bot.entity) {
-      entityData(entity)
+      checkEntityData(entity)
     }
   }
 
   bot.on('entitySpawn', (e) => {
-    entityData(e)
-    if (appViewer.playerState.cameraEntity === e.id) {
+    checkEntityData(e)
+    if (appViewer.playerState.reactive.cameraSpectatingEntity === e.id) {
       updateCamera(e)
     }
   })
-  bot.on('entityUpdate', entityData)
-  bot.on('entityEquip', entityData)
+  bot.on('entityUpdate', checkEntityData)
+  bot.on('entityEquip', checkEntityData)
 
   bot._client.on('camera', (packet) => {
     if (bot.player.entity.id === packet.cameraId) {
-      if (appViewer.playerState.cameraEntity) {
-        const entity = bot.entities[appViewer.playerState.cameraEntity]
-        appViewer.playerState.cameraEntity = undefined
+      if (appViewer.playerState.reactive.cameraSpectatingEntity !== undefined) {
+        const entity = bot.entities[appViewer.playerState.reactive.cameraSpectatingEntity]
+        appViewer.playerState.reactive.cameraSpectatingEntity = undefined
         if (entity) {
-          appViewer.backend?.updateEntity(entity)
+          // do a force entity update
+          bot.emit('entityUpdate', entity)
         }
       }
-    } else if (appViewer.playerState.isSpectator) {
+    } else if (appViewer.playerState.reactive.gameMode === 'spectator') {
       const entity = bot.entities[packet.cameraId]
-      appViewer.playerState.cameraEntity = packet.cameraId
+      appViewer.playerState.reactive.cameraSpectatingEntity = packet.cameraId
       if (entity) {
         updateCamera(entity)
-        appViewer.backend?.updateEntity(entity)
+        // do a force entity update
+        bot.emit('entityUpdate', entity)
       }
     }
   })
