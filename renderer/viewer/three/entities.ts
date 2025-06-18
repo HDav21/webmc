@@ -808,6 +808,8 @@ export class Entities {
           nameTag.position.y = playerObject.position.y + playerObject.scale.y * 16 + 3
           nameTag.renderOrder = 1000
 
+          nameTag.name = 'nametag'
+
           //@ts-expect-error
           wrapper.add(nameTag)
         }
@@ -1038,11 +1040,14 @@ export class Entities {
       e.username = entity.username
     }
 
-    if (entity.type === 'player' && entity.equipment && e.playerObject) {
-      const { playerObject } = e
-      playerObject.backEquipment = entity.equipment.some((item) => item?.name === 'elytra') ? 'elytra' : 'cape'
-      if (playerObject.cape.map === null) {
-        playerObject.cape.visible = false
+    if (entity.type === 'player' && e.playerObject) {
+      this.updateNameTagVisibility(e)
+      if (entity.equipment) {
+        const { playerObject } = e
+        playerObject.backEquipment = entity.equipment.some((item) => item?.name === 'elytra') ? 'elytra' : 'cape'
+        if (playerObject.cape.map === null) {
+          playerObject.cape.visible = false
+        }
       }
     }
 
@@ -1107,6 +1112,21 @@ export class Entities {
         mesh.material.needsUpdate = true
         mesh.visible = true
       }
+    }
+  }
+
+  updateNameTagVisibility (entity: SceneEntity) {
+    if (entity.playerObject && entity.username) {
+      const entityTeam = bot.teamMap[entity.username]
+      const nameTagVisibility = entityTeam?.nameTagVisibility || 'always'
+      const showNameTag = nameTagVisibility === 'always' ||
+        (nameTagVisibility === 'hideForOwnTeam' && entityTeam !== bot.teamMap[bot.username]) ||
+        (nameTagVisibility === 'hideForOtherTeams' && entityTeam === bot.teamMap[bot.username] || bot.teamMap[bot.username] === undefined)
+      entity.traverse(c => {
+        if (c.name === 'nametag') {
+          c.visible = showNameTag
+        }
+      })
     }
   }
 

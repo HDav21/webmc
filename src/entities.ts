@@ -4,6 +4,7 @@ import tracker from '@nxg-org/mineflayer-tracker'
 import { loader as autoJumpPlugin } from '@nxg-org/mineflayer-auto-jump'
 import { subscribeKey } from 'valtio/utils'
 import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
+import { Team } from 'mineflayer'
 import { options, watchValue } from './optionsStorage'
 import { miscUiState } from './globalState'
 import { EntityStatus } from './mineflayer/entityStatus'
@@ -187,4 +188,26 @@ customEvents.on('gameLoaded', () => {
     }
 
   })
+
+  // Update team nametag display for players
+  const updateTeamMembers = (team: Team) => {
+    for (const entity of Object.values(bot.entities)) {
+      if (entity.type === 'player' && entity.username && team.members.includes(entity.username)) {
+        bot.emit('entityUpdate', entity)
+      }
+    }
+  }
+
+  bot.on('teamUpdated', updateTeamMembers)
+  bot.on('teamMemberAdded', updateTeamMembers)
+
+  bot.on('teamMemberRemoved', () => {
+    // Need to update all players as we don't know which player was removed
+    for (const entity of Object.values(bot.entities)) {
+      if (entity.type === 'player') {
+        bot.emit('entityUpdate', entity)
+      }
+    }
+  })
+
 })
