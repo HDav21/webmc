@@ -189,23 +189,54 @@ customEvents.on('gameLoaded', () => {
 
   })
 
-  // Update team nametag display for players
-  const updateTeamMembers = (team: Team) => {
+  const updateAllEntitiesInTeams = () => {
     for (const entity of Object.values(bot.entities)) {
-      if (entity.type === 'player' && entity.username && team.members.includes(entity.username)) {
+      if (entity.type === 'player' && entity.username && bot.teamMap[entity.username] || entity.uuid && bot.teamMap[entity.uuid]) {
         bot.emit('entityUpdate', entity)
       }
     }
   }
 
-  bot.on('teamUpdated', updateTeamMembers)
-  bot.on('teamMemberAdded', updateTeamMembers)
+  bot.on('teamUpdated', (team: Team) => {
+    if (appViewer.playerState.reactive.team?.team === team.team) {
+      // Player team was updated, need to update all entities that are in a team
+      updateAllEntitiesInTeams()
+    } else {
+      for (const entity of Object.values(bot.entities)) {
+        if (entity.type === 'player' && entity.username && team.members.includes(entity.username) || entity.uuid && team.members.includes(entity.uuid)) {
+          bot.emit('entityUpdate', entity)
+        }
+      }
+    }
+  })
 
-  bot.on('teamMemberRemoved', () => {
-    // Need to update all players as we don't know which player was removed
-    for (const entity of Object.values(bot.entities)) {
-      if (entity.type === 'player') {
-        bot.emit('entityUpdate', entity)
+  bot.on('teamMemberAdded', (team: Team) => {
+    if (appViewer.playerState.reactive.team?.team !== team.team && team.members.includes(bot.username)) {
+      appViewer.playerState.reactive.team = team
+      // Player was added to a team, need to update all entities that are in a team
+      updateAllEntitiesInTeams()
+    } else {
+      // Need to update all entities that are in a team as we don't know which was added
+      for (const entity of Object.values(bot.entities)) {
+        if (entity.type === 'player' && entity.username && team.members.includes(entity.username) || entity.uuid && team.members.includes(entity.uuid)) {
+          bot.emit('entityUpdate', entity)
+        }
+      }
+    }
+  })
+
+  bot.on('teamMemberRemoved', (team: Team) => {
+    if (appViewer.playerState.reactive.team?.team === team.team && !team.members.includes(bot.username)) {
+      appViewer.playerState.reactive.team = undefined
+      // Player was removed from a team, need to update all entities that are in a team
+      updateAllEntitiesInTeams()
+    } else {
+      // Need to update all entities that are not in a team as we don't know which were removed
+      for (const entity of Object.values(bot.entities)) {
+        const entityTeam = entity.type === 'player' && entity.username ? bot.teamMap[entity.username] : entity.uuid ? bot.teamMap[entity.uuid] : undefined
+        if (!entityTeam) {
+          bot.emit('entityUpdate', entity)
+        }
       }
     }
   })

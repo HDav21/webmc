@@ -1,5 +1,5 @@
 import { ItemSelector } from 'mc-assets/dist/itemDefinitions'
-import { GameMode } from 'mineflayer'
+import { GameMode, Team } from 'mineflayer'
 import { proxy } from 'valtio'
 import type { HandItemBlock } from '../three/holdingBlock'
 
@@ -49,6 +49,8 @@ export const getInitialPlayerState = () => proxy({
   heldItemOff: undefined as HandItemBlock | undefined,
 
   cameraSpectatingEntity: undefined as number | undefined,
+
+  team: undefined as Team | undefined,
 })
 
 export const getPlayerStateUtils = (reactive: PlayerStateReactive) => ({

@@ -16,6 +16,7 @@ import { Item } from 'prismarine-item'
 import { BlockModel } from 'mc-assets'
 import { isEntityAttackable } from 'mineflayer-mouse/dist/attackableEntity'
 import { Vec3 } from 'vec3'
+import { Team } from 'mineflayer'
 import { EntityMetadataVersions } from '../../../src/mcDataTypes'
 import { ItemSpecificContextProperties } from '../lib/basePlayerState'
 import { loadSkinImage, loadSkinFromUsername, stevePngUrl, steveTexture } from '../lib/utils/skins'
@@ -209,7 +210,7 @@ export type SceneEntity = THREE.Object3D & {
   username?: string
   uuid?: string
   additionalCleanup?: () => void
-  originalEntity: import('prismarine-entity').Entity & { delete?; pos?, name }
+  originalEntity: import('prismarine-entity').Entity & { delete?; pos?, name, team?: Team }
 }
 
 export class Entities {
@@ -1040,14 +1041,13 @@ export class Entities {
       e.username = entity.username
     }
 
-    if (entity.type === 'player' && e.playerObject) {
-      this.updateNameTagVisibility(e)
-      if (entity.equipment) {
-        const { playerObject } = e
-        playerObject.backEquipment = entity.equipment.some((item) => item?.name === 'elytra') ? 'elytra' : 'cape'
-        if (playerObject.cape.map === null) {
-          playerObject.cape.visible = false
-        }
+    this.updateNameTagVisibility(e)
+
+    if (entity.type === 'player' && e.playerObject && entity.equipment) {
+      const { playerObject } = e
+      playerObject.backEquipment = entity.equipment.some((item) => item?.name === 'elytra') ? 'elytra' : 'cape'
+      if (playerObject.cape.map === null) {
+        playerObject.cape.visible = false
       }
     }
 
@@ -1116,18 +1116,17 @@ export class Entities {
   }
 
   updateNameTagVisibility (entity: SceneEntity) {
-    if (entity.playerObject && entity.username) {
-      const entityTeam = bot.teamMap[entity.username]
-      const nameTagVisibility = entityTeam?.nameTagVisibility || 'always'
-      const showNameTag = nameTagVisibility === 'always' ||
-        (nameTagVisibility === 'hideForOwnTeam' && entityTeam !== bot.teamMap[bot.username]) ||
-        (nameTagVisibility === 'hideForOtherTeams' && (entityTeam === bot.teamMap[bot.username] || bot.teamMap[bot.username] === undefined))
-      entity.traverse(c => {
-        if (c.name === 'nametag') {
-          c.visible = showNameTag
-        }
-      })
-    }
+    const playerTeam = this.worldRenderer.playerStateReactive.team
+    const entityTeam = entity.originalEntity.team
+    const nameTagVisibility = entityTeam?.nameTagVisibility || 'always'
+    const showNameTag = nameTagVisibility === 'always' ||
+      (nameTagVisibility === 'hideForOwnTeam' && entityTeam?.team !== playerTeam?.team) ||
+      (nameTagVisibility === 'hideForOtherTeams' && (entityTeam?.team === playerTeam?.team || playerTeam === undefined))
+    entity.traverse(c => {
+      if (c.name === 'nametag') {
+        c.visible = showNameTag
+      }
+    })
   }
 
   addMapModel (entityMesh: THREE.Object3D, mapNumber: number, rotation: number) {
