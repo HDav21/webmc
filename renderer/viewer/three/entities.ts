@@ -1121,7 +1121,7 @@ export class Entities {
       const nameTagVisibility = entityTeam?.nameTagVisibility || 'always'
       const showNameTag = nameTagVisibility === 'always' ||
         (nameTagVisibility === 'hideForOwnTeam' && entityTeam !== bot.teamMap[bot.username]) ||
-        (nameTagVisibility === 'hideForOtherTeams' && entityTeam === bot.teamMap[bot.username] || bot.teamMap[bot.username] === undefined)
+        (nameTagVisibility === 'hideForOtherTeams' && (entityTeam === bot.teamMap[bot.username] || bot.teamMap[bot.username] === undefined))
       entity.traverse(c => {
         if (c.name === 'nametag') {
           c.visible = showNameTag
