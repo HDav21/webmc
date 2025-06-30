@@ -54,6 +54,7 @@ export type AppConfig = {
   supportedLanguages?: string[]
   showModsButton?: boolean
   defaultUsername?: string
+  skinTexturesProxy?: string
 }
 
 export const loadAppConfig = (appConfig: AppConfig) => {
@@ -81,6 +82,8 @@ export const loadAppConfig = (appConfig: AppConfig) => {
     Object.assign(customKeymaps, defaultsDeep(appConfig.keybindings, customKeymaps))
     updateBinds(customKeymaps)
   }
+
+  appViewer.inWorldRenderingConfig.skinTexturesProxy = appConfig.skinTexturesProxy
 
   setStorageDataOnAppConfigLoad(appConfig)
 }

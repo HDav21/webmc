@@ -1404,6 +1404,11 @@ function addArmorModel (worldRenderer: WorldRendererThree, entityMesh: THREE.Obj
         if (textureData) {
           const decodedData = JSON.parse(Buffer.from(textureData, 'base64').toString())
           texturePath = decodedData.textures?.SKIN?.url
+          const { skinTexturesProxy } = this.worldRenderer.worldRendererConfig
+          if (skinTexturesProxy) {
+            texturePath = texturePath?.replace('http://textures.minecraft.net/', skinTexturesProxy)
+              .replace('https://textures.minecraft.net/', skinTexturesProxy)
+          }
         }
       } catch (err) {
         console.error('Error decoding player head texture:', err)
