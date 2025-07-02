@@ -1120,14 +1120,6 @@ export class Entities {
 
     this.updateNameTagVisibility(e)
 
-    if (entity.type === 'player' && e.playerObject && entity.equipment) {
-      const { playerObject } = e
-      playerObject.backEquipment = entity.equipment.some((item) => item?.name === 'elytra') ? 'elytra' : 'cape'
-      if (playerObject.cape.map === null) {
-        playerObject.cape.visible = false
-      }
-    }
-
     this.updateEntityPosition(entity, justAdded, overrides)
   }
 
