@@ -213,7 +213,7 @@ customEvents.on('gameLoaded', () => {
       if (!playerEntry.player && !playerEntry.properties) continue
       let textureProperty = playerEntry.properties?.find(prop => prop?.name === 'textures')
       if (!textureProperty) {
-        textureProperty = playerEntry.player?.properties?.find(prop => prop?.key === 'textures')
+        textureProperty = playerEntry.player?.properties?.find(prop => prop?.name === 'textures')
       }
       if (textureProperty) {
         try {
