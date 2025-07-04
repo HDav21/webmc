@@ -208,12 +208,12 @@ customEvents.on('gameLoaded', () => {
   }
 
   // Texture override from packet properties
-  const updateSkin = (player: { username, uuid, skinData }) => {
+  const updateSkin = (player: import('mineflayer').Player) => {
     if (!player.uuid || !player.username || !player.skinData) return
 
     try {
       const skinUrl = applySkinTexturesProxy(player.skinData.url)
-      const capeUrl = applySkinTexturesProxy(player.skinData.capeUrl)
+      const capeUrl = applySkinTexturesProxy((player.skinData as any).capeUrl)
 
       // Find entity with matching UUID and update skin
       let entityId = ''
@@ -224,7 +224,7 @@ customEvents.on('gameLoaded', () => {
         }
       }
       // even if not found, still record to cache
-      void getThreeJsRendererMethods()?.updatePlayerSkin(entityId, player.username, player.uuid, skinUrl, capeUrl)
+      void getThreeJsRendererMethods()?.updatePlayerSkin(entityId, player.username, player.uuid, skinUrl ?? true, capeUrl)
     } catch (err) {
       console.error('Error decoding player texture:', err)
     }

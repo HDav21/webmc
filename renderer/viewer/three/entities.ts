@@ -486,6 +486,7 @@ export class Entities {
       .some(channel => channel !== 0)
   }
 
+  // todo true/undefined doesnt reset the skin to the default one
   // eslint-disable-next-line max-params
   async updatePlayerSkin (entityId: string | number, username: string | undefined, uuidCache: string | undefined, skinUrl: string | true, capeUrl: string | true | undefined = undefined) {
     if (uuidCache) {
