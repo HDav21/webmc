@@ -198,7 +198,7 @@ customEvents.on('gameLoaded', () => {
     }
   })
 
-  const applySkinTexturesProxy = (url: string) => {
+  const applySkinTexturesProxy = (url: string | undefined) => {
     const { appConfig } = miscUiState
     if (appConfig?.skinTexturesProxy) {
       return url?.replace('http://textures.minecraft.net/', appConfig.skinTexturesProxy)
