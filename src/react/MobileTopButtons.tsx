@@ -80,7 +80,7 @@ export default () => {
     <div
       className={styles['pause-btn']} onPointerDown={(e) => {
         e.stopPropagation()
-            // @pranaygp disabled pause menu for auto follow
+        // @pranaygp disabled pause menu for auto follow
         // showModal({ reactType: 'pause-screen' })
       }}
     />

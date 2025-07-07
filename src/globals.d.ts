@@ -1,58 +1,50 @@
 /// <reference types="wicg-file-system-access" />
 
 // todo make optional
-declare const bot: Omit<import("mineflayer").Bot, "world" | "_client"> & {
-  world: Omit<import("prismarine-world").world.WorldSync, "getBlock"> & {
-    getBlock: (
-      pos: import("vec3").Vec3
-    ) => import("prismarine-block").Block | null;
-  };
-  _client: Omit<import("minecraft-protocol").Client, "on"> & {
-    write: typeof import("./generatedClientPackets").clientWrite;
-    on: typeof import("./generatedServerPackets").clientOn;
-  };
-};
-declare const __type_bot: typeof bot;
-declare const following: typeof bot | import("mineflayer").Player;
-declare const controMax: ControMax;
-declare const viewer: import("renderer/viewer/lib/viewer").Viewer;
-declare const appViewer: import("./appViewer").AppViewer;
-declare const worldView:
-  | import("renderer/viewer/lib/worldDataEmitter").WorldDataEmitter
-  | undefined;
-declare const addStatPerSec: (name: string) => void;
-declare const localServer:
-  | (import("flying-squid/dist/index").FullServer & { options })
-  | undefined;
+declare const bot: Omit<import('mineflayer').Bot, 'world' | '_client'> & {
+  world: Omit<import('prismarine-world').world.WorldSync, 'getBlock'> & {
+    getBlock: (pos: import('vec3').Vec3) => import('prismarine-block').Block | null
+  }
+  _client: Omit<import('minecraft-protocol').Client, 'on'> & {
+    write: typeof import('./generatedClientPackets').clientWrite
+    on: typeof import('./generatedServerPackets').clientOn
+  }
+}
+declare const __type_bot: typeof bot
+declare const following: typeof bot | import('mineflayer').Player
+declare const controMax: ControMax
+declare const viewer: import('renderer/viewer/lib/viewer').Viewer
+declare const appViewer: import('./appViewer').AppViewer
+declare const worldView: import('renderer/viewer/lib/worldDataEmitter').WorldDataEmitter | undefined
+declare const addStatPerSec: (name: string) => void
+declare const localServer: import('flying-squid/dist/index').FullServer & { options } | undefined
 /** all currently loaded mc data */
-declare const mcData: Record<string, any>;
-declare const loadedData: import("minecraft-data").IndexedData & {
-  sounds: Record<string, { id; name }>;
-};
-declare const customEvents: import("typed-emitter").default<{
+declare const mcData: Record<string, any>
+declare const loadedData: import('minecraft-data').IndexedData & { sounds: Record<string, { id, name }> }
+declare const customEvents: import('typed-emitter').default<{
   /** Singleplayer load requested */
-  singleplayer(): void;
-  digStart(): void;
-  gameLoaded(): void;
-  mineflayerBotCreated(): void;
-  search(q: string): void;
-  activateItem(item: Item, slot: number, offhand: boolean): void;
-  hurtAnimation(yaw?: number): void;
-  followingPlayer(username?: string): void; // when following has begun
-  "kradle:command"(data: any): void; // a command to run as the bot
-  "kradle:followPlayer"(data: any): void; // request from kradle to follow a player
-  "kradle:reconnect"(data: any): void; // request from kradle to reconnect
-  connectionStatus(statusData: {
-    status: "connected" | "connecting" | "disconnected" | "error" | "kicked";
-    message: string;
-    errorDetails?: string;
-    canReconnect: boolean;
-  }): void; // report connection status to parent app
-}>;
-declare const beforeRenderFrame: Array<() => void>;
+  singleplayer (): void
+  digStart (): void
+  gameLoaded (): void
+  mineflayerBotCreated (): void
+  search (q: string): void
+  activateItem (item: Item, slot: number, offhand: boolean): void
+  hurtAnimation (yaw?: number): void
+  followingPlayer (username?: string): void // when following has begun
+  'kradle:command' (data: any): void // a command to run as the bot
+  'kradle:followPlayer' (data: any): void // request from kradle to follow a player
+  'kradle:reconnect' (data: any): void // request from kradle to reconnect
+  connectionStatus (statusData: {
+    status: 'connected' | 'connecting' | 'disconnected' | 'error' | 'kicked'
+    message: string
+    errorDetails?: string
+    canReconnect: boolean
+  }): void // report connection status to parent app
+}>
+declare const beforeRenderFrame: Array<() => void>
 
 declare interface Document {
-  exitPointerLock?(): void;
+  exitPointerLock?(): void
 }
 
-declare interface Window extends Record<string, any> {}
+declare interface Window extends Record<string, any> { }

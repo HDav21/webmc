@@ -220,7 +220,7 @@ export async function connect (connectOptions: ConnectOptions) {
   const progress = createFullScreenProgressReporter()
   const loggingInMsg = connectOptions.server ? 'Connecting to server' : 'Logging in'
   progress.beginStage('connect', loggingInMsg)
-  
+
   // Report connecting status to parent app
   customEvents.emit('connectionStatus', {
     status: 'connecting',
@@ -279,7 +279,7 @@ export async function connect (connectOptions: ConnectOptions) {
     setLoadingScreenStatus(`Error encountered. ${err}`, true)
     appStatusState.showReconnect = true
     onPossibleErrorDisconnect()
-    
+
     // Report error to parent app
     customEvents.emit('connectionStatus', {
       status: 'error',
@@ -287,7 +287,7 @@ export async function connect (connectOptions: ConnectOptions) {
       errorDetails: String(err),
       canReconnect: !!lastConnectOptions.value
     })
-    
+
     destroyAll()
   }
 
@@ -645,7 +645,7 @@ export async function connect (connectOptions: ConnectOptions) {
     const { formatted: kickReasonFormatted, plain: kickReasonString } = parseFormattedMessagePacket(kickReason)
     setLoadingScreenStatus(`The Minecraft server kicked you. Kick reason: ${kickReasonString}`, true, undefined, undefined, kickReasonFormatted)
     appStatusState.showReconnect = true
-    
+
     // Report kick to parent app
     customEvents.emit('connectionStatus', {
       status: 'kicked',
@@ -653,7 +653,7 @@ export async function connect (connectOptions: ConnectOptions) {
       errorDetails: kickReasonString,
       canReconnect: !!lastConnectOptions.value
     })
-    
+
     destroyAll()
   })
 
@@ -679,7 +679,7 @@ export async function connect (connectOptions: ConnectOptions) {
     setLoadingScreenStatus(`You have been disconnected from the server. End reason: ${endReason}`, true)
     appStatusState.showReconnect = true
     onPossibleErrorDisconnect()
-    
+
     // Report disconnection to parent app
     customEvents.emit('connectionStatus', {
       status: 'disconnected',
@@ -687,7 +687,7 @@ export async function connect (connectOptions: ConnectOptions) {
       errorDetails: endReason,
       canReconnect: !!lastConnectOptions.value
     })
-    
+
     destroyAll()
     if (isCypress()) throw new Error(`disconnected: ${endReason}`)
   })
@@ -696,7 +696,7 @@ export async function connect (connectOptions: ConnectOptions) {
 
   bot.once('login', () => {
     setLoadingScreenStatus('Loading world')
-    
+
     // Report successful connection to parent app
     customEvents.emit('connectionStatus', {
       status: 'connected',
