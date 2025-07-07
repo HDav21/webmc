@@ -232,7 +232,7 @@ export default () => {
 
   // return <div style={{ width: '100%', height: '100%', backgroundColor: '#000', opacity: 0.5 }} onClick={onReturnPress} />
 
-
+  // eslint-disable-next-line no-unreachable
   return <Screen title='Game Menu'>
     <div style={{ position: 'fixed', top: '5px', left: 'calc(env(safe-area-inset-left) + 5px)', display: 'flex', flexDirection: 'column', gap: '5px' }}>
       <Button
