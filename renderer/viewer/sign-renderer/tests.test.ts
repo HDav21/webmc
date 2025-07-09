@@ -39,10 +39,6 @@ test('sign renderer', () => {
     [
       [
         1,
-        "",
-      ],
-      [
-        1,
         "Minecraft ",
       ],
       [
