@@ -23,7 +23,12 @@ await document.fonts.load('1em mojangles')
 
 const canvas = renderSign(blockEntity, PrismarineChat, (ctx) => {
   ctx.drawImage(img, 0, 0, ctx.canvas.width, ctx.canvas.height)
-})
+}, (width, height) => {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  return canvas as unknown as OffscreenCanvas
+}) as unknown as HTMLCanvasElement
 
 if (canvas) {
   canvas.style.imageRendering = 'pixelated'

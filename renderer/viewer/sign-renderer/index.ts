@@ -51,7 +51,12 @@ const LEGACY_COLORS = {
   white: '#FFFFFF',
 }
 
-export const renderSign = (blockEntity: SignBlockEntity, PrismarineChat: typeof ChatMessage, ctxHook = (ctx) => { }) => {
+export const renderSign = (
+  blockEntity: SignBlockEntity,
+  PrismarineChat: typeof ChatMessage,
+  ctxHook = (ctx) => { },
+  canvasCreator = (width, height): OffscreenCanvas => { return createCanvas(width, height) }
+) => {
   // todo don't use texture rendering, investigate the font rendering when possible
   // or increase factor when needed
   const factor = 40
@@ -72,7 +77,7 @@ export const renderSign = (blockEntity: SignBlockEntity, PrismarineChat: typeof 
     return undefined
   }
 
-  const canvas = createCanvas(16 * factor, heightOffset * factor)
+  const canvas = canvasCreator(16 * factor, heightOffset * factor)
 
   const _ctx = canvas.getContext('2d')!
 
@@ -85,7 +90,14 @@ export const renderSign = (blockEntity: SignBlockEntity, PrismarineChat: typeof 
   return canvas
 }
 
-export const renderComponent = (text: JsonEncodedType | string | undefined, PrismarineChat: typeof ChatMessage, canvas: OffscreenCanvas, fontSize: number, defaultColor: string, offset = 0) => {
+export const renderComponent = (
+  text: JsonEncodedType | string | undefined,
+  PrismarineChat: typeof ChatMessage,
+  canvas: OffscreenCanvas,
+  fontSize: number,
+  defaultColor: string,
+  offset = 0
+) => {
   // todo: in pre flatenning it seems the format was not json
   const parsed = typeof text === 'string' && (text?.startsWith('{') || text?.startsWith('"')) ? parseSafe(text ?? '""', 'sign text') : text
   if (!parsed || (typeof parsed !== 'object' && typeof parsed !== 'string')) return
