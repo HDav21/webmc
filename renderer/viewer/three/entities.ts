@@ -336,8 +336,15 @@ export class Entities {
     const playerObject = this.getPlayerObject(entityId)
     if (!playerObject) return
 
-    if (skinUrl === true) {
-      if (!username) return
+    // Check for custom agent skin first
+    if (username && window.agentSkinMap?.has(username)) {
+      const customSkinUrl = window.agentSkinMap.get(username)
+      skinUrl = customSkinUrl
+    } else if (skinUrl === true) {
+      if (!username) {
+        return
+      }
+      // Fall back to standard skin lookup
       skinUrl = getLookupUrl(username, 'skin')
     }
 
@@ -368,13 +375,17 @@ export class Entities {
 
   private async loadAndApplySkin (entityId: string | number, skinUrl: string, renderEars: boolean) {
     let playerObject = this.getPlayerObject(entityId)
-    if (!playerObject) return
+    if (!playerObject) {
+      return
+    }
 
     try {
       let playerCustomSkinImage: HTMLImageElement | undefined
 
       playerObject = this.getPlayerObject(entityId)
-      if (!playerObject) return
+      if (!playerObject) {
+        return
+      }
 
       let skinTexture: THREE.Texture
       let skinCanvas: HTMLCanvasElement
