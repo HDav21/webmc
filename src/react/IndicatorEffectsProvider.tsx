@@ -5,7 +5,6 @@ import { Effect } from 'mineflayer'
 import { inGameError } from '../utils'
 import { fsState } from '../loadSave'
 import { gameAdditionalState, miscUiState } from '../globalState'
-import { options } from '../optionsStorage'
 import IndicatorEffects, { EffectType, defaultIndicatorsState } from './IndicatorEffects'
 import { images } from './effectsImages'
 
@@ -67,7 +66,6 @@ export default ({ displayEffects = true, displayIndicators = true }: { displayEf
   const { mesherWork } = useSnapshot(appViewer.rendererState).world
 
   const { hasErrors } = useSnapshot(miscUiState)
-  const { disabledUiParts } = useSnapshot(options)
   const { isReadonly, openReadOperations, openWriteOperations } = useSnapshot(fsState)
   const { noConnection, poorConnection } = useSnapshot(gameAdditionalState)
   const allIndicators: typeof defaultIndicatorsState = {
@@ -120,8 +118,8 @@ export default ({ displayEffects = true, displayIndicators = true }: { displayEf
   }, [])
 
   return <IndicatorEffects
-    indicators={allIndicators}
-    effects={effects}
+    indicators={displayIndicators ? allIndicators : defaultIndicatorsState}
+    effects={displayEffects ? effects : []}
     displayIndicators
     displayEffects
   />
