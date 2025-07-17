@@ -342,7 +342,7 @@ export class Entities {
       skinUrl = customSkinUrl
     } else if (skinUrl === true) {
       if (!username) {
-          return
+        return
       }
       // Fall back to standard skin lookup
       skinUrl = getLookupUrl(username, 'skin')

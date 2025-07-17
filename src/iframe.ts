@@ -100,14 +100,14 @@ export function setupIframeComms () {
     } else {
       window.agentSkinMap = new Map()
     }
-    
+
     if (data.agentSkins) {
-      data.agentSkins.forEach((agentSkin) => {
+      for (const agentSkin of data.agentSkins) {
         if (agentSkin.username && agentSkin.skinUrl) {
           // Primary mapping: username -> skinUrl
           window.agentSkinMap.set(agentSkin.username, agentSkin.skinUrl)
         }
-      })
+      }
     }
   })
 
