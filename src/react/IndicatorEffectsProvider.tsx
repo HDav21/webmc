@@ -118,9 +118,9 @@ export default ({ displayEffects = true, displayIndicators = true }: { displayEf
   }, [])
 
   return <IndicatorEffects
-    indicators={displayIndicators ? allIndicators : defaultIndicatorsState}
-    effects={displayEffects ? effects : []}
-    displayIndicators
-    displayEffects
+    indicators={allIndicators}
+    effects={effects}
+    displayIndicators={displayIndicators}
+    displayEffects={displayEffects}
   />
 }
