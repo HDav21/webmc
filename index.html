@@ -45,7 +45,7 @@
           }
 
           // load error handling
-          const onError = (errorOrMessage, log = false) => {
+          const onError = (errorOrMessage, log = true) => {
             let message = errorOrMessage instanceof Error ? (errorOrMessage.stack ?? errorOrMessage.message) : errorOrMessage
             if (log) console.log(message)
             if (typeof message !== 'string') message = String(message)
@@ -125,7 +125,7 @@
     </script>
     <style>
       html {
-        background: black;
+        background: blueviolet;
       }
       .initial-loader {
           --font-size: 20px;
