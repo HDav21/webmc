@@ -22,7 +22,7 @@ overrides:
 
 patchedDependencies:
   minecraft-protocol:
-    hash: 40871f9192322be5e5fc0018a0a506a43f33973816b1b544743817609b606150
+    hash: 3c6df4d7aa0f43f9f5314c1ecb5c246fd2ce36785dda8aeb7f77868a92fcdf25
     path: patches/minecraft-protocol.patch
   mineflayer-item-map-downloader@1.2.0:
     hash: a731ebbace2d8790c973ab3a5ba33494a6e9658533a9710dd8ba36f86db061ad
@@ -142,7 +142,7 @@ importers:
         version: 3.92.0
       minecraft-protocol:
         specifier: github:PrismarineJS/node-minecraft-protocol#master
-        version: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/ca5af6307a817b655a76c82f56a4c6c78e272453(patch_hash=40871f9192322be5e5fc0018a0a506a43f33973816b1b544743817609b606150)(encoding@0.1.13)
+        version: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/2119b04f52605f62df2d029908d92d6443aa68db(patch_hash=3c6df4d7aa0f43f9f5314c1ecb5c246fd2ce36785dda8aeb7f77868a92fcdf25)(encoding@0.1.13)
       mineflayer-item-map-downloader:
         specifier: github:zardoy/mineflayer-item-map-downloader
         version: https://codeload.github.com/zardoy/mineflayer-item-map-downloader/tar.gz/a8d210ecdcf78dd082fa149a96e1612cc9747824(patch_hash=a731ebbace2d8790c973ab3a5ba33494a6e9658533a9710dd8ba36f86db061ad)(encoding@0.1.13)
@@ -6651,8 +6651,8 @@ packages:
     resolution: {tarball: https://codeload.github.com/zardoy/minecraft-inventory-gui/tar.gz/89c33d396f3fde4804c71f4be3c203ade1833b41}
     version: 1.0.1
 
-  minecraft-protocol@https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/ca5af6307a817b655a76c82f56a4c6c78e272453:
-    resolution: {tarball: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/ca5af6307a817b655a76c82f56a4c6c78e272453}
+  minecraft-protocol@https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/2119b04f52605f62df2d029908d92d6443aa68db:
+    resolution: {tarball: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/2119b04f52605f62df2d029908d92d6443aa68db}
     version: 1.60.0
     engines: {node: '>=22'}
 
@@ -6673,6 +6673,10 @@ packages:
 
   mineflayer-pathfinder@2.4.5:
     resolution: {integrity: sha512-Jh3JnUgRLwhMh2Dugo4SPza68C41y+NPP5sdsgxRu35ydndo70i1JJGxauVWbXrpNwIxYNztUw78aFyb7icw8g==}
+
+  mineflayer@4.31.0:
+    resolution: {integrity: sha512-oqiNa5uP4kXiPlj4+Jn+9QozPMsMy0U8/YP5d6+KSAeWthtuJHeQqcYgWG5lkC3LHMqHqtEu4MNdXt6GZjFNTQ==}
+    engines: {node: '>=22'}
 
   mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/c9c77d6511e37c452ebe48790724da165d6ad448:
     resolution: {tarball: https://codeload.github.com/zardoy/mineflayer/tar.gz/c9c77d6511e37c452ebe48790724da165d6ad448}
@@ -10290,7 +10294,7 @@ snapshots:
       '@babel/parser': 7.26.9
       '@babel/template': 7.26.9
       '@babel/types': 7.26.9
-      debug: 4.4.0(supports-color@8.1.1)
+      debug: 4.4.1
       globals: 11.12.0
     transitivePeerDependencies:
       - supports-color
@@ -11313,7 +11317,7 @@ snapshots:
     dependencies:
       '@nxg-org/mineflayer-util-plugin': 1.8.4
       minecraft-data: 3.92.0
-      mineflayer: https://codeload.github.com/zardoy/mineflayer/tar.gz/c9c77d6511e37c452ebe48790724da165d6ad448(encoding@0.1.13)
+      mineflayer: 4.31.0(encoding@0.1.13)
       prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9
       prismarine-item: 1.17.0
       prismarine-physics: https://codeload.github.com/zardoy/prismarine-physics/tar.gz/353e25b800149393f40539ec381218be44cbb03b
@@ -12860,7 +12864,7 @@ snapshots:
     dependencies:
       '@typescript-eslint/typescript-estree': 6.1.0(typescript@5.5.4)
       '@typescript-eslint/utils': 6.1.0(eslint@8.57.1)(typescript@5.5.4)
-      debug: 4.4.0(supports-color@8.1.1)
+      debug: 4.4.1
       eslint: 8.57.1
       ts-api-utils: 1.4.3(typescript@5.5.4)
     optionalDependencies:
@@ -12892,7 +12896,7 @@ snapshots:
     dependencies:
       '@typescript-eslint/types': 6.21.0
       '@typescript-eslint/visitor-keys': 6.21.0
-      debug: 4.4.0(supports-color@8.1.1)
+      debug: 4.4.1
       globby: 11.1.0
       is-glob: 4.0.3
       minimatch: 9.0.3
@@ -12907,7 +12911,7 @@ snapshots:
     dependencies:
       '@typescript-eslint/types': 8.26.0
       '@typescript-eslint/visitor-keys': 8.26.0
-      debug: 4.4.0(supports-color@8.1.1)
+      debug: 4.4.1
       fast-glob: 3.3.3
       is-glob: 4.0.3
       minimatch: 9.0.5
@@ -13074,7 +13078,7 @@ snapshots:
       flatmap: 0.0.3
       long: 5.3.1
       minecraft-data: 3.92.0
-      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/ca5af6307a817b655a76c82f56a4c6c78e272453(patch_hash=40871f9192322be5e5fc0018a0a506a43f33973816b1b544743817609b606150)(encoding@0.1.13)
+      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/2119b04f52605f62df2d029908d92d6443aa68db(patch_hash=3c6df4d7aa0f43f9f5314c1ecb5c246fd2ce36785dda8aeb7f77868a92fcdf25)(encoding@0.1.13)
       mkdirp: 2.1.6
       node-gzip: 1.1.2
       node-rsa: 1.1.1
@@ -13110,7 +13114,7 @@ snapshots:
       flatmap: 0.0.3
       long: 5.3.1
       minecraft-data: 3.92.0
-      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/ca5af6307a817b655a76c82f56a4c6c78e272453(patch_hash=40871f9192322be5e5fc0018a0a506a43f33973816b1b544743817609b606150)(encoding@0.1.13)
+      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/2119b04f52605f62df2d029908d92d6443aa68db(patch_hash=3c6df4d7aa0f43f9f5314c1ecb5c246fd2ce36785dda8aeb7f77868a92fcdf25)(encoding@0.1.13)
       mkdirp: 2.1.6
       node-gzip: 1.1.2
       node-rsa: 1.1.1
@@ -16957,7 +16961,7 @@ snapshots:
     dependencies:
       '@zardoy/flying-squid': 0.0.49(encoding@0.1.13)
       exit-hook: 2.2.1
-      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/ca5af6307a817b655a76c82f56a4c6c78e272453(patch_hash=40871f9192322be5e5fc0018a0a506a43f33973816b1b544743817609b606150)(encoding@0.1.13)
+      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/2119b04f52605f62df2d029908d92d6443aa68db(patch_hash=3c6df4d7aa0f43f9f5314c1ecb5c246fd2ce36785dda8aeb7f77868a92fcdf25)(encoding@0.1.13)
       mineflayer: https://codeload.github.com/zardoy/mineflayer/tar.gz/c9c77d6511e37c452ebe48790724da165d6ad448(encoding@0.1.13)
       prismarine-item: 1.17.0
       ws: 8.18.1
@@ -17276,7 +17280,7 @@ snapshots:
       - '@types/react'
       - react
 
-  minecraft-protocol@https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/ca5af6307a817b655a76c82f56a4c6c78e272453(patch_hash=40871f9192322be5e5fc0018a0a506a43f33973816b1b544743817609b606150)(encoding@0.1.13):
+  minecraft-protocol@https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/2119b04f52605f62df2d029908d92d6443aa68db(patch_hash=3c6df4d7aa0f43f9f5314c1ecb5c246fd2ce36785dda8aeb7f77868a92fcdf25)(encoding@0.1.13):
     dependencies:
       '@types/node-rsa': 1.1.4
       '@types/readable-stream': 4.0.18
@@ -17328,7 +17332,7 @@ snapshots:
 
   mineflayer-item-map-downloader@https://codeload.github.com/zardoy/mineflayer-item-map-downloader/tar.gz/a8d210ecdcf78dd082fa149a96e1612cc9747824(patch_hash=a731ebbace2d8790c973ab3a5ba33494a6e9658533a9710dd8ba36f86db061ad)(encoding@0.1.13):
     dependencies:
-      mineflayer: https://codeload.github.com/zardoy/mineflayer/tar.gz/c9c77d6511e37c452ebe48790724da165d6ad448(encoding@0.1.13)
+      mineflayer: 4.31.0(encoding@0.1.13)
       sharp: 0.30.7
     transitivePeerDependencies:
       - encoding
@@ -17353,11 +17357,34 @@ snapshots:
       prismarine-physics: https://codeload.github.com/zardoy/prismarine-physics/tar.gz/353e25b800149393f40539ec381218be44cbb03b
       vec3: 0.1.10
 
+  mineflayer@4.31.0(encoding@0.1.13):
+    dependencies:
+      minecraft-data: 3.92.0
+      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/2119b04f52605f62df2d029908d92d6443aa68db(patch_hash=3c6df4d7aa0f43f9f5314c1ecb5c246fd2ce36785dda8aeb7f77868a92fcdf25)(encoding@0.1.13)
+      prismarine-biome: 1.3.0(minecraft-data@3.92.0)(prismarine-registry@1.11.0)
+      prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9
+      prismarine-chat: 1.11.0
+      prismarine-chunk: https://codeload.github.com/zardoy/prismarine-chunk/tar.gz/c5feac83b61d95feb4d4f22c063dacfb8c192a9f(minecraft-data@3.92.0)
+      prismarine-entity: 2.5.0
+      prismarine-item: 1.17.0
+      prismarine-nbt: 2.7.0
+      prismarine-physics: https://codeload.github.com/zardoy/prismarine-physics/tar.gz/353e25b800149393f40539ec381218be44cbb03b
+      prismarine-recipe: 1.3.1(prismarine-registry@1.11.0)
+      prismarine-registry: 1.11.0
+      prismarine-windows: 2.9.0
+      prismarine-world: https://codeload.github.com/zardoy/prismarine-world/tar.gz/ab2146c9933eef3247c3f64446de4ccc2c484c7c
+      protodef: 1.18.0
+      typed-emitter: 1.4.0
+      vec3: 0.1.10
+    transitivePeerDependencies:
+      - encoding
+      - supports-color
+
   mineflayer@https://codeload.github.com/zardoy/mineflayer/tar.gz/c9c77d6511e37c452ebe48790724da165d6ad448(encoding@0.1.13):
     dependencies:
       '@nxg-org/mineflayer-physics-util': 1.8.10
       minecraft-data: 3.92.0
-      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/ca5af6307a817b655a76c82f56a4c6c78e272453(patch_hash=40871f9192322be5e5fc0018a0a506a43f33973816b1b544743817609b606150)(encoding@0.1.13)
+      minecraft-protocol: https://codeload.github.com/PrismarineJS/node-minecraft-protocol/tar.gz/2119b04f52605f62df2d029908d92d6443aa68db(patch_hash=3c6df4d7aa0f43f9f5314c1ecb5c246fd2ce36785dda8aeb7f77868a92fcdf25)(encoding@0.1.13)
       prismarine-biome: 1.3.0(minecraft-data@3.92.0)(prismarine-registry@1.11.0)
       prismarine-block: https://codeload.github.com/zardoy/prismarine-block/tar.gz/853c559bff2b402863ee9a75b125a3ca320838f9
       prismarine-chat: 1.11.0
@@ -18430,7 +18457,7 @@ snapshots:
   puppeteer-core@2.1.1:
     dependencies:
       '@types/mime-types': 2.1.4
-      debug: 4.4.0(supports-color@8.1.1)
+      debug: 4.4.1
       extract-zip: 1.7.0
       https-proxy-agent: 4.0.0
       mime: 2.6.0

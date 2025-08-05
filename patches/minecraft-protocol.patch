@@ -73,19 +73,6 @@ index 63cc2bd9615100bd2fd63dfe14c094aa6b8cd1c9..36df57d1196af9761d920fa285ac48f8
        }
 
        function onJoinServerResponse (err) {
-diff --git a/src/client/play.js b/src/client/play.js
-index 559607f34e9a5b2b7809423f8ca4cd6746b60225..4dc1c3139438cc2729b05c57e57bd00252728f8a 100644
---- a/src/client/play.js
-+++ b/src/client/play.js
-@@ -53,7 +53,7 @@ module.exports = function (client, options) {
-         client.write('configuration_acknowledged', {})
-       }
-       client.state = states.CONFIGURATION
--      client.on('select_known_packs', () => {
-+      client.once('select_known_packs', () => {
-         client.write('select_known_packs', { packs: [] })
-       })
-       // Server should send finish_configuration on its own right after sending the client a dimension codec
 diff --git a/src/client.js b/src/client.js
 index e369e77d055ba919e8f9da7b8e8b5dc879c74cf4..11c6bff299f1186ab1ecb6744f53ff0c648ab192 100644
 --- a/src/client.js
@@ -133,41 +120,3 @@ index e369e77d055ba919e8f9da7b8e8b5dc879c74cf4..11c6bff299f1186ab1ecb6744f53ff0c
 +    this.emit('writePacket', name, params)
      this.serializer.write({ name, params })
    }
-
-diff --git a/src/client.js.rej b/src/client.js.rej
-new file mode 100644
-index 0000000000000000000000000000000000000000..1101e2477adfdc004381b78e7d70953dacb7b484
---- /dev/null
-+++ b/src/client.js.rej
-@@ -0,0 +1,31 @@
-+@@ -89,10 +89,12 @@
-+       parsed.metadata.name = parsed.data.name
-+       parsed.data = parsed.data.params
-+       parsed.metadata.state = state
-+-      debug('read packet ' + state + '.' + parsed.metadata.name)
-+-      if (debug.enabled) {
-+-        const s = JSON.stringify(parsed.data, null, 2)
-+-        debug(s && s.length > 10000 ? parsed.data : s)
-++      if (!globalThis.excludeCommunicationDebugEvents?.includes(parsed.metadata.name)) {
-++        debug('read packet ' + state + '.' + parsed.metadata.name)
-++        if (debug.enabled) {
-++          const s = JSON.stringify(parsed.data, null, 2)
-++          debug(s && s.length > 10000 ? parsed.data : s)
-++        }
-+       }
-+       if (this._hasBundlePacket && parsed.metadata.name === 'bundle_delimiter') {
-+         if (this._mcBundle.length) { // End bundle
-+@@ -239,8 +252,11 @@
-+
-+   write (name, params) {
-+     if (!this.serializer.writable) { return }
-+-    debug('writing packet ' + this.state + '.' + name)
-+-    debug(params)
-++    if (!globalThis.excludeCommunicationDebugEvents?.includes(name)) {
-++      debug(`[${this.state}] from ${this.isServer ? 'server' : 'client'}: ` + name)
-++      debug(params)
-++    }
-++    this.emit('writePacket', name, params)
-+     this.serializer.write({ name, params })
-+   }
-+
