@@ -1,5 +1,8 @@
 // Setup iframe comms with kradle frontend
 
+import { options } from './optionsStorage'
+import { musicSystem } from './sounds/musicSystem'
+
 type IFrameSendablePayload =
   | {
     source: 'minecraft-web-client'; // Used to filter messages on the parent side
@@ -27,7 +30,7 @@ type IFrameSendablePayload =
     canReconnect: boolean; // Whether reconnection is possible
   }
 
-type ReceivableActions = 'followPlayer' | 'command' | 'reconnect' | 'setAgentSkins'
+type ReceivableActions = 'followPlayer' | 'command' | 'reconnect' | 'setAgentSkins' | 'setVolume' | 'setMusic'
 
 export function setupIframeComms () {
   // Handle incoming messages from kradle frontend
@@ -107,6 +110,31 @@ export function setupIframeComms () {
           // Primary mapping: username -> skinUrl
           window.agentSkinMap.set(agentSkin.username, agentSkin.skinUrl)
         }
+      }
+    }
+  })
+
+  // Handle volume control from parent app
+  customEvents.on('kradle:setVolume', (data) => {
+    if (typeof data.volume === 'number') {
+      const clampedVolume = Math.max(0, Math.min(100, data.volume))
+      options.volume = clampedVolume
+    }
+  })
+
+  // Handle music toggle from parent app
+  customEvents.on('kradle:setMusic', (data) => {
+    if (typeof data.enabled === 'boolean') {
+      options.enableMusic = data.enabled
+
+      if (data.enabled) {
+        // If music is being turned on, try to start it
+        if (window.forceStartMusic) {
+          window.forceStartMusic()
+        }
+      } else {
+        // If music is being turned off, stop current music
+        musicSystem.stopMusic()
       }
     }
   })

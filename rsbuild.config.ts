@@ -144,9 +144,9 @@ const appConfig = defineConfig({
     },
     server: {
         // strictPort: true,
-        // publicDir: {
-        //     name: 'assets',
-        // },
+        publicDir: {
+            name: 'dist',
+        },
         port: 3003,
         proxy: {
             '/api': 'http://localhost:8080',
@@ -182,10 +182,19 @@ const appConfig = defineConfig({
                     if (configSource === 'REMOTE') {
                         fs.writeFileSync('./dist/config.json', JSON.stringify(configJson), 'utf8')
                     }
+                    // Download sounds if not present (simpler than generating from scratch)
+                    if (!fs.existsSync('./generated/sounds.js')) {
+                        try {
+                            childProcess.execSync('node ./scripts/downloadSoundsMap.mjs', { stdio: 'inherit' })
+                            console.log('Downloaded sounds map successfully')
+                        } catch (err) {
+                            console.warn('Failed to download sounds map:', err.message)
+                        }
+                    }
                     if (fs.existsSync('./generated/sounds.js')) {
                         fs.copyFileSync('./generated/sounds.js', './dist/sounds.js')
                     }
-                    // childProcess.execSync('./scripts/prepareSounds.mjs', { stdio: 'inherit' })
+                    // childProcess.execSync('node ./scripts/prepareSounds.mjs', { stdio: 'inherit' })
                     // childProcess.execSync('tsx ./scripts/genMcDataTypes.ts', { stdio: 'inherit' })
                     // childProcess.execSync('tsx ./scripts/genPixelartTypes.ts', { stdio: 'inherit' })
                     if (fs.existsSync('./renderer/dist/mesher.js') && dev) {

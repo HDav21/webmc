@@ -281,8 +281,12 @@ if (action) {
     execFn()
   }
 } else {
-  // downloadAllSoundsAndCreateMap()
-  // convertSounds()
-  // writeSoundsMap()
+  console.log('downloadAllSoundsAndCreateMap')
+  downloadAllSoundsAndCreateMap()
+  console.log('convertSounds')
+  convertSounds()
+  console.log('writeSoundsMap')
+  writeSoundsMap()
+  console.log('makeSoundsBundle')
   makeSoundsBundle()
 }
