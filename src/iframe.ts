@@ -130,7 +130,7 @@ export function setupIframeComms () {
     if (typeof data.enabled === 'boolean') {
       options.enableMusic = data.enabled
       console.log(`[audio] Music ${data.enabled ? 'enabled' : 'disabled'}`)
-      
+
       if (data.enabled) {
         // If music is being turned on, try to start it
         if (window.forceStartMusic) {

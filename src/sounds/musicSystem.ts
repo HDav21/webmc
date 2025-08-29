@@ -13,7 +13,7 @@ class MusicSystem {
       if (!result?.onEnded) return
 
       this.currentMusic = url
-      
+
       // Store a reference to stop the music
       this.currentMusicStop = () => {
         this.currentMusic = null
