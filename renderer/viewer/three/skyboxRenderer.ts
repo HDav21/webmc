@@ -1,16 +1,18 @@
 import * as THREE from 'three'
 
+export const DEFAULT_TEMPERATURE = 0.75
+
 export class SkyboxRenderer {
   private texture: THREE.Texture | null = null
   private mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial> | null = null
   private skyMesh: THREE.Mesh | null = null
   private voidMesh: THREE.Mesh | null = null
 
-  // Static defaults - these would normally come from world state
-  static readonly DEFAULT_TEMPERATURE = 0.75
-  static readonly DEFAULT_BRIGHTNESS = 1
-  static readonly DEFAULT_CELESTIAL_ANGLE = 0
-  static readonly DEFAULT_VIEW_DISTANCE = 4
+  // World state
+  private worldTime = 0
+  private partialTicks = 0
+  private viewDistance = 4
+  private temperature = DEFAULT_TEMPERATURE
 
   constructor (private readonly scene: THREE.Scene, public initialImage: string | null) {
     if (!initialImage) {
@@ -70,7 +72,12 @@ export class SkyboxRenderer {
     }
   }
 
-  update (cameraPosition: THREE.Vector3) {
+  update (cameraPosition: THREE.Vector3, newViewDistance: number) {
+    if (newViewDistance !== this.viewDistance) {
+      this.viewDistance = newViewDistance
+      this.updateSkyColors()
+    }
+
     if (this.mesh) {
       // Update skybox position
       this.mesh.position.copy(cameraPosition)
@@ -82,11 +89,29 @@ export class SkyboxRenderer {
     }
   }
 
+  // Update world time
+  updateTime (timeOfDay: number, partialTicks = 0) {
+    this.worldTime = timeOfDay
+    this.partialTicks = partialTicks
+    this.updateSkyColors()
+  }
+
+  // Update view distance
+  updateViewDistance (viewDistance: number) {
+    this.viewDistance = viewDistance
+    this.updateSkyColors()
+  }
+
+  // Update temperature (for biome support)
+  updateTemperature (temperature: number) {
+    this.temperature = temperature
+    this.updateSkyColors()
+  }
+
   private createGradientSky () {
     const size = 64
     const scale = 256 / size + 2
 
-    // Create sky mesh (top) - matches original listSky creation
     {
       const geometry = new THREE.PlaneGeometry(size * scale * 2, size * scale * 2)
       geometry.rotateX(-Math.PI / 2)
@@ -102,7 +127,6 @@ export class SkyboxRenderer {
       this.scene.add(this.skyMesh)
     }
 
-    // Create void mesh (bottom) - matches original listVoid creation
     {
       const geometry = new THREE.PlaneGeometry(size * scale * 2, size * scale * 2)
       geometry.rotateX(-Math.PI / 2)
@@ -121,11 +145,10 @@ export class SkyboxRenderer {
     this.updateSkyColors()
   }
 
-  // Copy exact logic from World.js getFogColor()
   private getFogColor (partialTicks = 0): THREE.Vector3 {
     const angle = this.getCelestialAngle(partialTicks)
     let rotation = Math.cos(angle * Math.PI * 2) * 2 + 0.5
-    rotation = Math.max(0, Math.min(1, rotation)) // MathHelper.clamp
+    rotation = Math.max(0, Math.min(1, rotation))
 
     let x = 0.752_941_2
     let y = 0.847_058_83
@@ -138,7 +161,6 @@ export class SkyboxRenderer {
     return new THREE.Vector3(x, y, z)
   }
 
-  // Copy exact logic from World.js getSkyColor()
   private getSkyColor (x = 0, z = 0, partialTicks = 0): THREE.Vector3 {
     const angle = this.getCelestialAngle(partialTicks)
     let brightness = Math.cos(angle * 3.141_593 * 2) * 2 + 0.5
@@ -160,13 +182,29 @@ export class SkyboxRenderer {
     )
   }
 
+  private calculateCelestialAngle (time: number, partialTicks: number): number {
+    const modTime = (time % 24_000)
+    let angle = (modTime + partialTicks) / 24_000 - 0.25
+
+    if (angle < 0) {
+      angle++
+    }
+    if (angle > 1) {
+      angle--
+    }
+
+    angle = 1 - ((Math.cos(angle * Math.PI) + 1) / 2)
+    angle += (angle - angle) / 3
+
+    return angle
+  }
+
   private getCelestialAngle (partialTicks: number): number {
-    // Use static default for now
-    return SkyboxRenderer.DEFAULT_CELESTIAL_ANGLE
+    return this.calculateCelestialAngle(this.worldTime, partialTicks)
   }
 
   private getTemperature (x: number, z: number): number {
-    return SkyboxRenderer.DEFAULT_TEMPERATURE
+    return this.temperature
   }
 
   private getSkyColorByTemp (temperature: number): number {
@@ -174,7 +212,6 @@ export class SkyboxRenderer {
     if (temperature < -1) temperature = -1
     if (temperature > 1) temperature = 1
 
-    // Use exact HSB to RGB conversion from original MathHelper.hsbToRgb
     const hue = 0.622_222_2 - temperature * 0.05
     const saturation = 0.5 + temperature * 0.1
     const brightness = 1
@@ -182,7 +219,6 @@ export class SkyboxRenderer {
     return this.hsbToRgb(hue, saturation, brightness)
   }
 
-  // Exact copy of MathHelper.hsbToRgb from original
   private hsbToRgb (hue: number, saturation: number, brightness: number): number {
     let r = 0; let g = 0; let b = 0
     if (saturation === 0) {
@@ -229,46 +265,27 @@ export class SkyboxRenderer {
     return 0xff_00_00_00 | (r << 16) | (g << 8) | (Math.trunc(b))
   }
 
-  // Copy exact logic from WorldRenderer.js setupFog()
   private updateSkyColors () {
     if (!this.skyMesh || !this.voidMesh) return
 
-    const viewDistance = SkyboxRenderer.DEFAULT_VIEW_DISTANCE * 16 // ChunkSection.SIZE = 16
-    const viewFactor = 1 - (0.25 + 0.75 * SkyboxRenderer.DEFAULT_VIEW_DISTANCE / 32) ** 0.25
+    const viewDistance = this.viewDistance * 16
+    const viewFactor = 1 - (0.25 + 0.75 * this.viewDistance / 32) ** 0.25
 
-    const angle = this.getCelestialAngle(0)
-    const skyColor = this.getSkyColor(0, 0, 0)
-    const fogColor = this.getFogColor(0)
+    const angle = this.getCelestialAngle(this.partialTicks)
+    const skyColor = this.getSkyColor(0, 0, this.partialTicks)
+    const fogColor = this.getFogColor(this.partialTicks)
 
-    // Debug output
-    console.log('Debug sky colors:', {
-      angle,
-      skyColor: { x: skyColor.x, y: skyColor.y, z: skyColor.z },
-      fogColor: { x: fogColor.x, y: fogColor.y, z: fogColor.z },
-      viewFactor,
-      temperature: this.getTemperature(0, 0)
-    })
+    const brightness = Math.cos(angle * Math.PI * 2) * 2 + 0.5
+    const clampedBrightness = Math.max(0, Math.min(1, brightness))
 
-    // Use default brightness for now
-    const brightness = SkyboxRenderer.DEFAULT_BRIGHTNESS
+    const red = (fogColor.x + (skyColor.x - fogColor.x) * viewFactor) * clampedBrightness
+    const green = (fogColor.y + (skyColor.y - fogColor.y) * viewFactor) * clampedBrightness
+    const blue = (fogColor.z + (skyColor.z - fogColor.z) * viewFactor) * clampedBrightness
 
-    const red = (fogColor.x + (skyColor.x - fogColor.x) * viewFactor) * brightness
-    const green = (fogColor.y + (skyColor.y - fogColor.y) * viewFactor) * brightness
-    const blue = (fogColor.z + (skyColor.z - fogColor.z) * viewFactor) * brightness
-
-    console.log('Final background color:', { red, green, blue })
-    console.log('Final sky color:', { x: skyColor.x, y: skyColor.y, z: skyColor.z })
-
-    // Update background color (matches original this.background.background)
     this.scene.background = new THREE.Color(red, green, blue)
-
-    // Update fog color (matches original this.scene.fog)
     this.scene.fog = new THREE.Fog(new THREE.Color(red, green, blue), 0.0025, viewDistance * 2)
 
-    // Update sky mesh color (matches original skyMesh.material.color.set)
     ;(this.skyMesh.material as THREE.MeshBasicMaterial).color.set(new THREE.Color(skyColor.x, skyColor.y, skyColor.z))
-
-    // Update void mesh color (matches original voidMesh.material.color.set)
     ;(this.voidMesh.material as THREE.MeshBasicMaterial).color.set(new THREE.Color(
       skyColor.x * 0.2 + 0.04,
       skyColor.y * 0.2 + 0.04,

@@ -56,7 +56,6 @@ import { isCypress } from './standaloneUtils'
 
 import { startLocalServer, unsupportedLocalServerFeatures } from './createLocalServer'
 import defaultServerOptions from './defaultLocalServerOptions'
-import dayCycle from './dayCycle'
 
 import { onAppLoad, resourcepackReload, resourcePackState } from './resourcePack'
 import { ConnectPeerOptions, connectToPeer } from './localServerMultiplayer'
@@ -794,7 +793,6 @@ export async function connect (connectOptions: ConnectOptions) {
       }
 
       initMotionTracking()
-      dayCycle()
 
       // Bot position callback
       const botPosition = () => {

@@ -128,5 +128,6 @@ export const watchOptionsAfterWorldViewInit = (worldView: WorldDataEmitter) => {
     appViewer.inWorldRenderingConfig.renderEars = o.renderEars
     appViewer.inWorldRenderingConfig.showHand = o.showHand
     appViewer.inWorldRenderingConfig.viewBobbing = o.viewBobbing
+    appViewer.inWorldRenderingConfig.dayCycle = o.dayCycleAndLighting
   })
 }

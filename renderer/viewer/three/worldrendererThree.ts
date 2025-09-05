@@ -3,6 +3,7 @@ import { Vec3 } from 'vec3'
 import nbt from 'prismarine-nbt'
 import PrismarineChatLoader from 'prismarine-chat'
 import * as tweenJs from '@tweenjs/tween.js'
+import { Biome } from 'minecraft-data'
 import { renderSign } from '../sign-renderer'
 import { DisplayWorldOptions, GraphicsInitOptions } from '../../../src/appViewer'
 import { chunkPos, sectionPos } from '../lib/simpleUtils'
@@ -24,7 +25,7 @@ import { CameraShake } from './cameraShake'
 import { ThreeJsMedia } from './threeJsMedia'
 import { Fountain } from './threeJsParticles'
 import { WaypointsRenderer } from './waypoints'
-import { SkyboxRenderer } from './skyboxRenderer'
+import { DEFAULT_TEMPERATURE, SkyboxRenderer } from './skyboxRenderer'
 
 type SectionKey = string
 
@@ -264,6 +265,19 @@ export class WorldRendererThree extends WorldRendererCommon {
     } else {
       this.starField.remove()
     }
+
+    this.skyboxRenderer.updateTime(newTime)
+  }
+
+  biomeUpdated (biome: Biome): void {
+    if (biome?.temperature !== undefined) {
+      this.skyboxRenderer.updateTemperature(biome.temperature)
+    }
+  }
+
+  biomeReset (): void {
+    // Reset to default temperature when biome is unknown
+    this.skyboxRenderer.updateTemperature(DEFAULT_TEMPERATURE)
   }
 
   getItemRenderData (item: Record<string, any>, specificProps: ItemSpecificContextProperties) {
@@ -716,7 +730,7 @@ export class WorldRendererThree extends WorldRendererCommon {
 
     // Update skybox position to follow camera
     const cameraPos = this.getCameraPosition()
-    this.skyboxRenderer.update(cameraPos)
+    this.skyboxRenderer.update(cameraPos, this.viewDistance)
 
     const sizeOrFovChanged = sizeChanged || this.displayOptions.inWorldRenderingConfig.fov !== this.camera.fov
     if (sizeOrFovChanged) {
