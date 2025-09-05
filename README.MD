@@ -233,4 +233,4 @@ Only during development:
 
 - [https://github.com/ClassiCube/ClassiCube](ClassiCube - Better C# Rewrite) [DEMO](https://www.classicube.net/server/play/?warned=true)
 - [https://m.eaglercraft.com/](EaglerCraft) - Eaglercraft runnable on mobile (real Minecraft in the browser)
-- [js-minecraft](https://github.com/LabyStudio/js-minecraft) - An insanely well done clone from the graphical side that inspred many features here
+- [js-minecraft](https://github.com/LabyStudio/js-minecraft) - An insanely well done clone from the graphical side that inspired many features here
