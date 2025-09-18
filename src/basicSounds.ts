@@ -23,7 +23,11 @@ export async function loadSound (path: string, contents = path) {
 
     const res = await window.fetch(contents)
     if (!res.ok) {
-      const error = `Failed to load sound ${path}`
+      // Silently ignore 404 errors for missing sounds
+      if (res.status === 404) {
+        return
+      }
+      const error = `Failed to load sound ${path}: ${res.status}`
       if (isCypress()) throw new Error(error)
       else console.warn(error)
       return
@@ -37,6 +41,11 @@ export async function loadSound (path: string, contents = path) {
 
     loadingSounds.splice(loadingSounds.indexOf(path), 1)
   } catch (err) {
+    // Silently ignore network errors for missing sounds
+    if (err?.message?.includes('404') || err?.message?.includes('Failed to fetch')) {
+      loadingSounds.splice(loadingSounds.indexOf(path), 1)
+      return
+    }
     console.warn(`Failed to load sound ${path}:`, err)
     loadingSounds.splice(loadingSounds.indexOf(path), 1)
     if (isCypress()) throw err

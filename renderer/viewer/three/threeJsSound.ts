@@ -42,6 +42,15 @@ export class ThreeJsSound implements SoundSystem {
         audioLoader.manager.itemEnd(path)
       }
       sound.play()
+    }).catch((error) => {
+      // Silently handle missing sound files (404 errors)
+      this.activeSounds.delete(sound)
+      if (error?.message?.includes('404')) {
+        // Expected for some missing MC sounds, don't log
+        return
+      }
+      // Only log unexpected errors
+      console.warn('Failed to load sound:', path, error)
     })
   }
 
