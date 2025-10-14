@@ -4,7 +4,7 @@
 
 Minecraft **clone** written in TypeScript using the best modern web technologies. Minecraft vanilla-compatible client and integrated server packaged into a single web app.
 
-You can try this out at [mcraft.fun](https://mcraft.fun/), [pcm.gg](https://pcm.gg), [mcon.vercel.app](https://mcon.vercel.app/), or the GitHub pages deploy. Every commit from the default (`develop`) branch is deployed to [s.mcraft.fun](https://s.mcraft.fun/) and [s.pcm.gg](https://s.pcm.gg/) - it's usually newer, but might be less stable.
+You can try this out at [mcraft.fun](https://mcraft.fun/), [pcm.gg](https://pcm.gg), [mcon.vercel.app](https://mcon.vercel.app/), or the GitHub pages deploy. Every commit from the default (`next`) branch is deployed to [s.mcraft.fun](https://s.mcraft.fun/) and [s.pcm.gg](https://s.pcm.gg/) - it's usually newer, but might be less stable.
 
 > In Turkey/Russia, use [ru.mcraft.fun](https://ru.mcraft.fun/) (since Cloudflare is blocked)
 
