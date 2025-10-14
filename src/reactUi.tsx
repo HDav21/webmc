@@ -54,6 +54,7 @@ import { useAppScale } from './scaleInterface'
 import PacketsReplayProvider from './react/PacketsReplayProvider'
 import TouchInteractionHint from './react/TouchInteractionHint'
 import { ua } from './react/utils'
+import AudioControls from './react/AudioControls'
 
 const isFirefox = ua.getBrowser().name === 'Firefox'
 if (isFirefox) {
@@ -227,6 +228,7 @@ const App = () => {
             <NoModalFoundProvider />
             <PacketsReplayProvider />
             <NotificationProvider />
+            <AudioControls />
           </RobustPortal>
           <RobustPortal to={document.body}>
             <div className='overlay-top-scaled'>
