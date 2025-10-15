@@ -31,38 +31,59 @@ export const pointerLock = {
     return document.pointerLockElement
   },
   justHitEscape: false,
-  async requestPointerLock () {
+  async requestPointerLock() {
+    console.log("[pointerLock] requestPointerLock() called")
+
     if (!isGameActive(true) || !document.documentElement.requestPointerLock || miscUiState.currentTouch) {
+      console.warn("[pointerLock] Not eligible for pointer lock — game inactive or unsupported")
       return
     }
+
     if (options.autoFullScreen) {
+      console.log("[pointerLock] autoFullScreen enabled, calling goFullscreen()")
       void goFullscreen()
     }
+
     const displayBrowserProblem = () => {
-      showNotification('Browser Delay Limitation', navigator['keyboard'] ? 'Click on screen, enable Auto Fullscreen or F11' : 'Click on screen or use fullscreen in Chrome')
-      notificationProxy.id = 'pointerlockchange'
+      console.warn("[pointerLock] Browser problem detected (delay or keyboard issue)")
+      showNotification(
+        "Browser Delay Limitation",
+        navigator["keyboard"]
+          ? "Click on screen, enable Auto Fullscreen or F11"
+          : "Click on screen or use fullscreen in Chrome"
+      )
+      notificationProxy.id = "pointerlockchange"
     }
-    if (!(document.fullscreenElement && navigator['keyboard']) && this.justHitEscape) {
+
+    if (!(document.fullscreenElement && navigator["keyboard"]) && this.justHitEscape) {
       displayBrowserProblem()
     } else {
-      //@ts-expect-error
-      const promise: any = document.documentElement.requestPointerLock({
-        unadjustedMovement: options.mouseRawInput
-      })
-      promise?.catch(error => {
-        if (error.name === 'NotSupportedError') {
-          // Some platforms may not support unadjusted movement, request again a regular pointer lock.
-          document.documentElement.requestPointerLock()
-        } else if (error.name === 'SecurityError') {
-          // cause: https://discourse.threejs.org/t/how-to-avoid-pointerlockcontrols-error/33017/4
-          displayBrowserProblem()
-        } else {
-          console.error(error)
+      console.log("[pointerLock] Attempting pointer lock on <html> element")
+      try {
+        //@ts-expect-error
+        const promise: any = document.documentElement.requestPointerLock({
+          unadjustedMovement: options.mouseRawInput,
+        })
+        if (promise?.catch) {
+          promise.catch((error: any) => {
+            console.error("[pointerLock] Rejected:", error)
+            if (error.name === "NotSupportedError") {
+              console.warn("[pointerLock] Retrying without unadjustedMovement")
+              document.documentElement.requestPointerLock()
+            } else if (error.name === "SecurityError") {
+              console.warn("[pointerLock] SecurityError → displayBrowserProblem()")
+              displayBrowserProblem()
+            } else {
+              console.error("[pointerLock] Unexpected error:", error)
+            }
+          })
         }
-      })
+      } catch (error) {
+        console.error("[pointerLock] Exception:", error)
+      }
     }
     this.justHitEscape = false
-  }
+  },
 }
 
 export const isInRealGameSession = () => {

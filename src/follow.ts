@@ -160,19 +160,3 @@ export async function setFollowingPlayer (username?: string) {
     customEvents.emit('followingPlayer', undefined)
   }
 }
-
-// Handle Kradle Custom Events
-customEvents.on('kradle:followPlayer', async (data) => {
-  const { username } = data
-
-  console.log(`Follow player '${username}' requested`)
-
-  // undefined means following self
-  if (!username) {
-    await setFollowingPlayer()
-    return
-  }
-
-  // Follow the player
-  await setFollowingPlayer(username)
-})

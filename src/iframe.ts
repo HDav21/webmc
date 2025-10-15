@@ -29,6 +29,10 @@ type IFrameSendablePayload =
     errorDetails?: string; // Additional error information when applicable
     canReconnect: boolean; // Whether reconnection is possible
   }
+  | {
+    source: 'minecraft-web-client';
+    action: 'pointerLockReleased';
+  }
 
 type ReceivableActions = 'followPlayer' | 'command' | 'reconnect' | 'setAgentSkins'
 
@@ -63,6 +67,11 @@ export function setupIframeComms () {
       action: 'followingPlayer',
       // @ts-expect-error TODO fix this type
       username
+    })
+  })
+  customEvents.on('pointerLockReleased', () => {
+    sendMessageToKradle({
+      action: 'pointerLockReleased'
     })
   })
   customEvents.on('kradle:command', (data) => {

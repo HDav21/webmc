@@ -17,7 +17,6 @@ export default function AudioControls () {
   const [isInteracting, setIsInteracting] = useState<boolean>(false)
   const audioContextRef = useRef<AudioContext | null>(null)
 
-  // --- helpers ---
   const resumeAudioContext = () => {
     if (!audioContextRef.current) {
       const Ctx = window.AudioContext || window.webkitAudioContext
@@ -81,17 +80,10 @@ export default function AudioControls () {
     }
   }
 
-  // --- layout constants ---
-  const ICON_WRAP = 14
-  const GLYPH = 10
-  const GAP = 4
-
-  const getVolumeIconName = (v: number): string => {
-    if (v <= 0) return 'volume-x'
-    if (v <= 33) return 'volume-1'
-    if (v <= 66) return 'volume-2'
-    return 'volume-3'
-  }
+  // --- layout constants (reduced by ~20%) ---
+  const ICON_WRAP = 11
+  const GLYPH = 8
+  const GAP = 2
 
   const makeButtonStyle = (extra?: CSSProperties): CSSProperties => ({
     width: `${ICON_WRAP}px`,
@@ -101,9 +93,10 @@ export default function AudioControls () {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    verticalAlign: 'middle',
     background: 'rgba(255,255,255,0.10)',
     border: '1px solid rgba(255,255,255,0.14)',
-    borderRadius: '4px',
+    borderRadius: '3px',
     cursor: 'pointer',
     ...extra,
   })
@@ -112,22 +105,22 @@ export default function AudioControls () {
     position: 'absolute',
     bottom: '5px',
     right: '5px',
-    zIndex: 1000,
-    display: 'flex',
+    zIndex: 9001,
+    display: 'inline-flex',
     alignItems: 'center',
     gap: `${GAP}px`,
-    padding: '3px 6px',
+    padding: '2px 4px',
     background: 'rgba(0,0,0,0.65)',
-    borderRadius: '6px',
+    borderRadius: '4px',
     color: 'white',
     fontFamily: '"VT323", monospace',
-    fontSize: '11px',
+    fontSize: '9px',
     lineHeight: 1,
     pointerEvents: 'auto',
     userSelect: 'none',
+    justifyContent: 'center',
   }
 
-  // --- component ---
   return (
     <>
       <style>
@@ -136,12 +129,12 @@ export default function AudioControls () {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 10px;
-            height: 10px;
-            font-size: 10px;
+            width: 8px;
+            height: 8px;
+            font-size: 8px;
             line-height: 1;
             vertical-align: middle;
-            transform: translateY(-0.2px);
+            transform: translateY(-0.5px); /* was -0.2px */
           }
           .audio-icon-muted {
             opacity: 0.4;
@@ -149,6 +142,7 @@ export default function AudioControls () {
           }
         `}
       </style>
+
 
       <div
         style={containerStyle}
@@ -172,7 +166,12 @@ export default function AudioControls () {
           }}
         >
           <PixelartIcon
-            iconName={getVolumeIconName(volume)}
+            iconName={
+              volume <= 0 ? 'volume-x'
+              : volume <= 33 ? 'volume-1'
+              : volume <= 66 ? 'volume-2'
+              : 'volume-3'
+            }
             className='audio-icon-fix'
             width={GLYPH}
           />
@@ -191,7 +190,7 @@ export default function AudioControls () {
         </button>
 
         {/* volume percent */}
-        <div style={{ minWidth: '28px', textAlign: 'center' }}>{volume}%</div>
+        <div style={{ minWidth: '22px', textAlign: 'center' }}>{volume}%</div>
 
         {/* volume up */}
         <button
