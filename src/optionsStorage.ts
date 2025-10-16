@@ -21,8 +21,8 @@ const defaultOptions = {
   chatWidth: 280,
   chatHeight: 90,
   chatScale: 75,
-  chatOpacity: isDev ? 50 : 0, // show chat in dev
-  chatOpacityOpened: 100,
+  chatOpacity: 0, // hide chat completely
+  chatOpacityOpened: 0, // hide chat even when opened
   messagesLimit: 200,
   volume: 0,
   enableMusic: true,
