@@ -33,6 +33,10 @@ type IFrameSendablePayload =
     source: 'minecraft-web-client';
     action: 'pointerLockReleased';
   }
+  | {
+    source: 'minecraft-web-client';
+    action: 'followingPlayerLost';
+  }
 
 type ReceivableActions = 'followPlayer' | 'command' | 'reconnect' | 'setAgentSkins'
 
@@ -72,6 +76,11 @@ export function setupIframeComms () {
   customEvents.on('pointerLockReleased', () => {
     sendMessageToKradle({
       action: 'pointerLockReleased'
+    })
+  })
+  customEvents.on('followingPlayerLost', () => {
+    sendMessageToKradle({
+      action: 'followingPlayerLost'
     })
   })
   customEvents.on('kradle:command', (data) => {
