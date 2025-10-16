@@ -89,7 +89,11 @@ export function trackFollowerMovement () {
 }
 
 export async function setFollowingPlayer (username?: string) {
-  if (username && bot.players[username]) {
+  if (username) {
+    if (!bot.players[username]) {
+      console.log(`setFollowingPlayer bot.players[${username}] not found!!`)
+      return
+    }
     // start following player
     console.log(`Following player '${username}'`)
 
