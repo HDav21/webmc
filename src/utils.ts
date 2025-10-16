@@ -31,34 +31,34 @@ export const pointerLock = {
     return document.pointerLockElement
   },
   justHitEscape: false,
-  async requestPointerLock() {
-    console.log("[pointerLock] requestPointerLock() called")
+  async requestPointerLock () {
+    console.log('[pointerLock] requestPointerLock() called')
 
     if (!isGameActive(true) || !document.documentElement.requestPointerLock || miscUiState.currentTouch) {
-      console.warn("[pointerLock] Not eligible for pointer lock — game inactive or unsupported")
+      console.warn('[pointerLock] Not eligible for pointer lock — game inactive or unsupported')
       return
     }
 
     if (options.autoFullScreen) {
-      console.log("[pointerLock] autoFullScreen enabled, calling goFullscreen()")
+      console.log('[pointerLock] autoFullScreen enabled, calling goFullscreen()')
       void goFullscreen()
     }
 
     const displayBrowserProblem = () => {
-      console.warn("[pointerLock] Browser problem detected (delay or keyboard issue)")
+      console.warn('[pointerLock] Browser problem detected (delay or keyboard issue)')
       showNotification(
-        "Browser Delay Limitation",
-        navigator["keyboard"]
-          ? "Click on screen, enable Auto Fullscreen or F11"
-          : "Click on screen or use fullscreen in Chrome"
+        'Browser Delay Limitation',
+        navigator['keyboard']
+          ? 'Click on screen, enable Auto Fullscreen or F11'
+          : 'Click on screen or use fullscreen in Chrome'
       )
-      notificationProxy.id = "pointerlockchange"
+      notificationProxy.id = 'pointerlockchange'
     }
 
-    if (!(document.fullscreenElement && navigator["keyboard"]) && this.justHitEscape) {
+    if (!(document.fullscreenElement && navigator['keyboard']) && this.justHitEscape) {
       displayBrowserProblem()
     } else {
-      console.log("[pointerLock] Attempting pointer lock on <html> element")
+      console.log('[pointerLock] Attempting pointer lock on <html> element')
       try {
         //@ts-expect-error
         const promise: any = document.documentElement.requestPointerLock({
@@ -66,20 +66,20 @@ export const pointerLock = {
         })
         if (promise?.catch) {
           promise.catch((error: any) => {
-            console.error("[pointerLock] Rejected:", error)
-            if (error.name === "NotSupportedError") {
-              console.warn("[pointerLock] Retrying without unadjustedMovement")
+            console.error('[pointerLock] Rejected:', error)
+            if (error.name === 'NotSupportedError') {
+              console.warn('[pointerLock] Retrying without unadjustedMovement')
               document.documentElement.requestPointerLock()
-            } else if (error.name === "SecurityError") {
-              console.warn("[pointerLock] SecurityError → displayBrowserProblem()")
+            } else if (error.name === 'SecurityError') {
+              console.warn('[pointerLock] SecurityError → displayBrowserProblem()')
               displayBrowserProblem()
             } else {
-              console.error("[pointerLock] Unexpected error:", error)
+              console.error('[pointerLock] Unexpected error:', error)
             }
           })
         }
       } catch (error) {
-        console.error("[pointerLock] Exception:", error)
+        console.error('[pointerLock] Exception:', error)
       }
     }
     this.justHitEscape = false

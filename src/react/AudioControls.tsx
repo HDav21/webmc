@@ -168,9 +168,9 @@ export default function AudioControls () {
           <PixelartIcon
             iconName={
               volume <= 0 ? 'volume-x'
-              : volume <= 33 ? 'volume-1'
-              : volume <= 66 ? 'volume-2'
-              : 'volume-3'
+                : volume <= 33 ? 'volume-1'
+                  : volume <= 66 ? 'volume-2'
+                    : 'volume-3'
             }
             className='audio-icon-fix'
             width={GLYPH}

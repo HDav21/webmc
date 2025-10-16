@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { setFollowingPlayer } from '../follow'
 import { pointerLock } from '../utils'
 
-export default function FollowerClickOverlay() {
+export default function FollowerClickOverlay () {
   const [selectedParticipant, setSelectedParticipant] = useState<string | undefined>(undefined)
   const [isHovered, setIsHovered] = useState(false)
   const [showOverlay, setShowOverlay] = useState(false)
@@ -24,17 +24,19 @@ export default function FollowerClickOverlay() {
 
   useEffect(() => {
     const handlePointerLockChange = () => {
-      const locked = document.pointerLockElement != null;
+      const locked = document.pointerLockElement !== null
 
       if (!locked) {
         // Pointer lock released — likely user hit ESC
-        customEvents.emit('pointerLockReleased');
+        customEvents.emit('pointerLockReleased')
       }
-    };
+    }
 
-    document.addEventListener('pointerlockchange', handlePointerLockChange);
-    return () => document.removeEventListener('pointerlockchange', handlePointerLockChange);
-  }, []);
+    document.addEventListener('pointerlockchange', handlePointerLockChange)
+    return () => {
+      document.removeEventListener('pointerlockchange', handlePointerLockChange)
+    }
+  }, [])
 
   const onPointerDownCapture = (e: React.PointerEvent) => {
     e.preventDefault()
@@ -48,12 +50,12 @@ export default function FollowerClickOverlay() {
     e.stopPropagation()
     console.log('[Overlay] click handler fired (trusted gesture)')
 
-    pointerLock.requestPointerLock()
+    void pointerLock.requestPointerLock()
 
     setTimeout(() => {
       setShowOverlay(false)
       setSelectedParticipant(undefined)
-      setFollowingPlayer(undefined)
+      void setFollowingPlayer(undefined)
     }, 0)
   }
 
