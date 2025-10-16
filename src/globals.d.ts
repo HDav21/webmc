@@ -32,6 +32,7 @@ declare const customEvents: import('typed-emitter').default<{
   activateItem (item: Item, slot: number, offhand: boolean): void
   hurtAnimation (yaw?: number): void
   followingPlayer (username?: string): void // when following has begun
+  followingPlayerLost (): void // when following player is not longer found
   'kradle:command' (data: any): void // a command to run as the bot
   'kradle:followPlayer' (data: any): void // request from kradle to follow a player
   'kradle:reconnect' (data: any): void // request from kradle to reconnect
