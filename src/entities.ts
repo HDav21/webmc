@@ -1,45 +1,10 @@
 import { Entity } from 'prismarine-entity'
 import { versionToNumber } from 'renderer/viewer/common/utils'
 import tracker from '@nxg-org/mineflayer-tracker'
-import { loader as autoJumpPlugin } from '@nxg-org/mineflayer-auto-jump'
-import { subscribeKey } from 'valtio/utils'
 import { getThreeJsRendererMethods } from 'renderer/viewer/three/threeJsMethods'
-import { options, watchValue } from './optionsStorage'
-import { miscUiState } from './globalState'
-
-
-const updateAutoJump = () => {
-  if (!bot?.autoJumper) return
-  const autoJump = options.autoParkour || (options.autoJump === 'auto' ? miscUiState.currentTouch && !miscUiState.usingGamepadInput : options.autoJump === 'always')
-  bot.autoJumper.setOpts({
-    jumpIntoWater: options.autoParkour,
-    jumpOnAllEdges: options.autoParkour,
-    // strictBlockCollision: true,
-  })
-  if (autoJump === bot.autoJumper.enabled) return
-  if (autoJump) {
-    bot.autoJumper.enable()
-  } else {
-    bot.autoJumper.disable()
-  }
-}
-subscribeKey(options, 'autoJump', () => {
-  updateAutoJump()
-})
-subscribeKey(options, 'autoParkour', () => {
-  updateAutoJump()
-})
-subscribeKey(miscUiState, 'usingGamepadInput', () => {
-  updateAutoJump()
-})
-subscribeKey(miscUiState, 'currentTouch', () => {
-  updateAutoJump()
-})
 
 customEvents.on('gameLoaded', () => {
   bot.loadPlugin(tracker)
-  bot.loadPlugin(autoJumpPlugin)
-  updateAutoJump()
 
   const playerPerAnimation = {} as Record<string, string>
   const entityData = (e: Entity) => {
