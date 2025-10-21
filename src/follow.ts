@@ -88,55 +88,83 @@ export function trackFollowerMovement () {
   handleMovement()
 }
 
+async function doFollowPlayer (username: string) {
+  // start following player
+  console.log(`Following player '${username}'`)
+
+  // tell the watcher to keep us in range of the target player
+  // via teleporting to the target player
+  bot.whisper('watcher', `follow ${username}`)
+
+
+  let target = bot.players[username]
+
+  // check if the player exists, and wait sec if it doesn't
+  if (!target) {
+    await new Promise(resolve => { setTimeout(resolve, 1000) })
+    target = bot.players[username]
+  }
+
+  // if there's still no target, give up
+  if (!target) {
+    // It still hasn't loaded, give up on following
+    console.error(`Failed to follow player '${username}' - player not found`)
+    return
+  }
+
+  // check if the target entity position is loaded, otherwise wait a bit
+  if (!target?.entity?.position) {
+    await new Promise(resolve => { setTimeout(resolve, 1000) })
+  }
+
+  // if there's still no target, give up
+  if (!target?.entity?.position) {
+    // It still hasn't loaded, give up on following
+    console.error(`Failed to follow player '${username}' - could not find entity position`)
+    return
+  }
+
+  // set the following player
+  window.following = target
+
+  // disable keyboard control of bot
+  controMax.enabled = false
+
+  // notify any listeners
+  customEvents.emit('followingPlayer', username)
+}
+
 export async function setFollowingPlayer (username?: string) {
   if (username) {
     if (!bot.players[username]) {
-      console.log(`setFollowingPlayer bot.players[${username}] not found!!`)
-      return
-    }
-    // start following player
-    console.log(`Following player '${username}'`)
+      console.log(`setFollowingPlayer bot.players[${username}] not found, will retry...`)
+      // Retry every 2 seconds for up to 30 seconds
+      const maxRetries = 15
+      let retryCount = 0
 
-    // tell the watcher to keep us in range of the target player
-    // via teleporting to the target player
-    bot.whisper('watcher', `follow ${username}`)
+      const retryFollow = () => {
+        if (retryCount >= maxRetries) {
+          console.error(`setFollowingPlayer Failed to follow player '${username}' after ${maxRetries} retries`)
+          customEvents.emit('followingPlayerLost')
+          return
+        }
 
+        if (bot.players[username]) {
+          // Player found, continue with follow logic
+          console.log(`setFollowingPlayer Player ${username} found after ${retryCount} retries`)
+          // Continue with existing follow logic...
+          doFollowPlayer(username);
+        } else {
+          retryCount++
+          setTimeout(retryFollow, 2000)
+        }
+      }
 
-    let target = bot.players[username]
-
-    // check if the player exists, and wait sec if it doesn't
-    if (!target) {
-      await new Promise(resolve => { setTimeout(resolve, 1000) })
-      target = bot.players[username]
-    }
-
-    // if there's still no target, give up
-    if (!target) {
-      // It still hasn't loaded, give up on following
-      console.error(`Failed to follow player '${username}' - player not found`)
-      return
-    }
-
-    // check if the target entity position is loaded, otherwise wait a bit
-    if (!target?.entity?.position) {
-      await new Promise(resolve => { setTimeout(resolve, 1000) })
-    }
-
-    // if there's still no target, give up
-    if (!target?.entity?.position) {
-      // It still hasn't loaded, give up on following
-      console.error(`Failed to follow player '${username}' - could not find entity position`)
+      setTimeout(retryFollow, 2000)
       return
     }
 
-    // set the following player
-    window.following = target
-
-    // disable keyboard control of bot
-    controMax.enabled = false
-
-    // notify any listeners
-    customEvents.emit('followingPlayer', username)
+    doFollowPlayer(username);
   } else {
     // stop following
     console.log(`Following self (main bot)`)
