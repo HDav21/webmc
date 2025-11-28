@@ -323,6 +323,8 @@ export class Entities {
 
   // eslint-disable-next-line max-params
   updatePlayerSkin (entityId: string | number, username: string | undefined, uuid: string | undefined, skinUrl: string | true, capeUrl: string | true | undefined = undefined) {
+    if (username === 'watcher') return;
+
     if (uuid) {
       if (typeof skinUrl === 'string' || typeof capeUrl === 'string') this.uuidPerSkinUrlsCache[uuid] = {}
       if (typeof skinUrl === 'string') this.uuidPerSkinUrlsCache[uuid].skinUrl = skinUrl
@@ -336,10 +338,13 @@ export class Entities {
     const playerObject = this.getPlayerObject(entityId)
     if (!playerObject) return
 
+    let customSkinUrl: string | null = null;
     // Check for custom agent skin first
     if (username && window.agentSkinMap?.has(username)) {
-      const customSkinUrl = window.agentSkinMap.get(username)
-      skinUrl = customSkinUrl
+      customSkinUrl = window.agentSkinMap.get(username)
+      if (customSkinUrl) {
+        skinUrl = customSkinUrl
+      }
     } else if (skinUrl === true) {
       if (!username) {
         return
@@ -350,7 +355,9 @@ export class Entities {
 
     if (typeof skinUrl !== 'string') throw new Error('Invalid skin url')
     const renderEars = this.worldRenderer.worldRendererConfig.renderEars || username === 'deadmau5'
-    void this.loadAndApplySkin(entityId, skinUrl, renderEars).then(() => {
+    void this.loadAndApplySkin(entityId, skinUrl, renderEars, username).then(() => {
+      if (customSkinUrl) return;
+
       if (capeUrl) {
         if (capeUrl === true && username) {
           capeUrl = getLookupUrl(username, 'cape')
@@ -407,7 +414,21 @@ export class Entities {
       skinTexture.minFilter = THREE.NearestFilter
       skinTexture.needsUpdate = true
       playerObject.skin.map = skinTexture as any
-      playerObject.skin.modelType = inferModelType(skinCanvas)
+
+      // Check if this is a legacy skin (64x32) - these should always use the default (Steve) model
+      const isLegacySkin = playerCustomSkinImage &&
+                           playerCustomSkinImage.width === 64 &&
+                           playerCustomSkinImage.height === 32
+
+      let detectedModelType: 'default' | 'slim'
+      if (isLegacySkin) {
+        // Legacy skins predate the slim arms model, so they're always default
+        detectedModelType = 'default'
+      } else {
+        // For modern skins, use auto-detection
+        detectedModelType = inferModelType(skinCanvas)
+      }
+      playerObject.skin.modelType = detectedModelType
 
       let earsCanvas: HTMLCanvasElement | undefined
       if (!playerCustomSkinImage) {
