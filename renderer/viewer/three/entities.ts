@@ -323,7 +323,7 @@ export class Entities {
 
   // eslint-disable-next-line max-params
   updatePlayerSkin (entityId: string | number, username: string | undefined, uuid: string | undefined, skinUrl: string | true, capeUrl: string | true | undefined = undefined) {
-    if (username === 'watcher') return;
+    if (username === 'watcher') return
 
     if (uuid) {
       if (typeof skinUrl === 'string' || typeof capeUrl === 'string') this.uuidPerSkinUrlsCache[uuid] = {}
@@ -338,7 +338,7 @@ export class Entities {
     const playerObject = this.getPlayerObject(entityId)
     if (!playerObject) return
 
-    let customSkinUrl: string | null = null;
+    let customSkinUrl: string | null = null
     // Check for custom agent skin first
     if (username && window.agentSkinMap?.has(username)) {
       customSkinUrl = window.agentSkinMap.get(username)
@@ -356,7 +356,7 @@ export class Entities {
     if (typeof skinUrl !== 'string') throw new Error('Invalid skin url')
     const renderEars = this.worldRenderer.worldRendererConfig.renderEars || username === 'deadmau5'
     void this.loadAndApplySkin(entityId, skinUrl, renderEars).then(() => {
-      if (customSkinUrl) return;
+      if (customSkinUrl) return
 
       if (capeUrl) {
         if (capeUrl === true && username) {
@@ -417,8 +417,8 @@ export class Entities {
 
       // Check if this is a legacy skin (64x32) - these should always use the default (Steve) model
       const isLegacySkin = playerCustomSkinImage &&
-                           playerCustomSkinImage.width === 64 &&
-                           playerCustomSkinImage.height === 32
+        playerCustomSkinImage.width === 64 &&
+        playerCustomSkinImage.height === 32
 
       let detectedModelType: 'default' | 'slim'
       if (isLegacySkin) {
