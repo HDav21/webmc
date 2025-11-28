@@ -134,7 +134,7 @@ export function setupIframeComms () {
 
   // Handle pointer lock release request from parent app
   customEvents.on('kradle:releasePointerLock', () => {
-    if (document.pointerLockElement) {
+    if (document.pointerLockElement && document.exitPointerLock) {
       document.exitPointerLock()
     }
   })
