@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { setFollowingPlayer } from '../follow'
+import { setFollowingPlayer, setBirdsEyeFollowMode, getCurrentCameraMode, getBirdsEyeCameraPosition, getThirdPersonCameraPosition } from '../follow'
 import { pointerLock } from '../utils'
 
 export default function FollowerClickOverlay () {
@@ -23,12 +23,30 @@ export default function FollowerClickOverlay () {
   }, [])
 
   useEffect(() => {
+    const handler = async () => {
+      console.log('[Overlay] birdsEyeViewFollow')
+      setSelectedParticipant('birdsEyeViewFollow')
+      setShowOverlay(true)
+      setBirdsEyeFollowMode()
+    }
+    customEvents.on('kradle:birdsEyeViewFollow', handler)
+    return () => {
+      customEvents.off('kradle:birdsEyeViewFollow', handler)
+    }
+  }, [])
+
+  useEffect(() => {
     const handlePointerLockChange = () => {
       const locked = document.pointerLockElement !== null
 
       if (!locked) {
-        // Pointer lock released — likely user hit ESC
+        // Pointer lock released — user hit ESC, return to birds eye view
         customEvents.emit('pointerLockReleased')
+
+        // Return to birds eye follow mode
+        setBirdsEyeFollowMode()
+        setSelectedParticipant('birdsEyeViewFollow')
+        setShowOverlay(true)
       }
     }
 
@@ -45,18 +63,65 @@ export default function FollowerClickOverlay () {
     console.log('[Overlay] pointerdown capture: stopped propagation')
   }
 
-  const onClick = (e: React.MouseEvent) => {
+  const onClick = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    console.log('[Overlay] click handler fired (trusted gesture)')
+    console.log(`[Overlay] click handler fired (trusted gesture) ${selectedParticipant}`)
+
+    // If we're in birds eye mode, teleport bot to exact camera position and switch to first person
+    if (selectedParticipant === 'birdsEyeViewFollow') {
+      console.log(`[Overlay] getCurrentCameraMode ${getCurrentCameraMode()}`)
+      if (getCurrentCameraMode() === 'birdsEyeViewFollow') {
+        const { position, yaw, pitch } = getBirdsEyeCameraPosition()
+        console.log('[Overlay] Teleporting bot to exact birds eye camera position:', position)
+
+        // Teleport the bot to the exact camera position
+        if (position) {
+          const teleportCommand = `/tp @s ${position.x} ${position.y} ${position.z}`
+          console.log('[Overlay] Executing teleport:', teleportCommand)
+          bot.chat(teleportCommand)
+
+          // Set the bot's view direction to match camera exactly (with small delay for first time)
+          setTimeout(() => {
+            bot.look(yaw, pitch).catch((err) => {
+              console.log('[Overlay] Error setting look direction:', err)
+            })
+          }, 50)
+        }
+
+        void pointerLock.requestPointerLock()
+
+        setShowOverlay(false)
+        setSelectedParticipant(undefined)
+        void setFollowingPlayer(undefined) // This switches to first person mode and enables controls
+        return // Early return to avoid the normal flow
+      }
+    }
+
+    // If we're following a player, teleport bot to exact camera position
+    if (selectedParticipant && selectedParticipant !== 'birdsEyeViewFollow') {
+      const { position, yaw, pitch } = getThirdPersonCameraPosition()
+      console.log('[Overlay] Teleporting bot to exact camera position:', position)
+
+      if (position) {
+        const teleportCommand = `/tp @s ${position.x} ${position.y} ${position.z}`
+        console.log('[Overlay] Executing teleport:', teleportCommand)
+        bot.chat(teleportCommand)
+
+        // Set the bot's view direction to match camera exactly (with small delay for first time)
+        setTimeout(() => {
+          bot.look(yaw, pitch).catch((err) => {
+            console.log('[Overlay] Error setting look direction:', err)
+          })
+        }, 50)
+      }
+    }
 
     void pointerLock.requestPointerLock()
 
-    setTimeout(() => {
-      setShowOverlay(false)
-      setSelectedParticipant(undefined)
-      void setFollowingPlayer(undefined)
-    }, 0)
+    setShowOverlay(false)
+    setSelectedParticipant(undefined)
+    void setFollowingPlayer(undefined) // This switches to first person mode and enables controls
   }
 
   if (!selectedParticipant || !showOverlay) return null
@@ -85,7 +150,7 @@ export default function FollowerClickOverlay () {
       }}
     >
       <div style={{ textAlign: 'center', color: 'white', pointerEvents: 'none', fontSize: 10 }}>
-        <div>You are following {selectedParticipant}</div>
+        <div>{selectedParticipant === 'birdsEyeViewFollow' ? "You are in bird's eye view mode" : `You are following ${selectedParticipant}`}</div>
         <div>Click to enter spectator mode and control camera</div>
       </div>
     </div>

@@ -38,7 +38,7 @@ type IFrameSendablePayload =
     action: 'followingPlayerLost';
   }
 
-type ReceivableActions = 'followPlayer' | 'command' | 'reconnect' | 'setAgentSkins' | 'releasePointerLock'
+type ReceivableActions = 'followPlayer' | 'command' | 'reconnect' | 'setAgentSkins' | 'releasePointerLock' | 'birdsEyeViewFollow'
 
 export function setupIframeComms () {
   // Handle incoming messages from kradle frontend
