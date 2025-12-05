@@ -283,25 +283,12 @@ export async function setFollowingPlayer (username?: string) {
     // stop following
     console.log(`Following self (main bot)`)
 
-    // tell the watcher to stop following
-    if (following !== bot && following?.entity?.position) {
-      // unfollow and move to current camera position
-      const { position, yaw, pitch } = getThirdPersonCameraPosition()
-      // wait a bit so the teleport is complete before switching the camera
-      await new Promise(resolve => { setTimeout(resolve, 500) })
-      bot.look(yaw, pitch).catch(() => { }) // maintain camera position
-    }
-
     // set the following player to the main bot
     window.following = bot
     currentCameraMode = CameraMode.FIRST_PERSON
 
     // enable keyboard control of bot
-    console.log('[Follow] Re-enabling controMax after unfollowing')
-    console.log('[Follow] Before: controMax.enabled =', controMax.enabled)
     controMax.enabled = true
-    console.log('[Follow] After: controMax.enabled =', controMax.enabled)
-    console.log('[Follow] Current game mode:', bot.game.gameMode, 'gravity:', bot.physics.gravity)
 
     // notify any listeners
     customEvents.emit('followingPlayer', undefined)
