@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { setFollowingPlayer } from '../follow'
+import { Vec3 } from 'vec3'
+import { setFollowingPlayer, setBirdsEyeFollowMode, getBirdsEyeCameraPosition, getThirdPersonCameraPosition } from '../follow'
 import { pointerLock } from '../utils'
 
 export default function FollowerClickOverlay () {
@@ -7,13 +8,26 @@ export default function FollowerClickOverlay () {
   const [isHovered, setIsHovered] = useState(false)
   const [showOverlay, setShowOverlay] = useState(false)
 
+
   useEffect(() => {
     const handler = async (data: any) => {
       const { username } = data
-      console.log('[Overlay] follow requested:', username)
       setSelectedParticipant(username)
       setShowOverlay(true)
       await setFollowingPlayer(username)
+
+      // The overlay might have stolen focus when it rendered
+      // Return focus to the canvas/document
+      const canvas = document.getElementById('viewer-canvas') as HTMLCanvasElement
+      if (canvas) {
+        // Canvas elements need tabIndex to be focusable
+        if (!canvas.hasAttribute('tabindex')) {
+          canvas.setAttribute('tabindex', '-1')
+        }
+        canvas.focus()
+      } else {
+        document.documentElement.focus()
+      }
     }
 
     customEvents.on('kradle:followPlayer', handler)
@@ -23,12 +37,58 @@ export default function FollowerClickOverlay () {
   }, [])
 
   useEffect(() => {
+    const handler = async () => {
+      setSelectedParticipant('birdsEyeViewFollow')
+      setShowOverlay(true)
+      setBirdsEyeFollowMode()
+    }
+    customEvents.on('kradle:birdsEyeViewFollow', handler)
+    return () => {
+      customEvents.off('kradle:birdsEyeViewFollow', handler)
+    }
+  }, [])
+
+  useEffect(() => {
+    const handler = async () => {
+      // Go directly into free roam mode - no overlay needed
+      // Switch to first person mode and enable controls
+      void setFollowingPlayer(undefined)
+
+      // Request pointer lock for mouse capture
+      void pointerLock.requestPointerLock()
+
+      // Ensure keyboard focus is on the canvas
+      setTimeout(() => {
+        const canvas = document.getElementById('viewer-canvas') as HTMLCanvasElement
+        if (canvas) {
+          // Canvas elements need tabIndex to be focusable
+          if (!canvas.hasAttribute('tabindex')) {
+            canvas.setAttribute('tabindex', '-1')
+          }
+          canvas.focus()
+        } else {
+          document.documentElement.focus()
+        }
+      }, 50)
+    }
+    customEvents.on('kradle:freeRoamMode', handler)
+    return () => {
+      customEvents.off('kradle:freeRoamMode', handler)
+    }
+  }, [])
+
+  useEffect(() => {
     const handlePointerLockChange = () => {
       const locked = document.pointerLockElement !== null
 
       if (!locked) {
-        // Pointer lock released — likely user hit ESC
+        // Pointer lock released — user hit ESC, return to birds eye view
         customEvents.emit('pointerLockReleased')
+
+        // Return to birds eye follow mode
+        setSelectedParticipant('birdsEyeViewFollow')
+        setShowOverlay(true)
+        setBirdsEyeFollowMode()
       }
     }
 
@@ -42,21 +102,59 @@ export default function FollowerClickOverlay () {
     e.preventDefault()
     e.stopPropagation()
     e.nativeEvent.stopImmediatePropagation?.()
-    console.log('[Overlay] pointerdown capture: stopped propagation')
   }
 
-  const onClick = (e: React.MouseEvent) => {
+  const onClick = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    console.log('[Overlay] click handler fired (trusted gesture)')
+
+    // Get camera position based on current mode
+    let cameraPosition: { position: Vec3; yaw: number; pitch: number; } | null = null
+    if (selectedParticipant === 'birdsEyeViewFollow') {
+      cameraPosition = getBirdsEyeCameraPosition()
+    } else if (selectedParticipant) {
+      // Following a specific player
+      cameraPosition = getThirdPersonCameraPosition()
+    }
+
+    // Teleport bot to camera position and set view direction
+    if (cameraPosition?.position) {
+      const { position, yaw, pitch } = cameraPosition
+      const teleportCommand = `/tp @s ${position.x} ${position.y} ${position.z}`
+      bot.chat(teleportCommand)
+
+      // Set the bot's view direction to match camera exactly (with small delay)
+      setTimeout(() => {
+        bot.look(yaw, pitch).catch(() => {})
+      }, 50)
+    }
+
+    // Hide overlay first before requesting pointer lock
+    setShowOverlay(false)
+    setSelectedParticipant(undefined)
 
     void pointerLock.requestPointerLock()
 
+    // Switch to first person mode and enable controls
+    void setFollowingPlayer(undefined)
+
+    // Ensure keyboard focus is on the game after taking control
+    // This prevents spacebar from scrolling the page and ensures keyboard events are captured
     setTimeout(() => {
-      setShowOverlay(false)
-      setSelectedParticipant(undefined)
-      void setFollowingPlayer(undefined)
-    }, 0)
+      // Try to focus the canvas element where the game is rendered
+      const canvas = document.getElementById('viewer-canvas') as HTMLCanvasElement
+      if (canvas) {
+        // Canvas elements need tabIndex to be focusable
+        if (!canvas.hasAttribute('tabindex')) {
+          canvas.setAttribute('tabindex', '-1')
+        }
+        canvas.focus()
+      } else {
+        // Fallback to focusing the document element
+        document.documentElement.focus()
+      }
+
+    }, 100)
   }
 
   if (!selectedParticipant || !showOverlay) return null
@@ -68,7 +166,6 @@ export default function FollowerClickOverlay () {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       role="button"
-      tabIndex={0}
       style={{
         position: 'absolute',
         inset: 0,
@@ -85,7 +182,7 @@ export default function FollowerClickOverlay () {
       }}
     >
       <div style={{ textAlign: 'center', color: 'white', pointerEvents: 'none', fontSize: 10 }}>
-        <div>You are following {selectedParticipant}</div>
+        <div>{selectedParticipant === 'birdsEyeViewFollow' ? 'You are in bird\'s eye view mode' : `You are following ${selectedParticipant}`}</div>
         <div>Click to enter spectator mode and control camera</div>
       </div>
     </div>

@@ -38,6 +38,8 @@ declare const customEvents: import('typed-emitter').default<{
   'kradle:reconnect' (data: any): void // request from kradle to reconnect
   'kradle:setAgentSkins' (data: any): void // request from kradle to setAgentSkins
   'kradle:releasePointerLock' (data?: any): void // request from kradle to release pointer lock
+  'kradle:birdsEyeViewFollow' (data?: any): void // request from kradle to set mode birdsEyeViewFollow
+  'kradle:freeRoamMode' (data?: any): void // request from kradle to set mode freeRoamMode
   connectionStatus (statusData: {
     status: 'connected' | 'connecting' | 'disconnected' | 'error' | 'kicked'
     message: string

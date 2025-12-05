@@ -1,9 +1,27 @@
-import type { Vec3 } from 'vec3'
+import { Vec3 } from 'vec3'
+
+enum CameraMode {
+  FIRST_PERSON = 'firstPerson', // Bot's eyes view
+  THIRD_PERSON = 'thirdPerson', // Behind a followed player
+  BIRDS_EYE_VIEW_FOLLOW = 'birdsEyeViewFollow' // Dynamic overhead view
+}
+
+let currentCameraMode: CameraMode = CameraMode.FIRST_PERSON
 
 function handleMovement () {
   // Throttle the function to 60 updates per second
   const now = Date.now()
   if (now - appViewer.lastCamUpdate < 1000 / 60) {
+    return
+  }
+
+  appViewer.lastCamUpdate = Date.now()
+
+  // Handle birds eye follow mode
+  if (currentCameraMode === CameraMode.BIRDS_EYE_VIEW_FOLLOW) {
+    const { position, yaw, pitch } = getBirdsEyeCameraPosition()
+    appViewer.backend?.updateCamera(position, yaw, pitch)
+    void appViewer.worldView?.updatePosition(position)
     return
   }
 
@@ -16,13 +34,12 @@ function handleMovement () {
     return
   }
 
-  appViewer.lastCamUpdate = Date.now()
   setThirdPersonCamera()
   void appViewer.worldView?.updatePosition(following.entity.position)
 }
 
 // Calculate the camera position and angle to follow the entity
-function getThirdPersonCameraPosition () {
+export function getThirdPersonCameraPosition () {
   const targetPosition: Vec3 = following.entity.position
 
   // Calculate camera position 5 blocks behind and 2 block above target
@@ -49,6 +66,107 @@ function getThirdPersonCameraPosition () {
     yaw: cameraYaw,
     pitch: cameraPitch
   }
+}
+
+// Cache for last valid birds eye position
+let lastValidBirdsEyePosition: { position: Vec3, yaw: number, pitch: number } | null = null
+
+// Calculate optimal birds eye camera position based on all players
+export function getBirdsEyeCameraPosition () {
+  // Get all player entities
+  const players: Vec3[] = []
+  const playerNames: string[] = []
+  const excludedNames = new Set(['KradleWebViewer', 'watcher'])
+
+  // Add the bot itself first (it's also a player) - unless it's one of the excluded
+  if (bot.entity?.position && !excludedNames.has(bot.username || '')) {
+    players.push(bot.entity.position)
+    playerNames.push(bot.username || 'bot')
+  }
+
+  // Add all other player positions from bot.entities (excluding special entities)
+  for (const entity of Object.values(bot.entities)) {
+    if (entity.type === 'player' && entity.position && entity.username) {
+      // Skip KradleWebViewer and watcher - they're not real players
+      if (!excludedNames.has(entity.username)) {
+        players.push(entity.position)
+        playerNames.push(entity.username)
+        // Debug: log actual Y position
+        console.log(`[BirdsEye] Player ${entity.username} Y position: ${entity.position.y}`)
+      }
+    }
+  }
+
+  console.log(`[BirdsEye] Found ${players.length} real players (excluding watcher/viewer):`, playerNames)
+
+  if (players.length === 0) {
+    // Return last valid position if we have one
+    if (lastValidBirdsEyePosition) {
+      console.log('[BirdsEye] No players found, using cached position')
+      return lastValidBirdsEyePosition
+    }
+
+    // Only use fallback if we've never had a valid position
+    console.log('[BirdsEye] No players found and no cached position, using default')
+    const fallbackY = bot.entity?.position?.y || 70
+    return {
+      position: new Vec3(bot.entity?.position?.x || 0, fallbackY + 12, (bot.entity?.position?.z || 0) + 12),
+      yaw: 0,
+      pitch: -Math.PI / 4 // 45 degrees looking down (negative for down)
+    }
+  }
+
+  // Calculate center point of all players
+  let centerX = 0
+  let centerY = 0
+  let centerZ = 0
+  for (const pos of players) {
+    centerX += pos.x
+    centerY += pos.y
+    centerZ += pos.z
+  }
+  const center = new Vec3(
+    centerX / players.length,
+    centerY / players.length,
+    centerZ / players.length
+  )
+
+  // Calculate the maximum distance from center to determine height
+  let maxDistance = 0
+  for (const pos of players) {
+    const distance = Math.hypot(
+      pos.x - center.x,
+      pos.z - center.z
+    )
+    if (distance > maxDistance) {
+      maxDistance = distance
+    }
+  }
+
+  // Calculate optimal height based on spread of players
+  // For close players (< 8 blocks apart): 8 blocks above
+  // For spread out players: scale up to max 12 blocks above
+  const heightAbovePlayers = Math.min(12, Math.max(8, maxDistance * 0.4))
+
+  // Calculate camera offset - move camera back (south) so 45° view captures all players
+  // More spread = more offset needed
+  const cameraOffset = Math.min(15, Math.max(10, maxDistance * 0.6))
+
+  // Set camera position above and behind (south of) the center point
+  const cameraY = center.y + heightAbovePlayers
+  const cameraPosition = new Vec3(center.x, cameraY, center.z + cameraOffset)
+
+  console.log('[BirdsEye] Center:', center, 'Height above:', heightAbovePlayers, 'Camera Y:', cameraY, 'Offset:', cameraOffset)
+
+  // Cache this valid position
+  const result = {
+    position: cameraPosition,
+    yaw: 0, // Always face north for consistency
+    pitch: -Math.PI / 4 // 45 degrees looking down (negative for down)
+  }
+
+  lastValidBirdsEyePosition = result
+  return result
 }
 
 export function setThirdPersonCamera (directionOnly = false) {
@@ -92,11 +210,6 @@ async function doFollowPlayer (username: string) {
   // start following player
   console.log(`Following player '${username}'`)
 
-  // tell the watcher to keep us in range of the target player
-  // via teleporting to the target player
-  bot.whisper('watcher', `follow ${username}`)
-
-
   let target = bot.players[username]
 
   // check if the player exists, and wait sec if it doesn't
@@ -123,11 +236,12 @@ async function doFollowPlayer (username: string) {
     console.error(`Failed to follow player '${username}' - could not find entity position`)
     return
   }
-
   // set the following player
   window.following = target
+  currentCameraMode = CameraMode.THIRD_PERSON
 
   // disable keyboard control of bot
+  console.log(`[Follow] Disabling controMax for following player ${username}`)
   controMax.enabled = false
 
   // notify any listeners
@@ -169,21 +283,9 @@ export async function setFollowingPlayer (username?: string) {
     // stop following
     console.log(`Following self (main bot)`)
 
-    // tell the watcher to stop following
-    if (following !== bot && following?.entity?.position) {
-      // unfollow and move to current camera position
-      const { position, yaw, pitch } = getThirdPersonCameraPosition()
-      bot.whisper('watcher', `unfollow ${position.x} ${position.y} ${position.z}`)
-      // wait a bit so the teleport is complete before switching the camera
-      await new Promise(resolve => { setTimeout(resolve, 500) })
-      bot.look(yaw, pitch).catch(() => { }) // maintain camera position
-    } else {
-      // simply unfollow
-      bot.whisper('watcher', 'unfollow')
-    }
-
     // set the following player to the main bot
     window.following = bot
+    currentCameraMode = CameraMode.FIRST_PERSON
 
     // enable keyboard control of bot
     controMax.enabled = true
@@ -191,4 +293,30 @@ export async function setFollowingPlayer (username?: string) {
     // notify any listeners
     customEvents.emit('followingPlayer', undefined)
   }
+}
+
+// Set camera to birds eye follow mode
+export function setBirdsEyeFollowMode () {
+  console.log('Setting birds eye follow mode')
+  currentCameraMode = CameraMode.BIRDS_EYE_VIEW_FOLLOW
+
+  // Disable keyboard control since we're in spectator mode
+  console.log('[Follow] Disabling controMax for birds eye follow mode')
+  controMax.enabled = false
+
+  // Clear the following player since we're not following a specific entity
+  window.following = bot // Keep bot as default but camera won't use it
+
+  // Initial camera positioning
+  const { position, yaw, pitch } = getBirdsEyeCameraPosition()
+  appViewer.backend?.updateCamera(position, yaw, pitch)
+  void appViewer.worldView?.updatePosition(position)
+
+  // Notify listeners that we're in birds eye mode
+  customEvents.emit('followingPlayer', 'birdsEyeViewFollow')
+}
+
+// Get current camera mode (useful for debugging)
+export function getCurrentCameraMode () {
+  return currentCameraMode
 }
