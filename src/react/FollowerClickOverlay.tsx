@@ -1,7 +1,22 @@
 import React, { useEffect, useState } from 'react'
 import { Vec3 } from 'vec3'
-import { setFollowingPlayer, setBirdsEyeFollowMode, getBirdsEyeCameraPosition, getThirdPersonCameraPosition } from '../follow'
+import { setFollowingPlayer, setBirdsEyeFollowMode, getBirdsEyeCameraPosition, getThirdPersonCameraPosition, setSpectatorCameraPosition } from '../follow'
 import { pointerLock } from '../utils'
+import { toggleFly } from '../controls'
+
+// Helper function to focus the canvas for keyboard input
+function focusCanvas () {
+  const canvas = document.getElementById('viewer-canvas') as HTMLCanvasElement
+  if (canvas) {
+    // Canvas elements need tabIndex to be focusable
+    if (!canvas.hasAttribute('tabindex')) {
+      canvas.setAttribute('tabindex', '-1')
+    }
+    canvas.focus()
+  } else {
+    document.documentElement.focus()
+  }
+}
 
 export default function FollowerClickOverlay () {
   const [selectedParticipant, setSelectedParticipant] = useState<string | undefined>(undefined)
@@ -18,16 +33,7 @@ export default function FollowerClickOverlay () {
 
       // The overlay might have stolen focus when it rendered
       // Return focus to the canvas/document
-      const canvas = document.getElementById('viewer-canvas') as HTMLCanvasElement
-      if (canvas) {
-        // Canvas elements need tabIndex to be focusable
-        if (!canvas.hasAttribute('tabindex')) {
-          canvas.setAttribute('tabindex', '-1')
-        }
-        canvas.focus()
-      } else {
-        document.documentElement.focus()
-      }
+      focusCanvas()
     }
 
     customEvents.on('kradle:followPlayer', handler)
@@ -51,6 +57,24 @@ export default function FollowerClickOverlay () {
   useEffect(() => {
     const handler = async () => {
       // Go directly into free roam mode - no overlay needed
+
+      // Get current camera position (from birds eye or wherever we are)
+      const cameraPosition = getBirdsEyeCameraPosition()
+      if (cameraPosition?.position) {
+        const { position, yaw, pitch } = cameraPosition
+
+        // Set spectator camera to current view position
+        setSpectatorCameraPosition(position)
+
+        // Enable flying for spectator mode
+        toggleFly(true)
+
+        // Set the bot's view direction
+        setTimeout(() => {
+          bot.look(yaw, pitch).catch(() => {})
+        }, 50)
+      }
+
       // Switch to first person mode and enable controls
       void setFollowingPlayer(undefined)
 
@@ -58,18 +82,7 @@ export default function FollowerClickOverlay () {
       void pointerLock.requestPointerLock()
 
       // Ensure keyboard focus is on the canvas
-      setTimeout(() => {
-        const canvas = document.getElementById('viewer-canvas') as HTMLCanvasElement
-        if (canvas) {
-          // Canvas elements need tabIndex to be focusable
-          if (!canvas.hasAttribute('tabindex')) {
-            canvas.setAttribute('tabindex', '-1')
-          }
-          canvas.focus()
-        } else {
-          document.documentElement.focus()
-        }
-      }, 50)
+      setTimeout(focusCanvas, 50)
     }
     customEvents.on('kradle:freeRoamMode', handler)
     return () => {
@@ -117,11 +130,15 @@ export default function FollowerClickOverlay () {
       cameraPosition = getThirdPersonCameraPosition()
     }
 
-    // Teleport bot to camera position and set view direction
+    // Set spectator camera position to match current camera
     if (cameraPosition?.position) {
       const { position, yaw, pitch } = cameraPosition
-      const teleportCommand = `/tp @s ${position.x} ${position.y} ${position.z}`
-      bot.chat(teleportCommand)
+
+      // Store the camera position for spectator mode
+      setSpectatorCameraPosition(position)
+
+      // Enable flying for spectator camera control
+      toggleFly(true)
 
       // Set the bot's view direction to match camera exactly (with small delay)
       setTimeout(() => {
@@ -140,21 +157,7 @@ export default function FollowerClickOverlay () {
 
     // Ensure keyboard focus is on the game after taking control
     // This prevents spacebar from scrolling the page and ensures keyboard events are captured
-    setTimeout(() => {
-      // Try to focus the canvas element where the game is rendered
-      const canvas = document.getElementById('viewer-canvas') as HTMLCanvasElement
-      if (canvas) {
-        // Canvas elements need tabIndex to be focusable
-        if (!canvas.hasAttribute('tabindex')) {
-          canvas.setAttribute('tabindex', '-1')
-        }
-        canvas.focus()
-      } else {
-        // Fallback to focusing the document element
-        document.documentElement.focus()
-      }
-
-    }, 100)
+    setTimeout(focusCanvas, 100)
   }
 
   if (!selectedParticipant || !showOverlay) return null

@@ -20,6 +20,8 @@ This means the proxy is quite efficient, and when needed, it can easily scale ho
 
 It's recommended to clone this repo into a folder called `minecraft-web-client` and place it alongside the [`frontend` repo](https://github.com/kradle-ai/frontend). The frontend repo will automatically use it when you run `npm run dev` there.
 
+When developing this web client and running via the frontend repo, also make sure to set the `NEXT_PUBLIC_DEBUG_LOCAL_MINECRAFT_WEB_CLIENT` env variable in the frontend to `true` and that your the docker container on port 3003 is not running.
+
 ### `tl;dr`
 0. Ensure you have [Node.js](https://nodejs.org) installed. Enable corepack with `corepack enable` *(1).
 1. Install dependencies: `pnpm i`
@@ -33,11 +35,9 @@ See [CONTRIBUTING](CONTRIBUTING.md) for a breakdown of the repo and troubleshoot
 
 Vercel automatically deploys the `next` branch to production.
 
-**Proxy**
+This will make any of your changes available to ONLY the web version of Kradle. In order for studio to use your changes, a new docker image needs to be created (below)
 
-You most likely won't need to make any changes to the proxy, and so you don't need to deploy it.
-
-In the rare occasion you do, here's how.
+**Building a new docker container**
 
 0. Make sure your `gcloud` CLI locally is configured to use the gcloud `dev` environment. You'll need permissions to push a docker image to GCR.
 1. (only needed first time) Run `make docker/login`
@@ -46,9 +46,7 @@ In the rare occasion you do, here's how.
     * (if you run into issues, try `gcloud auth login` and `make docker/login`)
 4. Run `make deploy`
 
-
-> TODO: We could setup Google Cloud Run continuous deployments to automatically deploy the `next` branch - but we should try not to rebuild on every commit since the proxy doesn't change often.
-
+> TODO: Chris has plans to automate this process.
 
 ## Notes
 This repo was cloned and we made some minimal changes needed for a great iframe spectator experience (such as disabling chat and command access, inventory access, a simpler pause menu, making nightime more visible, etc.)
@@ -60,7 +58,9 @@ There's still a ton of code bloat here that's not relevant. For example
 * Unused Github workflows
 * etc.
 
+## Camera / Follow System
 
+See the docs/CAMERA_FOLLOW_SYSTEM.md for more information on how we've updated this web-client for Kradle specific camera views during gameplay/runs.
 
 ---
 

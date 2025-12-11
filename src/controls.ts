@@ -8,6 +8,8 @@ import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types
 import { stringStartsWith } from 'contro-max/build/stringUtils'
 import { GameMode } from 'mineflayer'
 import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, hideModal, hideAllModals } from './globalState'
+import { getSpectatorCameraPosition, setSpectatorCameraPosition } from './follow'
+import { appViewer } from './appViewer'
 import { goFullscreen, isInRealGameSession, pointerLock, reloadChunks } from './utils'
 import { options } from './optionsStorage'
 import { openPlayerInventory } from './inventoryWindows'
@@ -107,6 +109,7 @@ onControInit()
 
 updateBinds(customKeymaps)
 
+
 const updateDoPreventDefault = () => {
   controlOptions.preventDefault = miscUiState.gameLoaded && !activeModalStack.length
 }
@@ -120,6 +123,14 @@ const setSprinting = (state: boolean) => {
   gameAdditionalState.isSprinting = state
 }
 
+// Track which WASD keys are currently pressed for spectator mode
+const wasdPressed = {
+  forward: false,
+  back: false,
+  left: false,
+  right: false
+}
+
 contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
   if (gamepadIndex !== undefined && gamepadUiCursorState.display) {
     const deadzone = 0.1 // TODO make deadzone configurable
@@ -131,7 +142,13 @@ contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
     emitMousemove()
   }
   miscUiState.usingGamepadInput = gamepadIndex !== undefined
-  if (!bot || !isGameActive(false)) return
+  if (!bot || !isGameActive(false)) {
+    if ((vector.x !== undefined && Math.abs(vector.x) > 0.1)
+      || (vector.z !== undefined && Math.abs(vector.z) > 0.1)) {
+      console.log('[WASD Debug] Movement blocked - bot:', !!bot, 'gameActive:', isGameActive(false))
+    }
+    return
+  }
 
   // if (viewer.world.freeFlyMode) {
   //   // Create movement vector from input
@@ -171,6 +188,15 @@ contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
     if (newState[key] === bot.controlState[key]) continue
     const action = !!newState[key]
     if (action && !isGameActive(true)) continue
+    // Hijack WASD for spectator camera movement
+    if (getSpectatorCameraPosition() && isFlying()) {
+      // Just track key state - movement will be calculated in fly loop
+      wasdPressed[key] = action
+      // Skip the normal bot.setControlState call
+      continue
+    }
+
+    // Normal movement for non-spectator mode
     bot.setControlState(key, action)
 
     if (key === 'forward') {
@@ -751,7 +777,44 @@ const startFlyLoop = () => {
       return
     }
 
-    bot.entity.position.add(currentFlyVector.clone().multiply(new Vec3(0, 0.5, 0)))
+    // If we have a spectator camera position, move that instead of the bot
+    const spectatorPos = getSpectatorCameraPosition()
+    if (spectatorPos) {
+      // Calculate movement based on current yaw and pressed keys
+      const { yaw } = bot.entity
+      const movement = new Vec3(0, 0, 0)
+
+      // Add movement for each pressed key
+      const { forward, back, left, right } = wasdPressed
+      if (forward) {
+        movement.add(new Vec3(-Math.sin(yaw), 0, -Math.cos(yaw)))
+      }
+      if (back) {
+        movement.add(new Vec3(Math.sin(yaw), 0, Math.cos(yaw)))
+      }
+      if (left) {
+        movement.add(new Vec3(-Math.cos(yaw), 0, Math.sin(yaw)))
+      }
+      if (right) {
+        movement.add(new Vec3(Math.cos(yaw), 0, -Math.sin(yaw)))
+      }
+
+      // Also handle up/down from currentFlyVector (for jump/sneak)
+      movement.y = currentFlyVector.y
+
+      // Scale and apply movement
+      movement.scale(0.5)
+      if (movement.x !== 0 || movement.y !== 0 || movement.z !== 0) {
+        spectatorPos.add(movement)
+        // Update camera to new spectator position
+        appViewer.backend?.updateCamera(spectatorPos, bot.entity.yaw, bot.entity.pitch)
+        // Update world view for chunk loading at camera position
+        void appViewer.worldView?.updatePosition(spectatorPos)
+      }
+    } else {
+      // Normal bot movement
+      bot.entity.position.add(currentFlyVector.clone().scaled(0.5))
+    }
   }, 50)
 }
 
@@ -764,7 +827,7 @@ const patchedSetControlState = (action, state) => {
 
   const actionPerFlyVector = {
     jump: new Vec3(0, 1, 0),
-    sneak: new Vec3(0, -1, 0),
+    sneak: new Vec3(0, -1, 0)
   }
 
   const changeVec = actionPerFlyVector[action]
@@ -844,7 +907,7 @@ export const onBotCreate = () => {
 }
 
 const standardAirborneAcceleration = 0.02
-const toggleFly = (newState = !isFlying(), sendAbilities?: boolean) => {
+export const toggleFly = (newState = !isFlying(), sendAbilities?: boolean) => {
   // if (bot.game.gameMode !== 'creative' && bot.game.gameMode !== 'spectator') return
   if (!allowFlying) return
   if (bot.setControlState !== patchedSetControlState) {
