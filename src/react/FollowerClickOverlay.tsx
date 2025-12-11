@@ -5,7 +5,7 @@ import { pointerLock } from '../utils'
 import { toggleFly } from '../controls'
 
 // Helper function to focus the canvas for keyboard input
-function focusCanvas() {
+function focusCanvas () {
   const canvas = document.getElementById('viewer-canvas') as HTMLCanvasElement
   if (canvas) {
     // Canvas elements need tabIndex to be focusable

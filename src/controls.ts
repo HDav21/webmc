@@ -8,7 +8,7 @@ import { CommandEventArgument, SchemaCommandInput } from 'contro-max/build/types
 import { stringStartsWith } from 'contro-max/build/stringUtils'
 import { GameMode } from 'mineflayer'
 import { isGameActive, showModal, gameAdditionalState, activeModalStack, hideCurrentModal, miscUiState, hideModal, hideAllModals } from './globalState'
-import { spectatorCameraPosition, setSpectatorCameraPosition } from './follow'
+import { getSpectatorCameraPosition, setSpectatorCameraPosition } from './follow'
 import { appViewer } from './appViewer'
 import { goFullscreen, isInRealGameSession, pointerLock, reloadChunks } from './utils'
 import { options } from './optionsStorage'
@@ -143,8 +143,8 @@ contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
   }
   miscUiState.usingGamepadInput = gamepadIndex !== undefined
   if (!bot || !isGameActive(false)) {
-    if ((vector.x !== undefined && Math.abs(vector.x) > 0.1) ||
-        (vector.z !== undefined && Math.abs(vector.z) > 0.1)) {
+    if ((vector.x !== undefined && Math.abs(vector.x) > 0.1)
+      || (vector.z !== undefined && Math.abs(vector.z) > 0.1)) {
       console.log('[WASD Debug] Movement blocked - bot:', !!bot, 'gameActive:', isGameActive(false))
     }
     return
@@ -189,7 +189,7 @@ contro.on('movementUpdate', ({ vector, soleVector, gamepadIndex }) => {
     const action = !!newState[key]
     if (action && !isGameActive(true)) continue
     // Hijack WASD for spectator camera movement
-    if (spectatorCameraPosition && isFlying()) {
+    if (getSpectatorCameraPosition() && isFlying()) {
       // Just track key state - movement will be calculated in fly loop
       wasdPressed[key] = action
       // Skip the normal bot.setControlState call
@@ -778,22 +778,24 @@ const startFlyLoop = () => {
     }
 
     // If we have a spectator camera position, move that instead of the bot
-    if (spectatorCameraPosition) {
+    const spectatorPos = getSpectatorCameraPosition()
+    if (spectatorPos) {
       // Calculate movement based on current yaw and pressed keys
-      const yaw = bot.entity.yaw
+      const { yaw } = bot.entity
       const movement = new Vec3(0, 0, 0)
 
       // Add movement for each pressed key
-      if (wasdPressed.forward) {
+      const { forward, back, left, right } = wasdPressed
+      if (forward) {
         movement.add(new Vec3(-Math.sin(yaw), 0, -Math.cos(yaw)))
       }
-      if (wasdPressed.back) {
+      if (back) {
         movement.add(new Vec3(Math.sin(yaw), 0, Math.cos(yaw)))
       }
-      if (wasdPressed.left) {
+      if (left) {
         movement.add(new Vec3(-Math.cos(yaw), 0, Math.sin(yaw)))
       }
-      if (wasdPressed.right) {
+      if (right) {
         movement.add(new Vec3(Math.cos(yaw), 0, -Math.sin(yaw)))
       }
 
@@ -803,11 +805,11 @@ const startFlyLoop = () => {
       // Scale and apply movement
       movement.scale(0.5)
       if (movement.x !== 0 || movement.y !== 0 || movement.z !== 0) {
-        spectatorCameraPosition.add(movement)
+        spectatorPos.add(movement)
         // Update camera to new spectator position
-        appViewer.backend?.updateCamera(spectatorCameraPosition, bot.entity.yaw, bot.entity.pitch)
+        appViewer.backend?.updateCamera(spectatorPos, bot.entity.yaw, bot.entity.pitch)
         // Update world view for chunk loading at camera position
-        void appViewer.worldView?.updatePosition(spectatorCameraPosition)
+        void appViewer.worldView?.updatePosition(spectatorPos)
       }
     } else {
       // Normal bot movement

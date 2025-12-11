@@ -1,10 +1,15 @@
 import { Vec3 } from 'vec3'
 
 // Spectator camera position - independent from bot position
-export let spectatorCameraPosition: Vec3 | null = null
+let spectatorCameraPosition: Vec3 | null = null
+
+// Get spectator camera position
+export function getSpectatorCameraPosition () {
+  return spectatorCameraPosition
+}
 
 // Set spectator camera position
-export function setSpectatorCameraPosition(pos: Vec3 | null) {
+export function setSpectatorCameraPosition (pos: Vec3 | null) {
   spectatorCameraPosition = pos ? pos.clone() : null
 }
 
@@ -26,9 +31,9 @@ function handleMovement () {
   appViewer.lastCamUpdate = Date.now()
 
   // Handle spectator mode with independent camera
-  if (spectatorCameraPosition && following === bot && currentCameraMode === CameraMode.FIRST_PERSON) {
+  if (getSpectatorCameraPosition() && following === bot && currentCameraMode === CameraMode.FIRST_PERSON) {
     // Camera position is independent from bot, just update worldView for chunk loading
-    void appViewer.worldView?.updatePosition(spectatorCameraPosition)
+    void appViewer.worldView?.updatePosition(getSpectatorCameraPosition()!)
     return // Skip normal camera updates
   }
 
@@ -89,13 +94,11 @@ let lastValidBirdsEyePosition: { position: Vec3, yaw: number, pitch: number } | 
 export function getBirdsEyeCameraPosition () {
   // Get all player entities
   const players: Vec3[] = []
-  const playerNames: string[] = []
   const excludedNames = new Set(['KradleWebViewer', 'watcher'])
 
   // Add the bot itself first (it's also a player) - unless it's one of the excluded
   if (bot.entity?.position && !excludedNames.has(bot.username || '')) {
     players.push(bot.entity.position)
-    playerNames.push(bot.username || 'bot')
   }
 
   // Add all other player positions from bot.entities (excluding special entities)
@@ -104,7 +107,6 @@ export function getBirdsEyeCameraPosition () {
       // Skip KradleWebViewer and watcher - they're not real players
       if (!excludedNames.has(entity.username)) {
         players.push(entity.position)
-        playerNames.push(entity.username)
       }
     }
   }
@@ -182,10 +184,11 @@ export function setThirdPersonCamera (directionOnly = false) {
   // if the bot itself is being followed, just use first person camera normally
   if (following === bot) {
     // Check if we're in flying/spectator mode with a separate camera position
-    if (bot.physics.gravity === 0 && spectatorCameraPosition) {
+    const spectatorPos = getSpectatorCameraPosition()
+    if (bot.physics.gravity === 0 && spectatorPos) {
       // Use spectator camera position instead of bot position
       const { yaw, pitch } = bot.entity
-      appViewer.backend?.updateCamera(directionOnly ? null : spectatorCameraPosition, yaw, pitch)
+      appViewer.backend?.updateCamera(directionOnly ? null : spectatorPos, yaw, pitch)
     } else {
       // Normal first person - use bot position
       const { position, yaw, pitch } = bot.entity
@@ -255,7 +258,7 @@ async function doFollowPlayer (username: string) {
   currentCameraMode = CameraMode.THIRD_PERSON
 
   // Clear spectator camera position when following another player
-  if (spectatorCameraPosition) {
+  if (getSpectatorCameraPosition()) {
     setSpectatorCameraPosition(null)
   }
 
@@ -319,7 +322,7 @@ export function setBirdsEyeFollowMode () {
   currentCameraMode = CameraMode.BIRDS_EYE_VIEW_FOLLOW
 
   // Clear spectator camera position when switching to birds eye mode
-  if (spectatorCameraPosition) {
+  if (getSpectatorCameraPosition()) {
     setSpectatorCameraPosition(null)
   }
 
