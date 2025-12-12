@@ -130,6 +130,10 @@ export function setupIframeComms () {
         }
       }
     }
+
+    // Emit event to notify that agent skins have been updated
+    console.log('[iframe-rpc] Emitting agentSkinsUpdated event, map size:', window.agentSkinMap.size)
+    customEvents.emit('agentSkinsUpdated')
   })
 
   // Handle pointer lock release request from parent app

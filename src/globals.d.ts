@@ -40,6 +40,7 @@ declare const customEvents: import('typed-emitter').default<{
   'kradle:releasePointerLock' (data?: any): void // request from kradle to release pointer lock
   'kradle:birdsEyeViewFollow' (data?: any): void // request from kradle to set mode birdsEyeViewFollow
   'kradle:freeRoamMode' (data?: any): void // request from kradle to set mode freeRoamMode
+  agentSkinsUpdated (): void // emitted when agent skins map is updated
   connectionStatus (statusData: {
     status: 'connected' | 'connecting' | 'disconnected' | 'error' | 'kicked'
     message: string

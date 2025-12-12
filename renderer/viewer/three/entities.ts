@@ -238,6 +238,17 @@ export class Entities {
   constructor (public worldRenderer: WorldRendererThree) {
     this.debugMode = 'none'
     this.onSkinUpdate = () => { }
+
+    // Listen for agent skins updates and re-evaluate all player skins
+    if (typeof customEvents !== 'undefined') {
+      customEvents.on('agentSkinsUpdated', () => {
+        console.log('[Custom Skin Debug] agentSkinsUpdated event received in entities.ts')
+        // Small delay to ensure the map is fully populated
+        setTimeout(() => {
+          this.reEvaluateAllPlayerSkins()
+        }, 100)
+      })
+    }
   }
 
   clear () {
@@ -339,13 +350,14 @@ export class Entities {
     if (!playerObject) return
 
     let customSkinUrl: string | null = null
-    // Check for custom agent skin first
     if (username && window.agentSkinMap?.has(username)) {
       customSkinUrl = window.agentSkinMap.get(username)
+      console.log('[Custom Skin Debug] Found custom skin:', { username, customSkinUrl })
       if (customSkinUrl) {
         skinUrl = customSkinUrl
       }
     } else if (skinUrl === true) {
+      console.log('[Custom Skin Debug] No custom skin found, using standard lookup for:', username)
       if (!username) {
         return
       }
@@ -356,7 +368,9 @@ export class Entities {
     if (typeof skinUrl !== 'string') throw new Error('Invalid skin url')
     const renderEars = this.worldRenderer.worldRendererConfig.renderEars || username === 'deadmau5'
     void this.loadAndApplySkin(entityId, skinUrl, renderEars).then(() => {
-      if (customSkinUrl) return
+      if (customSkinUrl) {
+        return
+      }
 
       if (capeUrl) {
         if (capeUrl === true && username) {
@@ -383,6 +397,7 @@ export class Entities {
   private async loadAndApplySkin (entityId: string | number, skinUrl: string, renderEars: boolean) {
     let playerObject = this.getPlayerObject(entityId)
     if (!playerObject) {
+      console.log('[Custom Skin Debug] No player object found for entityId:', entityId)
       return
     }
 
@@ -452,7 +467,7 @@ export class Entities {
       }
       this.onSkinUpdate?.()
     } catch (error) {
-      console.error('Error loading skin:', error)
+      console.error('[Custom Skin Debug] Error loading skin:', { entityId, skinUrl, error })
     }
   }
 
@@ -964,6 +979,26 @@ export class Entities {
         if (this.loadedSkinEntityIds.has(entity.id)) return
         this.loadedSkinEntityIds.add(entity.id)
         this.updatePlayerSkin(entity.id, entity.username, entity.uuid, true, true)
+      }
+    }
+  }
+
+  // Re-evaluate skins for all player entities when agentSkinMap is updated
+  reEvaluateAllPlayerSkins () {
+    console.log('[Custom Skin Debug] Re-evaluating all player skins, clearing cache')
+    // Clear the cache so skins can be reloaded
+    this.loadedSkinEntityIds.clear()
+
+    // Find all player entities and update their skins
+    for (const [entityId, mesh] of Object.entries(this.entities)) {
+      if (mesh.playerObject) {
+        // Get the entity data
+        const entity = bot?.entities?.[entityId]
+        if (entity?.username) {
+          console.log('[Custom Skin Debug] Re-evaluating skin for:', entity.username)
+          // Force update the skin
+          this.updatePlayerSkin(entity.id, entity.username, entity.uuid, true, true)
+        }
       }
     }
   }
