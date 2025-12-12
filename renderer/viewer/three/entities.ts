@@ -994,7 +994,7 @@ export class Entities {
       if (mesh.playerObject) {
         // Get the entity data
         const entity = bot?.entities?.[entityId]
-        if (entity && entity.username) {
+        if (entity?.username) {
           console.log('[Custom Skin Debug] Re-evaluating skin for:', entity.username)
           // Force update the skin
           this.updatePlayerSkin(entity.id, entity.username, entity.uuid, true, true)
