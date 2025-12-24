@@ -179,9 +179,9 @@ export default function FollowerClickOverlay () {
         }}
         onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation?.() }}
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation?.() }}
-        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation() }}
         onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation?.() }}
-        onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation() }}
       />
     )
   }
