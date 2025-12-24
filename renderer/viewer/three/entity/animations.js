@@ -8,14 +8,25 @@ export class WalkingGeneralSwing extends PlayerAnimation {
   isRunning = false
   isMoving = true
   isCrouched = false
+  isFallFlying = false
 
   _startArmSwing
+  _wasFallFlying = false
 
   swingArm() {
     this._startArmSwing = this.progress
   }
 
   animate(player) {
+    if (this.isFallFlying) {
+      this._wasFallFlying = true
+      applyFallFlyingPose(player)
+      return
+    } else if (this._wasFallFlying) {
+      this._wasFallFlying = false
+      resetFallFlyingPose(player)
+    }
+
     // Multiply by animation's natural speed
     let t = 0
     const updateT = () => {
@@ -54,9 +65,6 @@ export class WalkingGeneralSwing extends PlayerAnimation {
 
     if (this._startArmSwing) {
       const tHand = (this.progress - this._startArmSwing) * 18 + Math.PI * 0.5
-      // player.skin.rightArm.rotation.x = Math.cos(tHand) * 1.5
-      // const basicArmRotationZ = Math.PI * 0.1
-      // player.skin.rightArm.rotation.z = Math.cos(t + Math.PI) * 0.3 - basicArmRotationZ
       HitAnimation.animate((this.progress - this._startArmSwing), player, this.isMoving)
 
       if (tHand > Math.PI + Math.PI) {
@@ -127,7 +135,6 @@ const HitAnimation = {
 const croughAnimation = (player, isCrouched) => {
   const erp = 0
 
-  // let pr = this.progress * 8;
   let pr = isCrouched ? 1 : 0
   const showProgress = false
   if (showProgress) {
@@ -145,7 +152,6 @@ const croughAnimation = (player, isCrouched) => {
   player.elytra.position.y = player.cape.position.y
   player.elytra.position.z = player.cape.position.z
   player.elytra.rotation.x = player.cape.rotation.x - (10.8 * Math.PI) / 180
-  // const pr1 = this.progress / this.speed;
   const pr1 = 1
   if (Math.abs(Math.sin((pr * Math.PI) / 2)) === 1) {
     player.elytra.leftWing.rotation.z =
@@ -168,4 +174,66 @@ const croughAnimation = (player, isCrouched) => {
   player.skin.rightArm.position.y = player.skin.leftArm.position.y
   player.skin.rightLeg.position.z = -3.450_031_037_7 * Math.abs(Math.sin((pr * Math.PI) / 2))
   player.skin.leftLeg.position.z = player.skin.rightLeg.position.z
+}
+
+const applyFallFlyingPose = (player) => {
+  player.rotation.x = Math.PI / 2
+  player.rotation.y = 0
+  player.rotation.z = 0
+
+  //forward tilt
+  player.skin.body.rotation.x = 0
+  player.skin.body.rotation.y = 0
+  player.skin.body.rotation.z = 0
+
+  player.skin.head.rotation.x = -0.2
+  player.skin.head.rotation.y = 0
+  player.skin.head.rotation.z = 0
+
+  //arms forward
+  player.skin.leftArm.rotation.x = -1.2
+  player.skin.rightArm.rotation.x = -1.2
+  player.skin.leftArm.rotation.z = 0.15
+  player.skin.rightArm.rotation.z = -0.15
+
+  //legs back
+  player.skin.leftLeg.rotation.x = 0.25
+  player.skin.rightLeg.rotation.x = 0.25
+  player.skin.leftLeg.rotation.z = 0
+  player.skin.rightLeg.rotation.z = 0
+
+  //elytra/cape adjustments
+  player.cape.position.set(0, 0, 0)
+  player.cape.rotation.x = 0.9
+
+  player.elytra.position.x = player.cape.position.x
+  player.elytra.position.y = player.cape.position.y
+  player.elytra.position.z = player.cape.position.z
+  player.elytra.rotation.x = player.cape.rotation.x - (10.8 * Math.PI) / 180
+
+  player.elytra.leftWing.rotation.z = 0.26179944
+  player.elytra.updateRightWing()
+}
+
+const resetFallFlyingPose = (player) => {
+  player.rotation.x = 0
+  player.rotation.z = 0
+
+  player.skin.body.rotation.x = 0
+  player.skin.body.rotation.y = 0
+  player.skin.body.rotation.z = 0
+
+  player.skin.head.rotation.x = 0
+  player.skin.head.rotation.y = 0
+  player.skin.head.rotation.z = 0
+
+  player.skin.leftArm.rotation.x = 0
+  player.skin.rightArm.rotation.x = 0
+  player.skin.leftArm.rotation.z = 0
+  player.skin.rightArm.rotation.z = 0
+
+  player.skin.leftLeg.rotation.x = 0
+  player.skin.rightLeg.rotation.x = 0
+  player.skin.leftLeg.rotation.z = 0
+  player.skin.rightLeg.rotation.z = 0
 }

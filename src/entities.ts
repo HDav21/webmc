@@ -60,11 +60,42 @@ customEvents.on('gameLoaded', () => {
     }
   }
 
+  let sentStartFallFlyingThisAirTime = false
+
+  function tryStartFallFlying () {
+    if (!bot?.entity) return
+
+    const chest = bot.entity.equipment?.[4]
+    const hasElytra = chest?.name === 'elytra'
+    if (!hasElytra) {
+      sentStartFallFlyingThisAirTime = false
+      return
+    }
+    const flags = (((bot.entity.metadata?.[0] ?? 0) as any) & 0xFF) >>> 0
+    const isFallFlying = (flags & ENTITY_FLAGS.FALL_FLYING) !== 0
+
+    if (bot.entity.onGround) {
+      sentStartFallFlyingThisAirTime = false
+      return
+    }
+
+    const isFalling = bot.entity.velocity?.y < -0.05
+    if (!isFallFlying && isFalling && !sentStartFallFlyingThisAirTime) {
+      bot._client.write('entity_action', {
+        entityId: bot.entity.id,
+        actionId: 8,
+        jumpBoost: 0
+      })
+      sentStartFallFlyingThisAirTime = true
+    }
+  }
+
   let lastCall = 0
   bot.on('physicsTick', () => {
     // throttle, tps: 6
     if (Date.now() - lastCall < 166) return
     lastCall = Date.now()
+    tryStartFallFlying()
     for (const [id, { tracking, info }] of Object.entries(bot.tracker.trackingData)) {
       if (!tracking) continue
       const e = bot.entities[id]
@@ -76,10 +107,15 @@ customEvents.on('gameLoaded', () => {
       const isWalking = Math.abs(speed.x) > WALKING_SPEED || Math.abs(speed.z) > WALKING_SPEED
       const isSprinting = Math.abs(speed.x) > SPRINTING_SPEED || Math.abs(speed.z) > SPRINTING_SPEED
 
+      const flags = (((e.metadata?.[0] ?? 0) as any) & 0xFF) >>> 0
+      const isFallFlying = (flags & ENTITY_FLAGS.FALL_FLYING) !== 0 || (e as any).fallFlying === true
+
       const newAnimation =
-        isCrouched ? (isWalking ? 'crouchWalking' : 'crouch')
-          : isWalking ? (isSprinting ? 'running' : 'walking')
-            : 'idle'
+        isFallFlying ? 'fall_flying'
+          : isCrouched ? (isWalking ? 'crouchWalking' : 'crouch')
+            : isWalking ? (isSprinting ? 'running' : 'walking')
+              : 'idle'
+
       if (newAnimation !== playerPerAnimation[id]) {
         // Handle bot entity animation specially (for player entity in third person)
         if (e === bot.entity) {
@@ -347,16 +383,28 @@ const updateEntityStates = (entityId: number, onFire: boolean, timeout?: boolean
 }
 
 // Process entity metadata packet
-function handleEntityMetadata (packet: { entityId: number, metadata: Array<{ key: number, type: string, value: number }> }) {
+function handleEntityMetadata (packet: { entityId: number, metadata: Array<{ key: number, type: any, value: any }> }) {
   const { entityId, metadata } = packet
 
-  // Find shared flags in metadata
-  const flagsData = metadata.find(meta => meta.key === SHARED_FLAGS_KEY &&
-    meta.type === 'byte')
+  const flagsMeta = metadata.find(m => m.key === SHARED_FLAGS_KEY)
+  if (!flagsMeta) return
 
-  // Update fire state if flags were found
-  if (flagsData) {
-    const wasOnFire = appViewer.playerState.reactive.onFire
-    appViewer.playerState.reactive.onFire = (flagsData.value & ENTITY_FLAGS.ON_FIRE) !== 0
+  let raw = flagsMeta.value
+  let flags = 0
+
+  if (typeof raw === 'number') {
+    flags = raw
+  } else if (raw && typeof raw === 'object' && typeof raw.value === 'number') {
+    flags = raw.value
+  } else if (raw && typeof raw === 'object' && typeof raw[0] === 'number') {
+    flags = raw[0]
   }
+
+  flags &= 0xFF
+
+  appViewer.playerState.reactive.onFire = (flags & ENTITY_FLAGS.ON_FIRE) !== 0
+  ;(appViewer.playerState.reactive as any).fallFlying = (flags & ENTITY_FLAGS.FALL_FLYING) !== 0
+
+  const e = bot?.entities?.[entityId]
+  if (e) (e as any).fallFlying = (flags & ENTITY_FLAGS.FALL_FLYING) !== 0
 }

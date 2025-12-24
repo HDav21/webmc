@@ -663,20 +663,32 @@ export class Entities {
     (playerObject.playerObject!.animation as WalkingGeneralSwing).swingArm()
   }
 
-  playAnimation (entityPlayerId, animation: 'walking' | 'running' | 'oneSwing' | 'idle' | 'crouch' | 'crouchWalking') {
-    // TODO CLEANUP!
+  playAnimation (
+    entityPlayerId,
+    animation: 'walking' | 'running' | 'oneSwing' | 'idle' | 'crouch' | 'crouchWalking' | 'fall_flying'
+  ) {
+    const setFallFlyingImmediate = (animObj: any) => {
+      if (animObj instanceof WalkingGeneralSwing) {
+        animObj.isFallFlying = animation === 'fall_flying'
+      }
+    }
+
     // Handle special player entity ID for bot entity in third person
     if (entityPlayerId === 'player_entity' && this.playerEntity?.playerObject) {
       const { playerObject } = this.playerEntity
+
       if (animation === 'oneSwing') {
         if (!(playerObject.animation instanceof WalkingGeneralSwing)) throw new Error('Expected WalkingGeneralSwing')
         playerObject.animation.swingArm()
         return
       }
 
+      setFallFlyingImmediate(playerObject.animation)
+
       if (playerObject.animation instanceof WalkingGeneralSwing) {
         playerObject.animation.switchAnimationCallback = () => {
           if (!(playerObject.animation instanceof WalkingGeneralSwing)) throw new Error('Expected WalkingGeneralSwing')
+          playerObject.animation.isFallFlying = animation === 'fall_flying'
           playerObject.animation.isMoving = animation === 'walking' || animation === 'running' || animation === 'crouchWalking'
           playerObject.animation.isRunning = animation === 'running'
           playerObject.animation.isCrouched = animation === 'crouch' || animation === 'crouchWalking'
@@ -694,9 +706,12 @@ export class Entities {
         return
       }
 
+      setFallFlyingImmediate(playerObject.animation)
+
       if (playerObject.animation instanceof WalkingGeneralSwing) {
         playerObject.animation.switchAnimationCallback = () => {
           if (!(playerObject.animation instanceof WalkingGeneralSwing)) throw new Error('Expected WalkingGeneralSwing')
+          playerObject.animation.isFallFlying = animation === 'fall_flying'
           playerObject.animation.isMoving = animation === 'walking' || animation === 'running' || animation === 'crouchWalking'
           playerObject.animation.isRunning = animation === 'running'
           playerObject.animation.isCrouched = animation === 'crouch' || animation === 'crouchWalking'
@@ -708,15 +723,19 @@ export class Entities {
     // Handle player entity (for third person view) - fallback for backwards compatibility
     if (this.playerEntity?.playerObject) {
       const { playerObject: playerEntityObject } = this.playerEntity
+
       if (animation === 'oneSwing') {
         if (!(playerEntityObject.animation instanceof WalkingGeneralSwing)) throw new Error('Expected WalkingGeneralSwing')
         playerEntityObject.animation.swingArm()
         return
       }
 
+      setFallFlyingImmediate(playerEntityObject.animation)
+
       if (playerEntityObject.animation instanceof WalkingGeneralSwing) {
         playerEntityObject.animation.switchAnimationCallback = () => {
           if (!(playerEntityObject.animation instanceof WalkingGeneralSwing)) throw new Error('Expected WalkingGeneralSwing')
+          playerEntityObject.animation.isFallFlying = animation === 'fall_flying'
           playerEntityObject.animation.isMoving = animation === 'walking' || animation === 'running' || animation === 'crouchWalking'
           playerEntityObject.animation.isRunning = animation === 'running'
           playerEntityObject.animation.isCrouched = animation === 'crouch' || animation === 'crouchWalking'
@@ -724,6 +743,8 @@ export class Entities {
       }
     }
   }
+
+
 
   parseEntityLabel (jsonLike) {
     if (!jsonLike) return
