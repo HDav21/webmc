@@ -12,21 +12,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - name: Install Dependencies
-        run: pnpm install
-      - name: Build Playground
-        run: pnpm build-playground
-      - name: Fix for GitHub Pages
-        run: touch renderer/dist/.nojekyll
+        run: pnpm install --frozen-lockfile false
+      - name: Build
+        run: pnpm build
       - name: Deploy to GitHub
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: renderer/dist
+          folder: dist
           branch: gh-pages
