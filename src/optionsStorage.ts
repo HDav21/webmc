@@ -105,7 +105,7 @@ const defaultOptions = {
   wysiwygSignEditor: 'auto' as 'auto' | 'always' | 'never',
   showMinimap: 'never' as 'always' | 'singleplayer' | 'never',
   minimapOptimizations: true,
-  displayBossBars: true,
+  displayBossBars: false,
   disabledUiParts: ['crosshair'] as string[],
   neighborChunkUpdates: true,
   highlightBlockColor: 'auto' as 'auto' | 'blue' | 'classic',
