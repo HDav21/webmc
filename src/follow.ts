@@ -1,7 +1,13 @@
 import { Vec3 } from 'vec3'
 
+import { appQueryParams } from './appParams'
+
 // Spectator camera position - independent from bot position
 let spectatorCameraPosition: Vec3 | null = null
+
+const isPlaybackMode = appQueryParams.isPlayback === 'true'
+
+
 
 // Get spectator camera position
 export function getSpectatorCameraPosition () {
@@ -364,6 +370,10 @@ export async function setFollowingPlayer (username?: string) {
 // Set camera to birds eye follow mode
 export function setBirdsEyeFollowMode () {
   console.log('Setting birds eye follow mode')
+  if (isPlaybackMode) {
+    console.log('Cannot set birds eye follow mode in playback mode')
+    return
+  }
   currentCameraMode = CameraMode.BIRDS_EYE_VIEW_FOLLOW
 
   // Clear spectator camera position when switching to birds eye mode

@@ -125,7 +125,7 @@ export default function FollowerClickOverlay () {
     e.stopPropagation()
 
     // Don't allow taking control in playback mode
-    if (appQueryParams.isPlayback === 'true') return
+    // if (appQueryParams.isPlayback === 'true') return
 
     // Get camera position based on current mode
     let cameraPosition: { position: Vec3; yaw: number; pitch: number; } | null = null
@@ -167,24 +167,24 @@ export default function FollowerClickOverlay () {
   }
 
   // Playback mode blocking overlay - prevents all interactions
-  if (appQueryParams.isPlayback === 'true') {
-    return (
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          zIndex: 3000, // Higher than game overlay
-          cursor: 'default',
-          pointerEvents: 'auto', // Capture all events
-        }}
-        onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation?.() }}
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation?.() }}
-        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation() }}
-        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation?.() }}
-        onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation() }}
-      />
-    )
-  }
+  // if (appQueryParams.isPlayback === 'true') {
+  //   return (
+  //     <div
+  //       style={{
+  //         position: 'absolute',
+  //         inset: 0,
+  //         zIndex: 3000, // Higher than game overlay
+  //         cursor: 'default',
+  //         pointerEvents: 'auto', // Capture all events
+  //       }}
+  //       onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation?.() }}
+  //       onClick={(e) => { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation?.() }}
+  //       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation() }}
+  //       onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation?.() }}
+  //       onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation() }}
+  //     />
+  //   )
+  // }
 
   if (!selectedParticipant || !showOverlay) return null
 
