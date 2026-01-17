@@ -358,7 +358,11 @@ const mainPacketsReplayer = async (
   const playServerPacket = (name: string, params: any) => {
     try {
       writePacket(name, params)
-      addPacketToReplayer(name, params, false)
+      // Skip packet logging for MCPR replays to prevent memory leak
+      // (700+ packets/sec would fill memory quickly)
+      if (!isMcprReplay) {
+        addPacketToReplayer(name, params, false)
+      }
       lastSentPacket = { name, params }
     } catch (err: any) {
       // Silently ignore getBlock errors - chunks not loaded yet
@@ -556,233 +560,83 @@ const mainPacketsReplayer = async (
   }
 
   // Start main replay loop
-  console.log('Starting replay from packet', startPacketIndex)
-
-  // Debug: Log world and chunk info before starting replay
-  console.log('Before replay loop:')
-  console.log('  bot._client state:', bot._client.state)
-  console.log('  bot._client listenerCount("map_chunk"):', bot._client.listenerCount('map_chunk'))
-  console.log('  bot.world:', !!bot.world)
-  if (bot.world) {
-    console.log('  world.columns:', typeof bot.world.columns, Object.keys(bot.world.columns || {}).length, 'chunks')
-    console.log('  world.setColumn type:', typeof bot.world.setColumn)
-  }
-
-  // Add listener to track map_chunk packets
-  let mapChunkCount = 0
-  const originalSetColumn = bot.world?.setColumn?.bind(bot.world)
-  if (bot.world && originalSetColumn) {
-    bot.world.setColumn = async function (x: number, z: number, column: any) {
-      mapChunkCount++
-      if (mapChunkCount <= 5) {
-        console.log(`setColumn called: (${x}, ${z}), column type:`, column?.constructor?.name)
-      }
-      return originalSetColumn(x, z, column)
-    }
-    console.log('Patched bot.world.setColumn for debugging')
-  }
-
-  // Also monitor the _client for map_chunk events
-  let clientMapChunkCount = 0
-  const mapChunkListener = (data: any) => {
-    clientMapChunkCount++
-    if (clientMapChunkCount <= 5) {
-      console.log('bot._client received map_chunk:', { x: data?.x, z: data?.z, hasChunkData: !!data?.chunkData })
-      // Check the chunk after it's loaded
-      setTimeout(() => {
-        const column = bot.world?.getColumn(data?.x, data?.z)
-        if (column) {
-          console.log(`  -> Chunk (${data?.x}, ${data?.z}) after load:`, {
-            minY: column.minY,
-            worldHeight: column.worldHeight,
-            sectionsLength: column.sections?.length,
-            firstSectionExists: !!column.sections?.[0]
-          })
-        }
-      }, 50)
-    }
-  }
-  bot._client.on('map_chunk', mapChunkListener)
-  console.log('Added map_chunk listener to bot._client')
-
-  // Debug: Listen for blockUpdate events from the world
-  let blockUpdateCount = 0
-  if (bot.world) {
-    bot.world.on('blockUpdate', (oldBlock: any, newBlock: any) => {
-      blockUpdateCount++
-      if (blockUpdateCount <= 20) {
-        console.log('world.blockUpdate event:', {
-          oldBlock: oldBlock?.name,
-          newBlock: newBlock?.name,
-          position: newBlock?.position || oldBlock?.position
-        })
-      }
-    })
-    console.log('Added blockUpdate listener to bot.world')
-  }
-
-  // Debug: Patch world.setBlockStateId to trace what happens
-  if (bot.world?.setBlockStateId) {
-    const originalSetBlockStateId = bot.world.setBlockStateId.bind(bot.world)
-    let setBlockStateIdCount = 0
-    bot.world.setBlockStateId = function(pos: any, stateId: number) {
-      setBlockStateIdCount++
-      if (setBlockStateIdCount <= 20) {
-        console.log('world.setBlockStateId called:', { x: pos?.x, y: pos?.y, z: pos?.z }, 'stateId:', stateId)
-        try {
-          const chunk = this.getColumnAt?.(pos)
-          console.log('  -> chunk found:', !!chunk, 'minY:', chunk?.minY)
-        } catch (e) {
-          console.log('  -> error getting chunk:', e)
-        }
-      }
-      try {
-        return originalSetBlockStateId(pos, stateId)
-      } catch (e: any) {
-        console.error('world.setBlockStateId ERROR:', e?.message)
-        throw e
-      }
-    }
-    console.log('Patched world.setBlockStateId for debugging')
-  }
-
-  // Debug: monitor block_change events received by bot._client
-  bot._client.on('block_change', (packet: any) => {
-    console.log('bot._client received block_change:', packet?.location, 'type:', packet?.type)
-    // Also check what the world thinks is at this location
-    if (bot.world && packet?.location) {
-      try {
-        const { x, y, z } = packet.location
-        const chunkX = Math.floor(x / 16)
-        const chunkZ = Math.floor(z / 16)
-        const column = bot.world.getColumn(chunkX, chunkZ)
-        console.log('  -> Chunk at', chunkX, chunkZ, ':', column ? 'loaded' : 'NOT LOADED')
-        if (column) {
-          // Detailed chunk inspection
-          console.log('  -> Chunk details:', {
-            minY: column.minY,
-            worldHeight: column.worldHeight,
-            hasSections: !!column.sections,
-            sectionsLength: column.sections?.length,
-            sectionYCount: column.sectionYCount,
-          })
-
-          // Calculate expected section index
-          const chunkMinY = column.minY ?? -64
-          const sectionIndex = Math.floor((y - chunkMinY) / 16)
-          console.log('  -> For Y=' + y + ', chunkMinY=' + chunkMinY + ', sectionIndex=' + sectionIndex)
-
-          if (column.sections) {
-            const section = column.sections[sectionIndex]
-            console.log('  -> Section at index', sectionIndex, ':', section ? 'exists' : 'MISSING')
-            if (section) {
-              console.log('  -> Section details:', {
-                hasData: !!section.data,
-                hasBlockCount: typeof section.blockCount !== 'undefined',
-                blockCount: section.blockCount,
-                hasPalette: !!section.palette
-              })
-            }
-          }
-
-          // Try to get block directly from chunk (bypassing world patches)
-          const posInChunk = { x: x & 15, y, z: z & 15 }
-          console.log('  -> posInChunk:', posInChunk)
-
-          try {
-            // Call chunk methods directly
-            const chunkStateId = column.getBlockStateId?.(posInChunk)
-            console.log('  -> Direct chunk.getBlockStateId:', chunkStateId)
-
-            const chunkBlock = column.getBlock?.(posInChunk)
-            console.log('  -> Direct chunk.getBlock:', chunkBlock?.name, 'stateId:', chunkBlock?.stateId)
-          } catch (chunkErr: any) {
-            console.log('  -> Direct chunk method error:', chunkErr?.message)
-          }
-
-          const blockBefore = bot.world.getBlock(packet.location)
-          console.log('  -> World.getBlock BEFORE update:', blockBefore?.name, 'stateId:', blockBefore?.stateId)
-          // Check section info from bot.game
-          const gameSectionY = Math.floor((y - (bot.game?.minY ?? -64)) / 16)
-          console.log('  -> bot.game: minY:', bot.game?.minY, 'worldHeight:', bot.game?.height, 'gameSectionY:', gameSectionY)
-          // Check after a short delay to see if mineflayer updates it
-          setTimeout(() => {
-            const blockAfter = bot.world.getBlock(packet.location)
-            console.log('  -> World.getBlock AFTER update:', blockAfter?.name, 'stateId:', blockAfter?.stateId)
-
-            // Also check chunk directly after
-            try {
-              const chunkStateIdAfter = column.getBlockStateId?.(posInChunk)
-              console.log('  -> Direct chunk.getBlockStateId AFTER:', chunkStateIdAfter)
-            } catch (e) {
-              console.log('  -> Direct chunk error AFTER:', e)
-            }
-          }, 50)
-        }
-      } catch (e) {
-        console.log('  -> Error checking world:', e)
-      }
-    }
-  })
-
-  // Log every 500 packets to track progress
-  let lastLoggedPacket = 0
-  let loadingScreenCleared = false
+  console.log('Starting MCPR replay from packet', startPacketIndex)
 
   // Analyze packet timing for diagnostics
-  if (isMcprReplay) {
-    const diffs = playPackets.filter(p => p.isFromServer).map(p => p.diff)
-    const totalTime = diffs.reduce((a, b) => a + b, 0)
-    const avgDiff = totalTime / diffs.length
-    const zeroDiffs = diffs.filter(d => d === 0).length
-    const smallDiffs = diffs.filter(d => d > 0 && d < 10).length
-    console.log('MCPR packet timing analysis:', {
-      totalPackets: diffs.length,
-      totalReplayTime: `${(totalTime / 1000).toFixed(1)}s`,
-      avgDiff: `${avgDiff.toFixed(1)}ms`,
-      zeroDiffs,
-      smallDiffs: `${smallDiffs} (<10ms)`,
-      currentSpeed: packetsReplayState.speed
-    })
-  }
+  const serverPackets = playPackets.slice(startPacketIndex).filter(p => p.isFromServer && p.params !== null)
+  let totalReplayTime = 0
+  const packetsWithTimestamp = serverPackets.map(packet => {
+    totalReplayTime += packet.diff
+    return { ...packet, timestamp: totalReplayTime }
+  })
 
-  // Helper to yield to browser for smooth rendering
-  const yieldToRenderer = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+  console.log('MCPR packet timing analysis:', {
+    totalPackets: packetsWithTimestamp.length,
+    totalReplayTime: `${(totalReplayTime / 1000).toFixed(1)}s`,
+    avgDiff: `${(totalReplayTime / packetsWithTimestamp.length).toFixed(1)}ms`,
+    currentSpeed: packetsReplayState.speed
+  })
 
-  // Track replay timing
-  let replayStartTime = performance.now()
-  let accumulatedReplayTime = 0 // How much "replay time" has passed
-  let lastYieldTime = performance.now()
+  // ============================================================
+  // TIMER-BASED DRIP SYSTEM - mimics real network event delivery
+  // ============================================================
 
-  for (const [i, packet] of playPackets.entries()) {
-    if (i < startPacketIndex) continue
+  let currentPacketIndex = 0
+  let replayStartTime = 0
+  let pausedAt = 0
+  let totalPausedTime = 0
+  let loadingScreenCleared = false
+  let lastLoggedIndex = 0
 
-    // Wait if paused
+  // Process packets that are "due" based on elapsed time
+  let replayRunning = true
+
+  const processPacketsDue = () => {
+    if (!replayRunning) return
+
     if (!packetsReplayState.isPlaying) {
-      await new Promise<void>(resolve => {
-        const interval = setInterval(() => {
-          if (packetsReplayState.isPlaying) {
-            clearInterval(interval)
-            resolve()
-          }
-        }, 100)
-      })
+      // Track when we paused
+      if (pausedAt === 0) {
+        pausedAt = performance.now()
+      }
+      requestAnimationFrame(processPacketsDue)
+      return
     }
 
-    if (packet.isFromServer) {
-      if (packet.params === null) continue
+    // If we just resumed from pause, account for paused time
+    if (pausedAt > 0) {
+      totalPausedTime += performance.now() - pausedAt
+      pausedAt = 0
+    }
 
-      // Add this packet's time to accumulated replay time
-      accumulatedReplayTime += packet.diff
+    const speed = Math.max(0.1, packetsReplayState.speed)
+    const elapsed = (performance.now() - replayStartTime - totalPausedTime) * speed
+
+    // Process packets that should have arrived, but limit time spent per frame
+    // This keeps TPS healthy by leaving time for physics ticks
+    const frameStartTime = performance.now()
+    const maxFrameTime = 8 // Max 8ms per frame for packet processing (leaves time for physics/render)
+
+    while (currentPacketIndex < packetsWithTimestamp.length) {
+      const packet = packetsWithTimestamp[currentPacketIndex]
+
+      // Check if this packet is due
+      if (packet.timestamp > elapsed) {
+        break // Not yet time for this packet
+      }
 
       // Process the packet
       playServerPacket(packet.name, packet.params)
+      currentPacketIndex++
+
+      // Update progress
+      packetsReplayState.progress.current = currentPacketIndex
 
       // Periodic logging
-      if (i - lastLoggedPacket >= 500) {
-        lastLoggedPacket = i
+      if (currentPacketIndex - lastLoggedIndex >= 500) {
+        lastLoggedIndex = currentPacketIndex
         const columnsCount = bot.world?.columns ? Object.keys(bot.world.columns).length : 0
-        console.log(`Packet progress: ${i}/${playPackets.length}, chunks in world: ${columnsCount}, map_chunk events: ${clientMapChunkCount}, setColumn calls: ${mapChunkCount}`)
+        console.log(`Packet progress: ${currentPacketIndex}/${packetsWithTimestamp.length}, chunks: ${columnsCount}`)
       }
 
       // Clear loading screen once chunks are loaded
@@ -795,38 +649,29 @@ const mainPacketsReplayer = async (
         }
       }
 
-      // Time-based playback - only wait when we've caught up to the target time
-      const speed = Math.max(0.1, packetsReplayState.speed)
-      const additionalDelay = ADDITIONAL_DELAY * (packetsReplayState.customButtons.packetsSenderDelay.state ? 1 : 0)
-      const targetRealTime = accumulatedReplayTime / speed
-      const actualRealTime = performance.now() - replayStartTime
-
-      // Only yield/wait if we're significantly ahead of schedule (>50ms of replay time)
-      // This batches packets together for better performance
-      if (targetRealTime > actualRealTime + 50) {
-        const waitTime = Math.min(targetRealTime - actualRealTime, 100) + additionalDelay
-        if (waitTime > 10) {
-          await new Promise(resolve => setTimeout(resolve, waitTime))
-          lastYieldTime = performance.now()
-        }
-      }
-
-      // Safety yield every 100 packets to prevent browser freezing on dense sections
-      if (i % 100 === 0) {
-        const now = performance.now()
-        if (now - lastYieldTime > 50) {
-          lastYieldTime = now
-          await yieldToRenderer()
-        }
+      // Time-based limit: don't block for more than maxFrameTime
+      if (performance.now() - frameStartTime > maxFrameTime) {
+        break
       }
     }
+
+    // Check if replay is complete
+    if (currentPacketIndex >= packetsWithTimestamp.length) {
+      replayRunning = false
+      const finalColumnsCount = bot.world?.columns ? Object.keys(bot.world.columns).length : 0
+      console.log(`Replay finished - chunks in world: ${finalColumnsCount}`)
+      return
+    }
+
+    // Schedule next frame - requestAnimationFrame syncs with browser's render cycle
+    requestAnimationFrame(processPacketsDue)
   }
 
-  // Final stats
-  const finalColumnsCount = bot.world?.columns ? Object.keys(bot.world.columns).length : 0
-  console.log(`Replay finished - final stats: chunks in world: ${finalColumnsCount}, map_chunk events: ${clientMapChunkCount}, setColumn calls: ${mapChunkCount}`)
-  bot._client.off('map_chunk', mapChunkListener)
-  console.log('Replay finished')
+  // Start the timer-based replay using requestAnimationFrame
+  replayStartTime = performance.now()
+  requestAnimationFrame(processPacketsDue)
+
+  console.log('Started rAF-based packet replay (synced with browser render cycle)')
 }
 
 export const switchGameMode = (gameMode: GameMode) => {
