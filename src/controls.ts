@@ -1111,7 +1111,7 @@ export const requestMicPermission = async (): Promise<MediaStream | null> => {
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
-        sampleRate: { ideal: 48000 },
+        sampleRate: { ideal: 48_000 },
         channelCount: { ideal: 2 },
       },
     })
@@ -1424,7 +1424,7 @@ const startCanvasRecording = async () => {
     // The audio destination provides a constant audio track that we can connect/disconnect mic to
     // Use high sample rate and playback latency hint for better quality
     const audioContext = new AudioContext({
-      sampleRate: 48000,
+      sampleRate: 48_000,
       latencyHint: 'playback'
     })
 

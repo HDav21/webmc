@@ -1082,11 +1082,12 @@ export class Entities {
     return texture
   }
 
-  updateEntityEquipment(entityId: string | number) {
+  updateEntityEquipment (entityId: string | number) {
     const entityMesh = this.entities[entityId]
     if (!entityMesh) return
 
     const entity = bot?.entities?.[entityId]
+    // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
     if (!entity || !entity.equipment) return
 
     // Players use arm bones, other entities use bone_*item
@@ -1113,7 +1114,7 @@ export class Entities {
     }
   }
 
-  addPlayerHeldItem(entityMesh: SceneEntity, hand: 'left' | 'right', item: Item) {
+  addPlayerHeldItem (entityMesh: SceneEntity, hand: 'left' | 'right', item: Item) {
     const armName = `${hand}Arm`
 
     // remove existing held item from arm (only remove items we've added, marked with isHeldItem)
@@ -1132,7 +1133,7 @@ export class Entities {
       entityMesh.traverse(c => {
         if (c.name === armName) {
           const group = new THREE.Object3D()
-          group.userData.isHeldItem = true  // Mark this as a held item so we can remove it later
+          group.userData.isHeldItem = true // Mark this as a held item so we can remove it later
           group['additionalCleanup'] = () => {
             itemObject.itemsTexture?.dispose()
             itemObject.itemsTextureFlipped?.dispose()
@@ -1145,10 +1146,10 @@ export class Entities {
 
           group.rotation.z = -Math.PI / 16
           if (itemObject.isBlock) {
-            group.rotation.y = Math.PI / 4 + Math.PI  // Flip 180 degrees
+            group.rotation.y = Math.PI / 4 + Math.PI // Flip 180 degrees
           } else {
             itemMesh.rotation.z = -Math.PI / 4
-            group.rotation.y = Math.PI / 2 + Math.PI  // Flip 180 degrees
+            group.rotation.y = Math.PI / 2 + Math.PI // Flip 180 degrees
             group.scale.multiplyScalar(2)
           }
           group.add(itemMesh)
@@ -1232,6 +1233,7 @@ function getSpecificEntityMetadata<T extends keyof EntityMetadataVersions> (name
   return getGeneralEntitiesMetadata(entity) as any
 }
 
+// eslint-disable-next-line max-params
 function addArmorModel (worldRenderer: WorldRendererThree, entityMesh: THREE.Object3D, slotType: string, item: Item, layer = 1, overlay = false) {
   if (!item) {
     removeArmorModel(entityMesh, slotType)
