@@ -11,16 +11,16 @@ import type { MesherGeometryOutput } from '../renderer/viewer/lib/mesher/shared'
 const DB_NAME = 'minecraft-web-client-chunk-cache'
 const DB_VERSION = 1
 const STORE_NAME = 'chunk-geometry'
-const MAX_CACHE_SIZE = 500 // Maximum number of cached sections
-const MAX_MEMORY_CACHE_SIZE = 100 // Maximum number of in-memory cached sections
+const MAX_CACHE_SIZE = 500
+const MAX_MEMORY_CACHE_SIZE = 100
 
 export interface CachedGeometry {
-  sectionKey: string           // "16,32,16"
-  chunkKey: string             // "16,16"
-  blockHash: string            // Hash of block state IDs
+  sectionKey: string
+  chunkKey: string
+  blockHash: string
   geometry: SerializedGeometry
-  lastAccessed: number         // Timestamp for LRU eviction
-  serverAddress?: string       // Server identifier for scoping
+  lastAccessed: number
+  serverAddress?: string
 }
 
 // Serializable version of MesherGeometryOutput
@@ -50,7 +50,7 @@ export interface SerializedGeometry {
 
 class ChunkGeometryCache {
   private db: IDBDatabase | null = null
-  private memoryCache = new Map<string, CachedGeometry>()
+  private readonly memoryCache = new Map<string, CachedGeometry>()
   private serverSupportsChannel = false
   private serverAddress: string | undefined
   private initPromise: Promise<void> | null = null
@@ -113,7 +113,7 @@ class ChunkGeometryCache {
       : new Uint16Array(blockStateIds)
 
     const buffer = await crypto.subtle.digest('SHA-256', data.buffer)
-    const hashArray = Array.from(new Uint8Array(buffer))
+    const hashArray = [...new Uint8Array(buffer)]
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
   }
 
@@ -132,15 +132,15 @@ class ChunkGeometryCache {
       sx: geometry.sx,
       sy: geometry.sy,
       sz: geometry.sz,
-      positions: Array.from(geometry.positions),
-      normals: Array.from(geometry.normals),
-      colors: Array.from(geometry.colors),
-      uvs: Array.from(geometry.uvs),
+      positions: [...geometry.positions],
+      normals: [...geometry.normals],
+      colors: [...geometry.colors],
+      uvs: [...geometry.uvs],
       t_positions: geometry.t_positions,
       t_normals: geometry.t_normals,
       t_colors: geometry.t_colors,
       t_uvs: geometry.t_uvs,
-      indices: Array.from(geometry.indices),
+      indices: [...geometry.indices],
       indicesCount: geometry.indicesCount,
       using32Array: geometry.using32Array,
       tiles: geometry.tiles,
@@ -302,7 +302,7 @@ class ChunkGeometryCache {
 
     // Evict oldest entries if cache is full
     if (this.memoryCache.size > MAX_MEMORY_CACHE_SIZE) {
-      const entries = Array.from(this.memoryCache.entries())
+      const entries = [...this.memoryCache.entries()]
       entries.sort((a, b) => a[1].lastAccessed - b[1].lastAccessed)
 
       // Remove oldest 20% of entries
@@ -313,7 +313,7 @@ class ChunkGeometryCache {
     }
   }
 
-  private getFromIndexedDB (sectionKey: string): Promise<CachedGeometry | null> {
+  private async getFromIndexedDB (sectionKey: string): Promise<CachedGeometry | null> {
     return new Promise((resolve, reject) => {
       if (!this.db) {
         resolve(null)
@@ -329,7 +329,7 @@ class ChunkGeometryCache {
     })
   }
 
-  private saveToIndexedDB (entry: CachedGeometry): Promise<void> {
+  private async saveToIndexedDB (entry: CachedGeometry): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.db) {
         resolve()
@@ -345,7 +345,7 @@ class ChunkGeometryCache {
     })
   }
 
-  private deleteFromIndexedDB (sectionKey: string): Promise<void> {
+  private async deleteFromIndexedDB (sectionKey: string): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.db) {
         resolve()
@@ -361,7 +361,7 @@ class ChunkGeometryCache {
     })
   }
 
-  private clearIndexedDB (): Promise<void> {
+  private async clearIndexedDB (): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.db) {
         resolve()
@@ -396,7 +396,7 @@ class ChunkGeometryCache {
         const index = store.index('lastAccessed')
         const cursorRequest = index.openCursor()
         let deleted = 0
-        const toDelete = count - MAX_CACHE_SIZE + Math.floor(MAX_CACHE_SIZE * 0.1) // Remove extra 10%
+        const toDelete = count - MAX_CACHE_SIZE + Math.floor(MAX_CACHE_SIZE * 0.1)
 
         cursorRequest.onsuccess = (event) => {
           const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
