@@ -112,7 +112,7 @@ if (!isPlayground) {
   void appLoadBackend()
 }
 if (isPlayground) {
-  void import('renderer/playground/playground')
+  void import('minecraft-renderer/src/playground/playground')
 }
 
 void registerServiceWorker().then(() => {
@@ -826,7 +826,6 @@ export async function connect (connectOptions: ConnectOptions) {
 
       console.log('bot spawned - starting viewer')
       await appViewer.startWorld(bot.world, renderDistance)
-      appViewer.worldView!.listenToBot(bot)
       if (appViewer.backend) {
         void appViewer.worldView!.init(bot.entity.position)
       }
