@@ -53,10 +53,10 @@ export function clearAllBlockStates (): void {
  */
 export function computeBlockHash (blockStateIds: Uint16Array): string {
   // Use FNV-1a hash for fast hashing
-  let hash = 2166136261 // FNV offset basis
-  for (let i = 0; i < blockStateIds.length; i++) {
-    hash ^= blockStateIds[i]
-    hash = Math.imul(hash, 16777619) // FNV prime
+  let hash = 2_166_136_261 // FNV offset basis
+  for (const stateId of blockStateIds) {
+    hash ^= stateId
+    hash = Math.imul(hash, 16_777_619) // FNV prime
   }
   // Convert to unsigned 32-bit and then to hex
   return (hash >>> 0).toString(16).padStart(8, '0')
@@ -67,10 +67,10 @@ export function computeBlockHash (blockStateIds: Uint16Array): string {
  * Use this for more secure hashing when persistent storage is used
  */
 export async function computeBlockHashAsync (blockStateIds: Uint16Array): Promise<string> {
-  if (typeof crypto !== 'undefined' && crypto.subtle) {
+  if (crypto?.subtle) {
     try {
       const buffer = await crypto.subtle.digest('SHA-256', blockStateIds.buffer)
-      const hashArray = Array.from(new Uint8Array(buffer))
+      const hashArray = [...new Uint8Array(buffer)]
       // Use first 8 bytes for a shorter hash
       return hashArray.slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('')
     } catch {
@@ -85,17 +85,8 @@ export async function computeBlockHashAsync (blockStateIds: Uint16Array): Promis
  * Check if geometry data is valid and can be cached
  */
 export function isGeometryCacheable (geometry: MesherGeometryOutput): boolean {
-  // Don't cache empty geometry
-  if (!geometry.positions || geometry.positions.length === 0) {
-    return false
-  }
-
-  // Don't cache geometry with errors
-  if (geometry.hadErrors) {
-    return false
-  }
-
-  return true
+  // Don't cache empty geometry or geometry with errors
+  return Boolean(geometry.positions?.length) && !geometry.hadErrors
 }
 
 /**
