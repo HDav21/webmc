@@ -8,6 +8,7 @@ import { registerIframeChannels } from './core/iframeChannels'
 import { serverSafeSettings } from './defaultOptions'
 import { lastConnectOptions } from './appStatus'
 import { gameAdditionalState } from './globalState'
+import { chunkGeometryCache } from './chunkGeometryCache'
 
 const isWebSocketServer = (server: string | undefined) => {
   if (!server) return false
@@ -35,6 +36,7 @@ export default () => {
       registerIframeChannels()
       registerServerSettingsChannel()
       registerTypingIndicatorChannel()
+      registerChunkCacheChannel()
     })
   })
 }
@@ -648,6 +650,64 @@ const registerTypingIndicatorChannel = () => {
       gameAdditionalState.typingUsers = gameAdditionalState.typingUsers.filter(user => user.username !== username)
     }
   })
+}
+
+/**
+ * Register chunk-cache channel for server-side chunk geometry caching support
+ * When a server supports this channel, geometry cache is persisted to IndexedDB
+ */
+const registerChunkCacheChannel = () => {
+  const CHANNEL_NAME = 'minecraft-web-client:chunk-cache'
+
+  // Initialize the cache system
+  void chunkGeometryCache.init()
+
+  // Packet structure for chunk cache data
+  const packetStructure = [
+    'container',
+    [
+      {
+        name: 'x',
+        type: 'i32'
+      },
+      {
+        name: 'z',
+        type: 'i32'
+      },
+      {
+        name: 'cacheEnabled',
+        type: 'bool'
+      }
+    ]
+  ]
+
+  // Try to register the channel - if server doesn't support it, cache will use memory-only mode
+  try {
+    bot._client.registerChannel(CHANNEL_NAME, packetStructure, true)
+
+    // Listen for server's response indicating chunk-cache support
+    bot._client.on(CHANNEL_NAME as any, (data) => {
+      if (data.cacheEnabled) {
+        const serverAddress = lastConnectOptions.value?.server || 'unknown'
+        chunkGeometryCache.setServerSupportsChannel(true, serverAddress)
+        console.debug(`Server ${serverAddress} supports chunk-cache channel - using IndexedDB for persistent caching`)
+      }
+    })
+
+    // Send initial message to probe for server support
+    // Servers that support this channel will respond with cacheEnabled: true
+    bot._client.writeChannel(CHANNEL_NAME, {
+      x: 0,
+      z: 0,
+      cacheEnabled: true
+    })
+
+    console.debug(`Registered ${CHANNEL_NAME} channel - probing for server support`)
+  } catch (error) {
+    // Server doesn't support the channel - use memory-only cache
+    console.debug('Server does not support chunk-cache channel - using memory-only cache')
+    chunkGeometryCache.setServerSupportsChannel(false)
+  }
 }
 
 function getCurrentTopDomain (): string {

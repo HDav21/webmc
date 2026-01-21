@@ -12,10 +12,11 @@ import type { ResourcesManagerTransferred } from '../../../src/resourcesManager'
 import { DisplayWorldOptions, GraphicsInitOptions, RendererReactiveState } from '../../../src/appViewer'
 import { SoundSystem } from '../three/threeJsSound'
 import { buildCleanupDecorator } from './cleanupDecorator'
-import { HighestBlockInfo, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig, MesherMainEvent } from './mesher/shared'
+import { HighestBlockInfo, CustomBlockModels, BlockStateModelInfo, getBlockAssetsCacheKey, MesherConfig, MesherMainEvent, MesherGeometryOutput } from './mesher/shared'
 import { chunkPos } from './simpleUtils'
 import { addNewStat, removeAllStats, updatePanesVisibility, updateStatText } from './ui/newStats'
 import { WorldDataEmitterWorker } from './worldDataEmitter'
+import { computeBlockHash, storeSectionBlockStates, clearSectionBlockStates, clearAllBlockStates, getSectionBlockStates, isGeometryCacheable } from './chunkCacheIntegration'
 import { getPlayerStateUtils, PlayerStateReactive, PlayerStateRenderer, PlayerStateUtils } from './basePlayerState'
 import { MesherLogReader } from './mesherlogReader'
 import { setSkinsConfig } from './utils/skins'
@@ -197,6 +198,14 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   backendInfoReport = '-'
   chunksFullInfo = '-'
   workerCustomHandleTime = 0
+
+  // Chunk geometry cache properties
+  @worldCleanup()
+  geometryCache = new Map<string, { hash: string; geometry: MesherGeometryOutput }>()
+  @worldCleanup()
+  sectionHashes = new Map<string, string>()
+  geometryCacheHits = 0
+  geometryCacheMisses = 0
 
   get version () {
     return this.displayOptions.version
@@ -407,6 +416,16 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
       this.geometryReceiveCount[data.workerIndex]++
       const chunkCoords = data.key.split(',').map(Number)
       this.lastChunkDistance = Math.max(...this.getDistance(new Vec3(chunkCoords[0], 0, chunkCoords[2])))
+
+      // Cache the geometry for later reuse
+      if (isGeometryCacheable(data.geometry)) {
+        const sectionHash = this.sectionHashes.get(data.key) || 'unknown'
+        this.geometryCache.set(data.key, {
+          hash: sectionHash,
+          geometry: data.geometry
+        })
+        this.geometryCacheMisses++
+      }
     }
     if (data.type === 'sectionFinished') { // on after load & unload section
       this.logWorkerWork(`<- ${data.workerIndex} sectionFinished ${data.key} ${JSON.stringify({ processTime: data.processTime })}`)
@@ -848,10 +867,22 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     })
   }
 
+  /**
+   * Invalidate cached geometry for a section (called when blocks change)
+   */
+  invalidateSectionCache (pos: Vec3): void {
+    const sectionKey = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.y / 16) * 16},${Math.floor(pos.z / 16) * 16}`
+    this.geometryCache.delete(sectionKey)
+    clearSectionBlockStates(sectionKey)
+  }
+
   setBlockStateIdInner (pos: Vec3, stateId: number | undefined, needAoRecalculation = true) {
     const chunkKey = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.z / 16) * 16}`
     const blockPosKey = `${pos.x},${pos.y},${pos.z}`
     const customBlockModels = this.protocolCustomBlocks.get(chunkKey) || {}
+
+    // Invalidate cache for the affected section since a block changed
+    this.invalidateSectionCache(pos)
 
     for (const worker of this.workers) {
       worker.postMessage({
@@ -930,6 +961,32 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     return Promise.all(data)
   }
 
+  /**
+   * Try to use cached geometry for a section instead of regenerating
+   * Returns true if cache was used, false otherwise
+   */
+  tryUseCachedGeometry (sectionKey: string): boolean {
+    const cached = this.geometryCache.get(sectionKey)
+    if (!cached) return false
+
+    // Use the cached geometry by simulating a worker message
+    this.geometryCacheHits++
+    const fakeWorkerMessage = {
+      type: 'geometry' as const,
+      key: sectionKey,
+      geometry: cached.geometry,
+      workerIndex: -1 // Mark as cached
+    }
+
+    // Process the cached geometry
+    this.handleWorkerMessage(fakeWorkerMessage as any)
+
+    // Emit sectionFinished for tracking
+    this.finishedSections[sectionKey] = true
+
+    return true
+  }
+
   setSectionDirty (pos: Vec3, value = true, useChangeWorker = false) { // value false is used for unloading chunks
     if (!this.forceCallFromMesherReplayer && this.mesherLogReader) return
 
@@ -939,6 +996,12 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     // todo shouldnt we check loadedChunks instead?
     if (!this.workers.length || distance[0] > this.viewDistance || distance[1] > this.viewDistance) return
     const key = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.y / 16) * 16},${Math.floor(pos.z / 16) * 16}`
+
+    // Try to use cached geometry if available (only when setting dirty, not when clearing)
+    if (value && this.tryUseCachedGeometry(key)) {
+      this.logWorkerWork(() => `<- cache hit for section ${key}`)
+      return
+    }
     // if (this.sectionsOutstanding.has(key)) return
     this.renderUpdateEmitter.emit('dirty', pos, value)
     // Dispatch sections to workers based on position
