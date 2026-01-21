@@ -298,13 +298,18 @@ class ChunkGeometryCache {
    * Clear all cached geometry for the current server
    */
   async clear (): Promise<void> {
-    // Clear memory cache
-    this.memoryCache.clear()
+    // Clear memory cache entries for current server only
+    const serverPrefix = `${this.serverAddress || 'local'}:`
+    for (const key of this.memoryCache.keys()) {
+      if (key.startsWith(serverPrefix)) {
+        this.memoryCache.delete(key)
+      }
+    }
 
     // Clear IndexedDB entries for current server
     if (this.db) {
       try {
-        await this.clearIndexedDB()
+        await this.clearIndexedDBForServer()
       } catch (error) {
         console.warn('Failed to clear IndexedDB:', error)
       }
@@ -378,7 +383,7 @@ class ChunkGeometryCache {
     })
   }
 
-  private async clearIndexedDB (): Promise<void> {
+  private async clearIndexedDBForServer (): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.db) {
         resolve()
@@ -387,10 +392,23 @@ class ChunkGeometryCache {
 
       const transaction = this.db.transaction(STORE_NAME, 'readwrite')
       const store = transaction.objectStore(STORE_NAME)
-      const request = store.clear()
+      const index = store.index('serverAddress')
+      const serverAddr = this.serverAddress
 
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
+      // Use cursor to delete only entries for current server
+      const cursorRequest = index.openCursor(IDBKeyRange.only(serverAddr))
+
+      cursorRequest.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
+        if (cursor) {
+          cursor.delete()
+          cursor.continue()
+        } else {
+          resolve()
+        }
+      }
+
+      cursorRequest.onerror = () => reject(cursorRequest.error)
     })
   }
 

@@ -115,3 +115,22 @@ export function createSectionKey (x: number, y: number, z: number): string {
 export function createChunkKey (x: number, z: number): string {
   return `${x},${z}`
 }
+
+/**
+ * Compute a hash from raw chunk data (ArrayBuffer or array)
+ * Uses FNV-1a for fast hashing
+ */
+export function computeChunkDataHash (chunkData: ArrayBuffer | ArrayLike<number>): string {
+  // Convert to Uint8Array - works with both ArrayBuffer and ArrayLike<number>
+  const data = new Uint8Array(
+    chunkData instanceof ArrayBuffer ? chunkData : [...chunkData as Iterable<number>]
+  )
+
+  // Use FNV-1a hash
+  let hash = 2_166_136_261 // FNV offset basis
+  for (const byte of data) {
+    hash ^= byte
+    hash = Math.imul(hash, 16_777_619) // FNV prime
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0')
+}

@@ -16,7 +16,7 @@ import { HighestBlockInfo, CustomBlockModels, BlockStateModelInfo, getBlockAsset
 import { chunkPos } from './simpleUtils'
 import { addNewStat, removeAllStats, updatePanesVisibility, updateStatText } from './ui/newStats'
 import { WorldDataEmitterWorker } from './worldDataEmitter'
-import { computeBlockHash, storeSectionBlockStates, clearSectionBlockStates, clearAllBlockStates, getSectionBlockStates, isGeometryCacheable } from './chunkCacheIntegration'
+import { computeBlockHash, storeSectionBlockStates, clearSectionBlockStates, clearAllBlockStates, getSectionBlockStates, isGeometryCacheable, computeChunkDataHash } from './chunkCacheIntegration'
 import { getPlayerStateUtils, PlayerStateReactive, PlayerStateRenderer, PlayerStateUtils } from './basePlayerState'
 import { MesherLogReader } from './mesherlogReader'
 import { setSkinsConfig } from './utils/skins'
@@ -664,6 +664,13 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     const chunkKey = `${x},${z}`
     const customBlockModels = this.protocolCustomBlocks.get(chunkKey)
 
+    // Compute hash from chunk data for cache validation
+    const chunkHash = computeChunkDataHash(chunk)
+    for (let y = this.worldMinYRender; y < this.worldSizeParams.worldHeight; y += 16) {
+      const sectionKey = `${x},${y},${z}`
+      this.sectionHashes.set(sectionKey, chunkHash)
+    }
+
     for (const worker of this.workers) {
       worker.postMessage({
         type: 'chunk',
@@ -873,6 +880,7 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
   invalidateSectionCache (pos: Vec3): void {
     const sectionKey = `${Math.floor(pos.x / 16) * 16},${Math.floor(pos.y / 16) * 16},${Math.floor(pos.z / 16) * 16}`
     this.geometryCache.delete(sectionKey)
+    this.sectionHashes.delete(sectionKey)
     clearSectionBlockStates(sectionKey)
   }
 
@@ -985,8 +993,16 @@ export abstract class WorldRendererCommon<WorkerSend = any, WorkerReceive = any>
     // Process the cached geometry
     this.handleWorkerMessage(fakeWorkerMessage as any)
 
-    // Emit sectionFinished for tracking
-    this.finishedSections[sectionKey] = true
+    // Complete the sectionFinished workflow for proper tracking
+    // Simulate the sectionsWaiting tracking that would happen for a real worker request
+    this.sectionsWaiting.set(sectionKey, (this.sectionsWaiting.get(sectionKey) ?? 0) + 1)
+    // Process sectionFinished through handleMessage for proper bookkeeping
+    this.handleMessage({
+      type: 'sectionFinished',
+      key: sectionKey,
+      workerIndex: -1,
+      processTime: 0
+    })
 
     return true
   }
