@@ -123,7 +123,8 @@ export function createChunkKey (x: number, z: number): string {
 export function computeChunkDataHash (chunkData: ArrayBuffer | ArrayLike<number>): string {
   // Convert to Uint8Array - works with both ArrayBuffer and ArrayLike<number>
   const data = new Uint8Array(
-    chunkData instanceof ArrayBuffer ? chunkData : [...chunkData as Iterable<number>]
+    // eslint-disable-next-line unicorn/prefer-spread -- ArrayLike is not Iterable
+    chunkData instanceof ArrayBuffer ? chunkData : Array.from(chunkData)
   )
 
   // Use FNV-1a hash
