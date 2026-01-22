@@ -9,6 +9,7 @@ import { serverSafeSettings } from './defaultOptions'
 import { lastConnectOptions } from './appStatus'
 import { gameAdditionalState } from './globalState'
 import { chunkGeometryCache } from './chunkGeometryCache'
+import { chunkPacketCache, CachedChunkInfo } from './chunkPacketCache'
 
 const isWebSocketServer = (server: string | undefined) => {
   if (!server) return false
@@ -653,63 +654,210 @@ const registerTypingIndicatorChannel = () => {
 }
 
 /**
- * Register chunk-cache channel for server-side chunk geometry caching support
- * When a server supports this channel, geometry cache is persisted to IndexedDB
+ * Register chunk-cache channel for server-side chunk caching protocol
+ *
+ * Protocol flow:
+ * 1. On login, client sends all cached chunks {x, z, hash} to server via "cached-chunks" message
+ * 2. For each chunk the client needs:
+ *    - If server has same hash: sends {x, z, cacheHit: true} - client uses cached map_chunk data
+ *    - If server has different/no hash: sends {x, z, hash: "..."} then the actual map_chunk packet
+ * 3. Client caches new map_chunk packets with their hash for future sessions
+ *
+ * This saves network bandwidth by not re-sending unchanged chunk data.
  */
 const registerChunkCacheChannel = () => {
   const CHANNEL_NAME = 'minecraft-web-client:chunk-cache'
 
-  // Initialize the cache system
+  // Initialize both cache systems
   void chunkGeometryCache.init()
+  void chunkPacketCache.init()
 
-  // Packet structure for chunk cache data
-  const packetStructure = [
+  // Get server address for cache scoping
+  const serverAddress = lastConnectOptions.value?.server || 'unknown'
+
+  // Packet structure for server -> client messages
+  // Server sends either:
+  // - {x, z, cacheHit: true, hash: ""} for cache hits
+  // - {x, z, cacheHit: false, hash: "..."} before sending map_chunk
+  const serverToClientStructure = [
     'container',
     [
-      {
-        name: 'x',
-        type: 'i32'
-      },
-      {
-        name: 'z',
-        type: 'i32'
-      },
-      {
-        name: 'cacheEnabled',
-        type: 'bool'
-      }
+      { name: 'x', type: 'i32' },
+      { name: 'z', type: 'i32' },
+      { name: 'cacheHit', type: 'bool' },
+      { name: 'hash', type: ['pstring', { countType: 'i16' }] }
     ]
   ]
 
-  // Get server address before probing so it's available for both success and failure cases
-  const serverAddress = lastConnectOptions.value?.server || 'unknown'
+  // Packet structure for client -> server messages (cached chunks list)
+  // Client sends: {chunksJson: "[{x, z, hash}, ...]"}
+  const clientToServerStructure = [
+    'container',
+    [
+      { name: 'chunksJson', type: ['pstring', { countType: 'i32' }] }
+    ]
+  ]
 
-  // Try to register the channel - if server doesn't support it, cache will use memory-only mode
+  // Track pending chunk hashes from server (for chunks we'll receive via map_chunk)
+  const pendingChunkHashes = new Map<string, string>()
+
+  // Try to register the channel
   try {
-    bot._client.registerChannel(CHANNEL_NAME, packetStructure, true)
+    // Register with server->client structure for receiving
+    bot._client.registerChannel(CHANNEL_NAME, serverToClientStructure, true)
 
-    // Listen for server's response indicating chunk-cache support
-    bot._client.on(CHANNEL_NAME as any, (data) => {
-      if (data.cacheEnabled) {
-        chunkGeometryCache.setServerSupportsChannel(true, serverAddress)
-        console.debug(`Server ${serverAddress} supports chunk-cache channel - using IndexedDB for persistent caching`)
+    // Listen for server responses
+    bot._client.on(CHANNEL_NAME as any, async (data: { x: number; z: number; cacheHit: boolean; hash: string }) => {
+      const chunkKey = `${data.x},${data.z}`
+
+      if (data.cacheHit) {
+        // Server confirmed cache hit - use our cached map_chunk data
+        console.debug(`Cache hit for chunk ${chunkKey}`)
+
+        const cached = await chunkPacketCache.get(data.x, data.z)
+        if (cached) {
+          // Emit the cached map_chunk packet as if we received it from server
+          // This simulates receiving the packet without network transfer
+          try {
+            // The packet data needs to be deserialized and emitted
+            // We emit it through the client's packet handling
+            const packetBuffer = Buffer.from(cached.packetData)
+            bot._client.emit('packet', deserializeMapChunkPacket(packetBuffer), { name: 'map_chunk' })
+            console.debug(`Emitted cached map_chunk for ${chunkKey}`)
+          } catch (error) {
+            console.warn(`Failed to emit cached chunk ${chunkKey}:`, error)
+            // Request fresh chunk from server by invalidating cache
+            await chunkPacketCache.invalidate(data.x, data.z)
+          }
+        } else {
+          console.warn(`Cache hit but no cached data for ${chunkKey} - server/client out of sync`)
+        }
+      } else if (data.hash) {
+        // Server will send map_chunk next - store hash for caching
+        pendingChunkHashes.set(chunkKey, data.hash)
+        console.debug(`Expecting map_chunk for ${chunkKey} with hash ${data.hash}`)
       }
     })
 
-    // Send initial message to probe for server support
-    // Servers that support this channel will respond with cacheEnabled: true
-    bot._client.writeChannel(CHANNEL_NAME, {
-      x: 0,
-      z: 0,
-      cacheEnabled: true
+    // Intercept map_chunk packets to cache them
+    bot._client.on('packet', async (packetData: any, meta: { name: string }) => {
+      if (meta.name !== 'map_chunk') return
+
+      const chunkKey = `${packetData.x},${packetData.z}`
+      const pendingHash = pendingChunkHashes.get(chunkKey)
+
+      if (pendingHash) {
+        // We have a hash from the server - cache this chunk
+        pendingChunkHashes.delete(chunkKey)
+
+        try {
+          // Serialize the packet data for caching
+          const serialized = serializeMapChunkPacket(packetData)
+          await chunkPacketCache.set(packetData.x, packetData.z, serialized, pendingHash)
+          console.debug(`Cached map_chunk for ${chunkKey} with hash ${pendingHash}`)
+        } catch (error) {
+          console.warn(`Failed to cache chunk ${chunkKey}:`, error)
+        }
+      } else {
+        // No pending hash - server doesn't support caching for this chunk
+        // or this is a chunk update, compute hash and cache anyway for next session
+        try {
+          const serialized = serializeMapChunkPacket(packetData)
+          const hash = chunkPacketCache.computePacketHash(serialized)
+          await chunkPacketCache.set(packetData.x, packetData.z, serialized, hash)
+        } catch (error) {
+          // Silently fail - caching is optional
+        }
+      }
     })
 
-    console.debug(`Registered ${CHANNEL_NAME} channel - probing for server support`)
+    // Set up cache with server info
+    chunkPacketCache.setServerInfo(serverAddress, true)
+    chunkGeometryCache.setServerSupportsChannel(true, serverAddress)
+
+    // Send cached chunks list to server
+    void sendCachedChunksList()
+
+    console.debug(`Registered ${CHANNEL_NAME} channel - server supports chunk caching`)
   } catch (error) {
-    // Server doesn't support the channel - use memory-only cache with server address for scoping
+    // Server doesn't support the channel - use memory-only cache
     console.debug('Server does not support chunk-cache channel - using memory-only cache')
+    chunkPacketCache.setServerInfo(serverAddress, false)
     chunkGeometryCache.setServerSupportsChannel(false, serverAddress)
   }
+
+  /**
+   * Send list of all cached chunks to server on login
+   */
+  async function sendCachedChunksList (): Promise<void> {
+    try {
+      const cachedChunks = await chunkPacketCache.getCachedChunksInfo()
+
+      if (cachedChunks.length === 0) {
+        console.debug('No cached chunks to send to server')
+        return
+      }
+
+      // Send as JSON array
+      const chunksJson = JSON.stringify(cachedChunks)
+
+      // Use a different channel name for client->server to avoid structure conflict
+      const CLIENT_CHANNEL = 'minecraft-web-client:chunk-cache-client'
+      try {
+        bot._client.registerChannel(CLIENT_CHANNEL, clientToServerStructure, true)
+        bot._client.writeChannel(CLIENT_CHANNEL, { chunksJson })
+        console.debug(`Sent ${cachedChunks.length} cached chunk hashes to server`)
+      } catch {
+        // Server might not have this channel registered - that's ok
+        console.debug('Could not send cached chunks list - server may not support client->server channel')
+      }
+    } catch (error) {
+      console.warn('Failed to send cached chunks list:', error)
+    }
+  }
+}
+
+/**
+ * Serialize a map_chunk packet to ArrayBuffer for caching
+ * This creates a reproducible byte representation that can be hashed
+ */
+function serializeMapChunkPacket (packet: any): ArrayBuffer {
+  // For now, use JSON serialization as a simple approach
+  // In production, you'd want to use the actual packet serialization
+  const json = JSON.stringify({
+    x: packet.x,
+    z: packet.z,
+    groundUp: packet.groundUp,
+    bitMap: packet.bitMap,
+    biomes: packet.biomes ? [...packet.biomes] : undefined,
+    heightmaps: packet.heightmaps,
+    chunkData: packet.chunkData ? [...new Uint8Array(packet.chunkData)] : undefined,
+    blockEntities: packet.blockEntities
+  })
+
+  const encoder = new TextEncoder()
+  return encoder.encode(json).buffer
+}
+
+/**
+ * Deserialize a cached map_chunk packet from ArrayBuffer
+ */
+function deserializeMapChunkPacket (buffer: Buffer): any {
+  const decoder = new TextDecoder()
+  const json = decoder.decode(buffer)
+  const parsed = JSON.parse(json)
+
+  // Reconstruct Buffer for chunkData
+  if (parsed.chunkData) {
+    parsed.chunkData = Buffer.from(parsed.chunkData)
+  }
+
+  // Reconstruct biomes array if present
+  if (parsed.biomes) {
+    parsed.biomes = new Int32Array(parsed.biomes)
+  }
+
+  return parsed
 }
 
 function getCurrentTopDomain (): string {
