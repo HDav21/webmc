@@ -1096,6 +1096,16 @@ export const getRecordingStatus = () => {
   return recordingState.isRecording
 }
 
+export const getRecordingAudioDestination = (): { context: AudioContext; destination: MediaStreamAudioDestinationNode } | null => {
+  if (recordingState.isRecording && recordingState.audioContext && recordingState.audioDestination) {
+    return {
+      context: recordingState.audioContext,
+      destination: recordingState.audioDestination
+    }
+  }
+  return null
+}
+
 export const requestMicPermission = async (): Promise<MediaStream | null> => {
   try {
     // reuse existing stream if we already have one

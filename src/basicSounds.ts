@@ -2,9 +2,11 @@ import { subscribeKey } from 'valtio/utils'
 import { options } from './optionsStorage'
 import { isCypress } from './standaloneUtils'
 import { reportWarningOnce } from './utils'
+import { getRecordingAudioDestination } from './controls'
 
 let audioContext: AudioContext
-const sounds: Record<string, any> = {}
+const sounds: Record<string, AudioBuffer> = {}
+const soundArrayBuffers: Record<string, ArrayBuffer> = {} // Store raw data for re-decoding
 
 // Track currently playing sounds and their gain nodes
 const activeSounds: Array<{ source: AudioBufferSourceNode; gainNode: GainNode; volumeMultiplier: number }> = []
@@ -33,6 +35,9 @@ export async function loadSound (path: string, contents = path) {
       return
     }
     const arrayBuffer = await res.arrayBuffer()
+
+    // Store raw array buffer for potential re-decoding (e.g., for recording)
+    soundArrayBuffers[path] = arrayBuffer.slice(0) // Clone it since decodeAudioData detaches it
 
     // Decode the audio data immediately
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
@@ -63,10 +68,15 @@ export const loadOrPlaySound = async (url, soundVolume = 1, loadTimeout = 500) =
   return playSound(url, soundVolume)
 }
 
-export async function playSound (url, soundVolume = 1) {
-  const volume = soundVolume * (options.volume / 100)
+export async function playSound (url, soundVolume = 1, type: 'stadard' | 'chat' = 'stadard') {
+  const chatVolume = soundVolume * (50 / 100)
+  const stadardVolume = soundVolume * (options.volume / 100)
 
-  if (!volume) return
+  const volume = type === 'chat' ? chatVolume : stadardVolume
+
+  if (!volume) {
+    return
+  }
 
   try {
     audioContext ??= new window.AudioContext()
@@ -77,7 +87,7 @@ export async function playSound (url, soundVolume = 1) {
 
   const soundBuffer = sounds[url]
   if (!soundBuffer) {
-    console.warn(`Sound ${url} not loaded yet`)
+    console.warn(`Sound ${url} not loaded yet. Available keys:`, Object.keys(sounds).slice(0, 5))
     return
   }
 
@@ -91,6 +101,14 @@ export async function playSound (url, soundVolume = 1) {
 
   // Add to active sounds
   activeSounds.push({ source, gainNode, volumeMultiplier: soundVolume })
+
+  // For 'chat' sounds, also play through recording if active
+  if (type === 'chat') {
+    const recordingAudio = getRecordingAudioDestination()
+    if (recordingAudio) {
+      void playThroughRecording(url, recordingAudio.context, recordingAudio.destination, volume)
+    }
+  }
 
   const callbacks = [] as Array<() => void>
   source.onended = () => {
@@ -136,3 +154,43 @@ export function changeVolumeOfCurrentlyPlayingSounds (newVolume: number) {
 subscribeKey(options, 'volume', () => {
   changeVolumeOfCurrentlyPlayingSounds(options.volume)
 })
+
+// Cache for recording-context decoded buffers
+const recordingBuffers: Record<string, AudioBuffer> = {}
+
+async function playThroughRecording (
+  url: string,
+  recordingContext: AudioContext,
+  destination: MediaStreamAudioDestinationNode,
+  volume: number
+) {
+  try {
+    // Check if we have a cached buffer for this recording context
+    let buffer = recordingBuffers[url]
+
+    if (!buffer) {
+      // Need to decode for the recording context
+      const rawBuffer = soundArrayBuffers[url]
+      if (!rawBuffer) {
+        console.warn(`[recording] No raw buffer for ${url}`)
+        return
+      }
+
+      // Clone the buffer since decodeAudioData detaches it
+      buffer = await recordingContext.decodeAudioData(rawBuffer.slice(0))
+      recordingBuffers[url] = buffer
+    }
+
+    const gainNode = recordingContext.createGain()
+    const source = recordingContext.createBufferSource()
+    source.buffer = buffer
+    source.connect(gainNode)
+    gainNode.connect(destination)
+    gainNode.gain.value = volume
+    source.start(0)
+
+    console.log(`[recording] Playing chat audio: ${url}`)
+  } catch (err) {
+    console.warn(`[recording] Failed to play through recording:`, err)
+  }
+}

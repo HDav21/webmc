@@ -242,7 +242,7 @@ export class Entities {
     // Listen for agent skins updates and re-evaluate all player skins
     if (typeof customEvents !== 'undefined') {
       customEvents.on('agentSkinsUpdated', () => {
-        console.log('[Custom Skin Debug] agentSkinsUpdated event received in entities.ts')
+        // console.log('[Custom Skin Debug] agentSkinsUpdated event received in entities.ts')
         // Small delay to ensure the map is fully populated
         setTimeout(() => {
           this.reEvaluateAllPlayerSkins()
@@ -991,7 +991,7 @@ export class Entities {
 
   // Re-evaluate skins for all player entities when agentSkinMap is updated
   reEvaluateAllPlayerSkins () {
-    console.log('[Custom Skin Debug] Re-evaluating all player skins, clearing cache')
+    // console.log('[Custom Skin Debug] Re-evaluating all player skins, clearing cache')
     // Clear the cache so skins can be reloaded
     this.loadedSkinEntityIds.clear()
 
@@ -1001,7 +1001,7 @@ export class Entities {
         // Get the entity data
         const entity = bot?.entities?.[entityId]
         if (entity?.username) {
-          console.log('[Custom Skin Debug] Re-evaluating skin for:', entity.username)
+          // console.log('[Custom Skin Debug] Re-evaluating skin for:', entity.username)
           // Force update the skin
           this.updatePlayerSkin(entity.id, entity.username, entity.uuid, true, true)
         }
