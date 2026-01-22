@@ -67,6 +67,7 @@ export const validatePacket = (name: string, data: any, fullBuffer: Buffer, isFr
 
   if (CHAT_VALIDATE_PACKETS.has(name)) {
     // todo count total number of objects instead of max depth
+    console.log('JTMC!! packet', name, data)
     const maxDepth = getObjectMaxDepth(data)
     if (maxDepth > CHAT_MAX_PACKET_DEPTH) {
       console.groupCollapsed(`Packet ${name} have too many nested objects: ${maxDepth}`)

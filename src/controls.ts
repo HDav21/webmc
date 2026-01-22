@@ -1377,6 +1377,12 @@ const startCanvasRecording = async () => {
       // Draw the game canvas scaled to fill the recording canvas
       ctx.drawImage(gameCanvas, 0, 0, RECORDING_WIDTH, RECORDING_HEIGHT)
 
+      // Draw chat overlay canvas if it exists (for canvas chat rendering)
+      const chatOverlay = document.getElementById('chat-overlay-canvas') as HTMLCanvasElement
+      if (chatOverlay) {
+        ctx.drawImage(chatOverlay, 0, 0, RECORDING_WIDTH, RECORDING_HEIGHT)
+      }
+
       // Draw webcam if available (square, bottom right, with rounded corners)
       // Uses webcamPreviewElement directly so camera can be hot-plugged
       if (webcamPreviewElement && webcamPreviewElement.readyState >= 2) {

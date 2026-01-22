@@ -1,7 +1,34 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSnapshot } from 'valtio'
 import { formatMessage } from '../chatUtils'
+import { addCanvasChatMessage, ChatRenderCanvas } from '../canvasChatMessages'
 import { getBuiltinCommandsList, tryHandleBuiltinCommand } from '../builtinCommands'
+
+// Player chat translate keys (format: "<player> message" or "* player message")
+const PLAYER_CHAT_TRANSLATE_KEYS = new Set([
+  'chat.type.text',           // <player> message
+  'chat.type.emote',          // * player message
+  'chat.type.announcement',   // [player] message (broadcasts)
+  'chat.type.team.text',      // team chat
+  'chat.type.team.sent',      // team chat sent
+])
+
+function isPlayerChatMessage (jsonMsg: any): boolean {
+  const translate = jsonMsg?.translate || jsonMsg?.json?.translate
+  if (translate && PLAYER_CHAT_TRANSLATE_KEYS.has(translate)) {
+    return true
+  }
+  // Also check if message has 'with' array containing player info (common pattern)
+  // Messages without translate but with text and clickEvent for player name are likely player chat
+  if (jsonMsg?.with && Array.isArray(jsonMsg.with) && jsonMsg.with.length >= 2) {
+    const firstWith = jsonMsg.with[0]
+    // Player names often have clickEvent with suggest_command
+    if (firstWith?.clickEvent?.action === 'suggest_command') {
+      return true
+    }
+  }
+  return false
+}
 import { gameAdditionalState, hideCurrentModal, miscUiState } from '../globalState'
 import { options } from '../optionsStorage'
 import { viewerVersionState } from '../viewerConnector'
@@ -28,7 +55,13 @@ export default () => {
       if (jsonMsg['unsigned']) {
         jsonMsg = jsonMsg['unsigned']
       }
+      console.log('JTMC!! jsonMsg', jsonMsg)
       const parts = formatMessage(jsonMsg)
+
+      // Only show player chat messages on canvas (not system messages)
+      if (ChatRenderCanvas && isPlayerChatMessage(jsonMsg)) {
+        addCanvasChatMessage(parts)
+      }
 
       setMessages(m => {
         lastMessageId.current++
