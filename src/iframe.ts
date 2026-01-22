@@ -5,6 +5,7 @@ import { options } from './optionsStorage'
 import { musicSystem } from './sounds/musicSystem'
 import { reestablishFollowing } from './follow'
 import { toggleMic, toggleCamera, toggleRecording } from './controls'
+import { audioTrackScheduler } from './sounds/audioTrackScheduler'
 
 type IFrameSendablePayload =
   | {
@@ -63,6 +64,7 @@ export function registerPauseHotkey () {
           if (!renderer) return
 
           playerPaused = false
+          audioTrackScheduler.setPlaying(true)
 
           const playerObjects = await Promise.all(
             Object.values(bot.entities).map(entity => renderer.getPlayerObject(entity.id))
@@ -82,6 +84,7 @@ export function registerPauseHotkey () {
           if (!renderer) return
 
           playerPaused = true
+          audioTrackScheduler.setPlaying(false)
 
           const playerObjects = await Promise.all(
             Object.values(bot.entities).map(entity => renderer.getPlayerObject(entity.id))
@@ -150,6 +153,13 @@ export function setupIframeComms () {
       action: 'followingPlayerLost'
     })
   })
+  customEvents.on('kradle:sendRecordingMessageList', (data) => {
+    console.log('[iframe-rpc] Recording message list received from parent', data)
+    if (data?.data && Array.isArray(data.data)) {
+      void audioTrackScheduler.loadTracks(data.data)
+    }
+  })
+
   customEvents.on('kradle:command', (data) => {
     const { command } = data
     if (!command) {
@@ -179,6 +189,7 @@ export function setupIframeComms () {
         if (!renderer) return
 
         playerPaused = true
+        audioTrackScheduler.setPlaying(false)
 
         const playerObjects = await Promise.all(
           Object.values(bot.entities).map(entity => renderer.getPlayerObject(entity.id))
@@ -200,6 +211,7 @@ export function setupIframeComms () {
         if (!renderer) return
 
         playerPaused = false
+        audioTrackScheduler.setPlaying(true)
 
         const playerObjects = await Promise.all(
           Object.values(bot.entities).map(entity => renderer.getPlayerObject(entity.id))
@@ -367,6 +379,11 @@ export function setupIframeComms () {
         } catch (e) {
           console.log('[replay-parse-error]', e.message)
         }
+      }
+
+      // Update audio track scheduler with current time
+      if (storedCurrentTime) {
+        audioTrackScheduler.updateCurrentTime(storedCurrentTime)
       }
 
       // Create status object from stored values

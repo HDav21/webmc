@@ -63,10 +63,15 @@ export const loadOrPlaySound = async (url, soundVolume = 1, loadTimeout = 500) =
   return playSound(url, soundVolume)
 }
 
-export async function playSound (url, soundVolume = 1) {
-  const volume = soundVolume * (options.volume / 100)
+export async function playSound (url, soundVolume = 1, type: 'stadard' | 'chat' = 'stadard') {
+  const chatVolume = soundVolume * (50 / 100)
+  const stadardVolume = soundVolume * (options.volume / 100)
 
-  if (!volume) return
+  const volume = type === 'chat' ? chatVolume : stadardVolume
+
+  if (!volume) {
+    return
+  }
 
   try {
     audioContext ??= new window.AudioContext()
@@ -77,7 +82,7 @@ export async function playSound (url, soundVolume = 1) {
 
   const soundBuffer = sounds[url]
   if (!soundBuffer) {
-    console.warn(`Sound ${url} not loaded yet`)
+    console.warn(`Sound ${url} not loaded yet. Available keys:`, Object.keys(sounds).slice(0, 5))
     return
   }
 
