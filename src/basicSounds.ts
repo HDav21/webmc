@@ -177,6 +177,7 @@ async function playThroughRecording (
       }
 
       // Clone the buffer since decodeAudioData detaches it
+      // eslint-disable-next-line unicorn/prefer-spread
       buffer = await recordingContext.decodeAudioData(rawBuffer.slice(0))
       recordingBuffers[url] = buffer
     }
