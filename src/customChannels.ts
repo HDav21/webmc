@@ -765,11 +765,15 @@ const registerChunkCacheChannel = () => {
           console.debug(`Emitted cached map_chunk for ${chunkKey}`)
         } catch (error) {
           console.warn(`Failed to emit cached chunk ${chunkKey}:`, error)
-          // Request fresh chunk from server by invalidating cache
+          // Invalidate and request fresh chunk from server
           await chunkPacketCache.invalidate(data.x, data.z)
+          requestChunkResend(data.x, data.z)
         }
       } else {
-        console.warn(`Cache hit but no cached data for ${chunkKey} - server/client out of sync`)
+        // Cache miss despite server thinking we have it - request resend
+        console.warn(`Cache hit but no cached data for ${chunkKey} - requesting resend`)
+        await chunkPacketCache.invalidate(data.x, data.z)
+        requestChunkResend(data.x, data.z)
       }
     } else if (data.hash) {
       // Server will send map_chunk next - store hash for caching
@@ -811,6 +815,22 @@ const registerChunkCacheChannel = () => {
   })
 
   console.debug(`Registered ${CHANNEL_NAME} channel - waiting for server registration`)
+
+  /**
+   * Request the server to resend a chunk when cache recovery fails
+   * Sends an updated cache list without the failed chunk
+   */
+  function requestChunkResend (x: number, z: number): void {
+    console.debug(`Requesting resend for chunk ${x},${z}`)
+    // Send an empty cache entry for this chunk to force server to resend
+    // The server will see we don't have this chunk and send it fresh
+    try {
+      const resendRequest = JSON.stringify([{ x, z, hash: '' }])
+      bot._client.writeChannel(CLIENT_CHANNEL, { chunksJson: resendRequest })
+    } catch (error) {
+      console.warn(`Failed to request chunk resend for ${x},${z}:`, error)
+    }
+  }
 
   /**
    * Send list of all cached chunks to server on login
@@ -866,7 +886,9 @@ function serializeMapChunkPacket (packet: any): ArrayBuffer {
 
   const json = JSON.stringify(serializable)
   const encoder = new TextEncoder()
-  return encoder.encode(json).buffer
+  const encoded = encoder.encode(json)
+  // Ensure proper ArrayBuffer bounds (TextEncoder always returns offset 0, but be safe)
+  return encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength)
 }
 
 /**

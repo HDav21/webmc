@@ -224,7 +224,10 @@ class ChunkPacketCache {
       const chunkPath = this.getChunkPath(x, z)
       if (await existsViaStats(chunkPath)) {
         const data = await fs.promises.readFile(chunkPath)
-        const packetData = new Uint8Array(data).buffer
+        // Ensure we get a properly bounded ArrayBuffer from the Buffer
+        // Buffer instances can share an underlying ArrayBuffer with an offset
+        const uint8 = new Uint8Array(data)
+        const packetData = uint8.buffer.slice(uint8.byteOffset, uint8.byteOffset + uint8.byteLength)
 
         // Update last accessed
         meta.lastAccessed = Date.now()
