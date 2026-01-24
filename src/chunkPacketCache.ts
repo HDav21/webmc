@@ -73,7 +73,7 @@ class ChunkPacketCache {
    * Get sanitized server directory name
    */
   private getServerDir (): string {
-    const sanitized = sanitize(this.serverAddress.replace(/[/:]/g, '_'))
+    const sanitized = sanitize(this.serverAddress.replaceAll(/[/:]/g, '_'))
     return join(CACHE_BASE, sanitized || 'unknown')
   }
 

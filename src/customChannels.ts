@@ -837,45 +837,82 @@ const registerChunkCacheChannel = () => {
 
 /**
  * Serialize a map_chunk packet to ArrayBuffer for caching
- * This creates a reproducible byte representation that can be hashed
+ * Handles all version-specific fields by serializing the entire packet
  */
 function serializeMapChunkPacket (packet: any): ArrayBuffer {
-  // For now, use JSON serialization as a simple approach
-  // In production, you'd want to use the actual packet serialization
-  const json = JSON.stringify({
-    x: packet.x,
-    z: packet.z,
-    groundUp: packet.groundUp,
-    bitMap: packet.bitMap,
-    biomes: packet.biomes ? [...packet.biomes] : undefined,
-    heightmaps: packet.heightmaps,
-    chunkData: packet.chunkData ? [...new Uint8Array(packet.chunkData)] : undefined,
-    blockEntities: packet.blockEntities
-  })
+  // Create a serializable copy that handles all buffer/typed array fields
+  const serializable: Record<string, any> = {}
 
+  for (const key of Object.keys(packet)) {
+    const value = packet[key]
+    if (value === undefined || value === null) {
+      serializable[key] = value
+    } else if (Buffer.isBuffer(value)) {
+      // Mark as buffer for reconstruction
+      serializable[key] = { __type: 'buffer', data: [...value] }
+    } else if (ArrayBuffer.isView(value)) {
+      // Handle typed arrays (Int32Array, Uint8Array, etc.)
+      serializable[key] = {
+        __type: 'typedArray',
+        arrayType: value.constructor.name,
+        data: [...value as any]
+      }
+    } else if (value instanceof ArrayBuffer) {
+      serializable[key] = { __type: 'buffer', data: [...new Uint8Array(value)] }
+    } else {
+      serializable[key] = value
+    }
+  }
+
+  const json = JSON.stringify(serializable)
   const encoder = new TextEncoder()
   return encoder.encode(json).buffer
 }
 
 /**
  * Deserialize a cached map_chunk packet from ArrayBuffer
+ * Reconstructs buffer and typed array fields
  */
 function deserializeMapChunkPacket (buffer: Buffer): any {
   const decoder = new TextDecoder()
   const json = decoder.decode(buffer)
   const parsed = JSON.parse(json)
 
-  // Reconstruct Buffer for chunkData
-  if (parsed.chunkData) {
-    parsed.chunkData = Buffer.from(parsed.chunkData)
-  }
-
-  // Reconstruct biomes array if present
-  if (parsed.biomes) {
-    parsed.biomes = new Int32Array(parsed.biomes)
+  // Reconstruct buffer and typed array fields
+  for (const key of Object.keys(parsed)) {
+    const value = parsed[key]
+    if (value && typeof value === 'object' && value.__type) {
+      if (value.__type === 'buffer') {
+        parsed[key] = Buffer.from(value.data)
+      } else if (value.__type === 'typedArray') {
+        // Reconstruct the correct typed array type
+        const TypedArrayConstructor = getTypedArrayConstructor(value.arrayType)
+        parsed[key] = new TypedArrayConstructor(value.data)
+      }
+    }
   }
 
   return parsed
+}
+
+/**
+ * Get the typed array constructor by name
+ */
+function getTypedArrayConstructor (name: string): any {
+  const constructors: Record<string, any> = {
+    Int8Array,
+    Uint8Array,
+    Uint8ClampedArray,
+    Int16Array,
+    Uint16Array,
+    Int32Array,
+    Uint32Array,
+    Float32Array,
+    Float64Array,
+    BigInt64Array,
+    BigUint64Array
+  }
+  return constructors[name] || Uint8Array
 }
 
 function getCurrentTopDomain (): string {

@@ -11,8 +11,8 @@
 import fs from 'fs'
 import { join } from 'path'
 import sanitize from 'sanitize-filename'
-import { mkdirRecursive, existsViaStats } from './browserfs'
 import type { MesherGeometryOutput } from '../renderer/viewer/lib/mesher/shared'
+import { mkdirRecursive, existsViaStats } from './browserfs'
 
 const CACHE_BASE = '/data/geometry-cache'
 const MAX_CACHE_SIZE = 500
@@ -86,7 +86,7 @@ class ChunkGeometryCache {
    * Get sanitized server directory name
    */
   private getServerDir (): string {
-    const sanitized = sanitize(this.serverAddress.replace(/[/:]/g, '_'))
+    const sanitized = sanitize(this.serverAddress.replaceAll(/[/:]/g, '_'))
     return join(CACHE_BASE, sanitized || 'unknown')
   }
 
