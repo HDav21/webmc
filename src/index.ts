@@ -154,6 +154,7 @@ function hideCurrentScreens () {
 
 const loadSingleplayer = (serverOverrides = {}, flattenedServerOverrides = {}) => {
   const serverSettingsQsRaw = appQueryParamsArray.serverSetting ?? []
+  // eslint-disable-next-line unicorn/no-array-reduce
   const serverSettingsQs = serverSettingsQsRaw.map(x => x.split(':')).reduce<Record<string, string>>((acc, [key, value]) => {
     acc[key] = JSON.parse(value)
     return acc
@@ -614,9 +615,9 @@ export async function connect (connectOptions: ConnectOptions) {
 
       // Initialize dimension data for replay mode
       // The login plugin expects this to exist
-      if (bot.registry && !bot.registry.dimensionsByName) {
-        console.log('Initializing dimensionsByName for replay mode')
-        bot.registry.dimensionsByName = {}
+      if (bot.registry && !(bot.registry as any).dimensionsByName) {
+        console.log('Initializing dimensionsByName for replay mode');
+        (bot.registry as any).dimensionsByName = {}
       }
 
       // Log for debugging
@@ -624,7 +625,7 @@ export async function connect (connectOptions: ConnectOptions) {
       if (bot.registry) {
         console.log('bot.registry has biomes?', !!bot.registry.biomes)
         console.log('bot.registry has instruments?', !!bot.registry.instruments)
-        console.log('bot.registry has dimensionsByName?', !!bot.registry.dimensionsByName)
+        console.log('bot.registry has dimensionsByName?', !!(bot.registry as any).dimensionsByName)
       }
     }
 
@@ -836,16 +837,16 @@ export async function connect (connectOptions: ConnectOptions) {
 
     // Ensure bot.world exists and has columns for replay mode
     if (bot.world) {
-      if (!bot.world.columns) {
-        bot.world.columns = {}
+      if (!(bot.world as any).columns) {
+        (bot.world as any).columns = {}
       }
 
       // Patch World prototype methods to handle missing chunks gracefully (affects all code paths)
       const WorldProto = Object.getPrototypeOf(bot.world)
       const patchProtoMethod = (methodName: string, defaultValue: any) => {
         const original = WorldProto[methodName]
-        if (typeof original !== 'function' || (WorldProto as any)[`_${methodName}_patched`]) return
-        ;(WorldProto as any)[`_${methodName}_patched`] = true
+        if (typeof original !== 'function' || (WorldProto)[`_${methodName}_patched`]) return
+        ;(WorldProto)[`_${methodName}_patched`] = true
         WorldProto[methodName] = function (...args: any[]) {
           try {
             if (!this.columns) return defaultValue
