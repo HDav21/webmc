@@ -49,6 +49,11 @@ type ReceivableActions = 'followPlayer' | 'command' | 'reconnect' | 'setAgentSki
 
 let playerPaused = false
 
+// Recording state - shared between replayProgress and recordingUpdate handlers
+let storedIsRecording = false
+let storedIsMicEnabled = false
+let storedIsCameraEnabled = false
+
 export function isGamePaused (): boolean {
   return playerPaused
 }
@@ -180,9 +185,9 @@ export function setupIframeComms () {
       progress: data.progress,
       percentage: data.percentage,
       isPaused: data.isPaused,
-      isRecording: false,
-      isMicEnabled: false,
-      isCameraEnabled: false,
+      isRecording: storedIsRecording,
+      isMicEnabled: storedIsMicEnabled,
+      isCameraEnabled: storedIsCameraEnabled,
     })
   })
   customEvents.on('kradle:sendRecordingMessageList', (data) => {
@@ -318,14 +323,17 @@ export function setupIframeComms () {
     }
 
     if (command === 'replay recording toggle') {
+      console.log('[iframe] Received replay recording toggle command')
       void toggleRecording()
     }
 
     if (command === 'replay mic toggle') {
+      console.log('[iframe] Received replay mic toggle command')
       void toggleMic()
     }
 
     if (command === 'replay camera toggle') {
+      console.log('[iframe] Received replay camera toggle command')
       void toggleCamera()
     }
 
@@ -410,9 +418,7 @@ export function setupIframeComms () {
     let storedPercentage = 0
     let storedCurrentTime = ''
     let storedRecordingName = ''
-    let storedIsRecording = false
-    let storedIsMicEnabled = false
-    let storedIsCameraEnabled = false
+    // Note: storedIsRecording, storedIsMicEnabled, storedIsCameraEnabled are module-level variables
 
     customEvents.on('recordingUpdate', (data) => {
       console.log('[packet-monitor] Custom payload received:', data)
@@ -427,7 +433,7 @@ export function setupIframeComms () {
       }
 
       const replayStatus = {
-        currentTime: storedCurrentTime,
+        currentTime: storedCurrentTime || '00:00:00',
         progress: storedProgress,
         percentage: storedPercentage,
         recordingName: storedRecordingName,
@@ -437,7 +443,8 @@ export function setupIframeComms () {
         isCameraEnabled: storedIsCameraEnabled,
       }
 
-      if (storedCurrentTime && window !== window.parent) {
+      // Always send recording state updates to parent (don't require storedCurrentTime)
+      if (window !== window.parent) {
         sendMessageToKradle({
           action: 'replayStatus',
           ...replayStatus,
