@@ -48,6 +48,10 @@ type ReceivableActions = 'followPlayer' | 'command' | 'reconnect' | 'setAgentSki
 
 let playerPaused = false
 
+export function isGamePaused (): boolean {
+  return playerPaused
+}
+
 export function registerPauseHotkey () {
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.repeat) return

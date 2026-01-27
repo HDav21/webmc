@@ -31,6 +31,12 @@ type MessageInput = {
 const global = globalThis as any
 
 // todo move to sign-renderer, replace with prismarine-chat, fix mcData issue!
+// Override formats that use angle brackets around player names
+const translationOverrides: Record<string, string> = {
+  'chat.type.text': '%s  %s', // Default is "<%s> %s"
+  'chat.type.announcement': '[%s] %s' // Default is "[%s] %s" (keep as is but documented)
+}
+
 export const formatMessage = (message: MessageInput, mcData: IndexedData = global.loadedData) => {
   let msglist: MessageFormatPart[] = []
 
@@ -52,7 +58,7 @@ export const formatMessage = (message: MessageInput, mcData: IndexedData = globa
         ...styles
       })
     } else if (msg.translate) {
-      const tText = mcData?.language[msg.translate] ?? msg.translate
+      const tText = translationOverrides[msg.translate] ?? mcData?.language[msg.translate] ?? msg.translate
 
       if (msg.with) {
         const splitted = tText.split(/%s|%\d+\$s/g)
