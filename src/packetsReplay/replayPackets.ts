@@ -15,7 +15,7 @@ import { UserError } from '../mineflayer/userError'
 import { packetsReplayState } from '../react/state/packetsReplayState'
 import { getFixedFilesize } from '../react/simpleUtils'
 import { appQueryParams } from '../appParams'
-import { parseMcprFile } from './mcprParser'
+
 import { loadChunksFromRegionFiles } from './worldLoader'
 import { setLoadingScreenStatus } from '../appStatus'
 

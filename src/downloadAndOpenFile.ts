@@ -4,7 +4,7 @@ import { openWorldFromHttpDir, openWorldZip } from './browserfs'
 import { getResourcePackNames, installResourcepackPack, resourcePackState, updateTexturePackInstalledState } from './resourcePack'
 import { setLoadingScreenStatus } from './appStatus'
 import { appQueryParams, appQueryParamsArray } from './appParams'
-import { VALID_REPLAY_EXTENSIONS, openFile, openMcprFile, openParsedReplay } from './packetsReplay/replayPackets'
+import { openFile, openParsedReplay } from './packetsReplay/replayPackets'
 import { createFullScreenProgressReporter } from './core/progressReporter'
 import { loadWorldForMcprReplay } from './packetsReplay/worldLoader'
 
@@ -21,71 +21,6 @@ const debugLog = (msg: string, data?: any) => {
 };
 
 const inner = async () => {
-  // Handle MCPR replay file from URL
-  const { mcprUrl, worldUrl } = appQueryParams
-  debugLog('params', { mcprUrl, worldUrl })
-
-  if (mcprUrl) {
-    debugLog('entering mcprUrl block')
-    // Download world data first if provided
-    let worldData: { regionPaths: string[] } | undefined
-    if (worldUrl) {
-      debugLog('starting world download', { worldUrl })
-      try {
-        worldData = await loadWorldForMcprReplay({
-          worldUrl,
-          version: '1.20.4', // Will be updated from MCPR metadata
-          onProgress: (msg) => setLoadingScreenStatus(msg, false, true)
-        })
-        debugLog('world data loaded', { regionCount: worldData.regionPaths.length, paths: worldData.regionPaths })
-      } catch (err) {
-        debugLog('world load error', { error: err.message, stack: err.stack })
-        setLoadingScreenStatus(`Warning: Failed to load world data: ${err.message}`)
-        // Continue without world data
-      }
-    } else {
-      debugLog('no worldUrl provided')
-    }
-
-    debugLog('starting mcpr download')
-    setLoadingScreenStatus('Downloading MCPR replay file')
-    const response = await fetch(mcprUrl)
-    const contentLength = response.headers?.get('Content-Length')
-    const size = contentLength ? +contentLength : undefined
-    const filename = mcprUrl.split('/').pop()
-
-    let downloadedBytes = 0
-    const buffer = await new Response(new ReadableStream({
-      async start (controller) {
-        if (!response.body) throw new Error('Server returned no response!')
-        const reader = response.body.getReader()
-
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-          const { done, value } = await reader.read()
-
-          if (done) {
-            controller.close()
-            break
-          }
-
-          downloadedBytes += value.byteLength
-
-          // Calculate download progress as a percentage
-          const progress = size ? (downloadedBytes / size) * 100 : undefined
-          setLoadingScreenStatus(`Download MCPR file: ${progress === undefined ? '?' : Math.floor(progress)}% (${getFixedFilesize(downloadedBytes)} / ${size && getFixedFilesize(size)})`, false, true)
-
-          // Pass the received data to the controller
-          controller.enqueue(value)
-        }
-      },
-    })).arrayBuffer()
-
-    // Parse and open MCPR file (keep as ArrayBuffer, don't decode to text)
-    // Pass world data if available
-    await openMcprFile(buffer, filename, size, worldData?.regionPaths)
-    return true
-  }
 
   // Handle pre-parsed replay from URL (gzipped msgpack)
   const { replayUrl } = appQueryParams

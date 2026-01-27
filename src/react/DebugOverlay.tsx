@@ -137,7 +137,7 @@ export default () => {
       try {
         setCursorBlock(bot.mouse.getCursorState().cursorBlock)
       } catch {
-        // Ignore raycast errors (e.g., during MCPR replay when block intersect may be undefined)
+        // Ignore raycast errors (e.g., during replay when block intersect may be undefined)
         setCursorBlock(null)
       }
     }, 100)
