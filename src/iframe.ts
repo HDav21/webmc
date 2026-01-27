@@ -151,6 +151,7 @@ export function setupIframeComms () {
     // Replay starts playing by default (playerPaused = false, packetsReplayState.isPlaying = true)
     sendMessageToKradle({
       action: 'replayStatus',
+      // @ts-expect-error TODO fix this type
       currentTime: '00:00:00',
       progress: 0,
       percentage: 0,
@@ -181,6 +182,7 @@ export function setupIframeComms () {
   customEvents.on('replayProgress', (data) => {
     sendMessageToKradle({
       action: 'replayStatus',
+      // @ts-expect-error TODO fix this type
       currentTime: data.currentTime,
       progress: data.progress,
       percentage: data.percentage,

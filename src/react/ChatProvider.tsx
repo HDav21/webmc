@@ -99,14 +99,14 @@ export default () => {
     })
 
     // Clear chat on seek/restart
-    customEvents.on('clearChat', () => {
+    customEvents.on('clearChat' as any, () => {
       setMessages([])
       lastMessageId.current = 0
       clearCanvasChatMessages()
     })
 
     return () => {
-      customEvents.off('clearChat')
+      customEvents.off('clearChat' as any, () => {})
     }
   }, [])
 

@@ -1,23 +1,22 @@
 /* eslint-disable no-await-in-loop */
+
 import { createServer, ServerClient } from 'minecraft-protocol'
 import { ParsedReplayPacket, parseReplayContents } from 'mcraft-fun-mineflayer/build/packetsLogger'
 import { PACKETS_REPLAY_FILE_EXTENSION, WORLD_STATE_FILE_EXTENSION } from 'mcraft-fun-mineflayer/build/worldState'
 import MinecraftData from 'minecraft-data'
-
-export const VALID_REPLAY_EXTENSIONS = [
-  PACKETS_REPLAY_FILE_EXTENSION,
-  WORLD_STATE_FILE_EXTENSION,
-  '.mcpr'
-]
 import { GameMode } from 'mineflayer'
 import { LocalServer } from '../customServer'
 import { UserError } from '../mineflayer/userError'
 import { packetsReplayState } from '../react/state/packetsReplayState'
 import { getFixedFilesize } from '../react/simpleUtils'
-import { appQueryParams } from '../appParams'
 
-import { loadChunksFromRegionFiles } from './worldLoader'
 import { setLoadingScreenStatus } from '../appStatus'
+
+export const VALID_REPLAY_EXTENSIONS = [
+  PACKETS_REPLAY_FILE_EXTENSION,
+  WORLD_STATE_FILE_EXTENSION,
+]
+
 
 const SUPPORTED_FORMAT_VERSION = 1
 
@@ -45,52 +44,16 @@ export function openFile ({ contents, filename = 'unnamed', filesize }: OpenFile
 }
 
 /**
- * Open an MCPR replay file
- * @param buffer - The MCPR file buffer
- * @param filename - The filename for display
- * @param filesize - The file size for display
- * @param worldRegionPaths - Optional paths to region files to load world data from
- */
-export async function openMcprFile(
-  buffer: ArrayBuffer,
-  filename: string = 'unnamed.mcpr',
-  filesize?: number,
-  worldRegionPaths?: string[]
-) {
-  try {
-    const { packets, header } = await parseMcprFile(buffer)
-
-    console.log('openMcprFile - parsed', packets.length, 'packets, version:', header.minecraftVersion)
-    if (worldRegionPaths?.length) {
-      console.log('openMcprFile - will load', worldRegionPaths.length, 'region files')
-    }
-
-    packetsReplayState.replayName = `${filename} (${getFixedFilesize(filesize ?? buffer.byteLength)})`
-    packetsReplayState.isPlaying = false
-
-    const connectOptions = {
-      worldStateFileContents: '',
-      username: 'KradleWebViewer',
-      mcprReplayData: { packets, header, worldRegionPaths }
-    }
-    dispatchEvent(new CustomEvent('connect', { detail: connectOptions }))
-  } catch (err) {
-    console.error('Failed to parse MCPR file:', err)
-    throw err
-  }
-}
-
-/**
  * Open a pre-parsed replay (from gzipped msgpack)
  * @param packets - Pre-parsed packets array
  * @param header - Replay header with metadata
  * @param filename - The filename for display
  * @param filesize - The file size for display
  */
-export async function openParsedReplay(
+export async function openParsedReplay (
   packets: ParsedReplayPacket[],
   header: any,
-  filename: string = 'unnamed',
+  filename = 'unnamed',
   filesize?: number
 ) {
   console.log('openParsedReplay - received', packets.length, 'packets, version:', header.minecraftVersion)
@@ -107,9 +70,9 @@ export async function openParsedReplay(
 }
 
 // Overloads
-export function startLocalReplayServer(packets: ParsedReplayPacket[], header: any): { server: any, version: string }
-export function startLocalReplayServer(contents: string): { server: any, version: string }
-export function startLocalReplayServer(contentsOrPackets: string | ParsedReplayPacket[], headerOrUndefined?: any): { server: any, version: string } {
+export function startLocalReplayServer (packets: ParsedReplayPacket[], header: any): { server: any, version: string }
+export function startLocalReplayServer (contents: string): { server: any, version: string }
+export function startLocalReplayServer (contentsOrPackets: string | ParsedReplayPacket[], headerOrUndefined?: any): { server: any, version: string } {
   let packets: ParsedReplayPacket[]
   let header: any
 
@@ -198,9 +161,9 @@ const addPacketToReplayer = (name: string, data, isFromClient: boolean, wasUpcom
 
 const IGNORE_SERVER_PACKETS = new Set([
   'kick_disconnect',
-  'unload_chunk',         // Don't unload chunks during replay - keeps world visible
-  'respawn',              // Don't process respawn - can reset world state
-  'death_combat_event',   // Don't show death screen during replay
+  'unload_chunk', // Don't unload chunks during replay - keeps world visible
+  'respawn', // Don't process respawn - can reset world state
+  'death_combat_event', // Don't show death screen during replay
 ])
 const ADDITIONAL_DELAY = 500
 
@@ -208,13 +171,13 @@ const ADDITIONAL_DELAY = 500
  * Patch bot.world to handle missing chunks gracefully
  * In replay mode, chunks may not be loaded when various methods are called
  */
-function patchWorldForReplay(bot: typeof window.bot) {
+function patchWorldForReplay (bot: typeof window.bot) {
   if (!bot?.world) {
     console.warn('patchWorldForReplay: bot.world is undefined')
     return
   }
 
-  const world = bot.world
+  const { world } = bot
 
   // Note: Don't manually set world.columns - it breaks the link to async.columns
   // WorldSync delegates to async.columns via getters
@@ -255,6 +218,7 @@ function patchWorldForReplay(bot: typeof window.bot) {
     const originalRaycast = world.raycast.bind(world)
     world.raycast = async function (...args: any[]) {
       try {
+        // eslint-disable-next-line @typescript-eslint/return-await
         return await originalRaycast(...args)
       } catch (err: any) {
         return null
@@ -269,7 +233,7 @@ function patchWorldForReplay(bot: typeof window.bot) {
 const mainPacketsReplayer = async (
   client: ServerClient,
   packets: ParsedReplayPacket[],
-  isMcprReplay: boolean = false,
+  isMcprReplay: boolean,
   header?: any
 ) => {
   // For MCPR replays, collect player UUIDs from player_info packets
@@ -299,9 +263,10 @@ const mainPacketsReplayer = async (
   }
 
   // For MCPR replays, use a unique entity ID for "us" to avoid conflicts with player entities
-  const MCPR_VIEWER_ENTITY_ID = 99999
+  const MCPR_VIEWER_ENTITY_ID = 99_999
 
   // Fields that minecraft-protocol's chat.js expects to be BigInt
+  // eslint-disable-next-line unicorn/prefer-set-has
   const BIGINT_REQUIRED_FIELDS = ['timestamp', 'salt']
 
   // Convert a [high, low] int64 array (from msgpack) to BigInt
@@ -391,10 +356,10 @@ const mainPacketsReplayer = async (
 
   // Wait for window.bot to be available
   console.log('Waiting for window.bot...')
-  let bot = window.bot
+  let { bot } = window
   let waitAttempts = 0
   while (!bot && waitAttempts < 200) {
-    await new Promise(resolve => setTimeout(resolve, 25))
+    await new Promise(resolve => setTimeout(resolve, 25)) // eslint-disable-line no-promise-executor-return
     bot = window.bot
     waitAttempts++
   }
@@ -405,10 +370,11 @@ const mainPacketsReplayer = async (
   console.log('window.bot available after', waitAttempts * 25, 'ms')
 
   // Log packet state distribution
+  // eslint-disable-next-line unicorn/no-array-reduce
   const stateDistribution = packets.reduce((acc, p) => {
     acc[p.state] = (acc[p.state] || 0) + 1
     return acc
-  }, {} as Record<string, number>)
+  }, {} as Record<string, number>) // eslint-disable-line @typescript-eslint/prefer-reduce-type-parameter
   console.log('Packet state distribution:', stateDistribution)
 
   // For MCPR replays, process configuration packets to set up registries
@@ -500,7 +466,7 @@ const mainPacketsReplayer = async (
       try {
         const World = require('prismarine-world')(bot.version)
         // IMPORTANT: Must use .sync to get the sync world interface that blocks.js expects
-        bot.world = new World(null, (bot as any).storageBuilder?.(bot.version, (bot as any).worldFolder)).sync
+        bot.world = new World(null, bot.storageBuilder?.(bot.version, bot.worldFolder)).sync
         console.log('bot.world created successfully (sync interface)')
 
         // CRITICAL: Set up event forwarding from bot.world to bot
@@ -561,7 +527,7 @@ const mainPacketsReplayer = async (
         console.warn('Login packet error (expected):', err)
       }
       // Small delay to let login packet process synchronously
-      await new Promise(resolve => setTimeout(resolve, 1))
+      await new Promise(resolve => setTimeout(resolve, 1)) // eslint-disable-line no-promise-executor-return
       console.log('bot.game AFTER login (1ms):', { minY: bot.game?.minY, height: bot.game?.height, dimension: bot.game?.dimension })
 
       // Check if dimension registry has data
@@ -596,11 +562,9 @@ const mainPacketsReplayer = async (
 
   // Ensure entity has a position (required for viewer raycasting)
   if (!bot.entity.position) {
-    const Vec3 = require('vec3').Vec3
+    const { Vec3 } = require('vec3')
     // Find first position packet to get initial position
-    const positionPacket = playPackets.find(p =>
-      p.isFromServer && (p.name === 'position' || p.name === 'synchronize_player_position')
-    )
+    const positionPacket = playPackets.find(p => p.isFromServer && (p.name === 'position' || p.name === 'synchronize_player_position'))
     if (positionPacket?.params) {
       const { x, y, z } = positionPacket.params
       bot.entity.position = new Vec3(x ?? 0, y ?? 64, z ?? 0)
@@ -614,7 +578,7 @@ const mainPacketsReplayer = async (
   // Set initial health state
   bot.health = 20
   bot.food = 20
-  bot.foodSaturation = 5.0
+  bot.foodSaturation = 5
 
   // Disable physics during replay - prevents player from falling
   if (bot.physics) {
@@ -627,7 +591,7 @@ const mainPacketsReplayer = async (
   console.log('Waiting for forcedMove listener...')
   let listenerAttempts = 0
   while (bot.listenerCount('forcedMove') === 0 && listenerAttempts < 200) {
-    await new Promise(resolve => setTimeout(resolve, 25))
+    await new Promise(resolve => setTimeout(resolve, 25)) // eslint-disable-line no-promise-executor-return
     listenerAttempts++
   }
   console.log('forcedMove listeners:', bot.listenerCount('forcedMove'), 'after', listenerAttempts * 25, 'ms')
@@ -637,7 +601,7 @@ const mainPacketsReplayer = async (
   bot.emit('forcedMove')
 
   // Small delay to let viewer initialize
-  await new Promise(resolve => setTimeout(resolve, 100))
+  await new Promise(resolve => setTimeout(resolve, 100)) // eslint-disable-line no-promise-executor-return
 
   // For MCPR replays, set KradleWebViewer to spectator mode for free camera movement
   if (isMcprReplay) {
@@ -708,13 +672,13 @@ const mainPacketsReplayer = async (
       // Clear all entities except the player's own entity
       const entitiesToRemove = Object.values(bot.entities).filter(entity => entity !== bot.entity)
       console.log(`Clearing ${entitiesToRemove.length} entities for restart`)
-      for (const entity of entitiesToRemove) {
+      for (const entity of entitiesToRemove as Entity[]) {
         bot.emit('entityGone', entity)
         delete bot.entities[entity.id]
       }
 
       // Clear chat messages
-      customEvents.emit('clearChat')
+      customEvents.emit('clearChat' as any)
 
       // Reset replay state
       currentPacketIndex = 0
@@ -734,7 +698,7 @@ const mainPacketsReplayer = async (
 
       // Find the packet index closest to the target timestamp
       let targetIndex = 0
-      for (let i = 0; i < packetsWithTimestamp.length; i++) {
+      for (let i = 0; i < packetsWithTimestamp.length; i++) { // eslint-disable-line unicorn/no-for-loop
         if (packetsWithTimestamp[i].timestamp >= targetMs) {
           targetIndex = i
           break
@@ -745,7 +709,7 @@ const mainPacketsReplayer = async (
       console.log(`Seeking to ${targetMs}ms, packet index ${targetIndex}`)
 
       // Clear chat messages when seeking
-      customEvents.emit('clearChat')
+      customEvents.emit('clearChat' as any)
 
       // Update replay position
       currentPacketIndex = targetIndex
@@ -903,7 +867,7 @@ const createPacketsWaiter = (options: PacketsWaiterOptions): PacketsWaiter => {
   let unexpectedPacketsCount = 0
 
   return {
-    addPacket(name: string, params: any) {
+    addPacket (name: string, params: any) {
       const index = packets.indexOf(name)
       if (index === -1) {
         unexpectedPacketsCount++
@@ -919,12 +883,12 @@ const createPacketsWaiter = (options: PacketsWaiterOptions): PacketsWaiter => {
         }
       }
     },
-    waitForPackets(packetsToWait: string[]) {
+    async waitForPackets (packetsToWait: string[]) {
       packets = packetsToWait
       unexpectedPacketsCount = 0
       return new Promise<void>(r => { resolve = r })
     },
-    stopWaiting() {
+    stopWaiting () {
       resolve?.()
       packets = []
     }
@@ -961,7 +925,7 @@ const restoreData = (data: any): any => {
     const allNumericKeys = keys.every(k => /^\d+$/.test(k))
     if (allNumericKeys && keys.length > 10) {
       // This is likely a serialized Buffer - convert back
-      const values = new Array(keys.length)
+      const values = new Array(keys.length) // eslint-disable-line unicorn/no-new-array
       for (const key of keys) {
         values[Number(key)] = data[key]
       }

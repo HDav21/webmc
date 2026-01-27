@@ -13,12 +13,12 @@ export const getFixedFilesize = (bytes: number) => {
 }
 
 // Debug tracking
-(window as any)._worldLoadDebug = [];
+(window as any)._worldLoadDebug = []
 const debugLog = (msg: string, data?: any) => {
   const entry = { time: Date.now(), msg, data };
-  (window as any)._worldLoadDebug.push(entry);
-  console.log('[downloadAndOpenFile]', msg, data);
-};
+  (window as any)._worldLoadDebug.push(entry)
+  console.log('[downloadAndOpenFile]', msg, data)
+}
 
 const inner = async () => {
 
@@ -41,7 +41,7 @@ const inner = async () => {
 
         // eslint-disable-next-line no-constant-condition
         while (true) {
-          const { done, value } = await reader.read()
+          const { done, value } = await reader.read() // eslint-disable-line no-await-in-loop
 
           if (done) {
             controller.close()
@@ -100,7 +100,7 @@ const inner = async () => {
 
         // eslint-disable-next-line no-constant-condition
         while (true) {
-          const { done, value } = await reader.read()
+          const { done, value } = await reader.read() // eslint-disable-line no-await-in-loop
 
           if (done) {
             controller.close()
@@ -175,7 +175,7 @@ const inner = async () => {
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
-        const { done, value } = await reader.read()
+        const { done, value } = await reader.read() // eslint-disable-line no-await-in-loop
 
         if (done) {
           controller.close()
