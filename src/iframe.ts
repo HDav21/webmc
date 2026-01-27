@@ -6,6 +6,7 @@ import { musicSystem } from './sounds/musicSystem'
 import { reestablishFollowing } from './follow'
 import { toggleMic, toggleCamera, toggleRecording } from './controls'
 import { audioTrackScheduler } from './sounds/audioTrackScheduler'
+import { packetsReplayState } from './react/state/packetsReplayState'
 
 type IFrameSendablePayload =
   | {
@@ -48,6 +49,15 @@ type ReceivableActions = 'followPlayer' | 'command' | 'reconnect' | 'setAgentSki
 
 let playerPaused = false
 
+// Recording state - shared between replayProgress and recordingUpdate handlers
+let storedIsRecording = false
+let storedIsMicEnabled = false
+let storedIsCameraEnabled = false
+
+export function isGamePaused (): boolean {
+  return playerPaused
+}
+
 export function registerPauseHotkey () {
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.repeat) return
@@ -59,6 +69,7 @@ export function registerPauseHotkey () {
       if (playerPaused) {
         // Unpause
         bot.chat('/replay view unpause')
+        packetsReplayState.isPlaying = true
         void (async () => {
           const renderer = getThreeJsRendererMethods()
           if (!renderer) return
@@ -79,6 +90,7 @@ export function registerPauseHotkey () {
       } else {
       // Pause
         bot.chat('/replay view pause')
+        packetsReplayState.isPlaying = false
         void (async () => {
           const renderer = getThreeJsRendererMethods()
           if (!renderer) return
@@ -135,6 +147,19 @@ export function setupIframeComms () {
     sendMessageToKradle({
       action: 'gameLoaded'
     })
+    // Send initial replay status so parent knows the current playing state
+    // Replay starts playing by default (playerPaused = false, packetsReplayState.isPlaying = true)
+    sendMessageToKradle({
+      action: 'replayStatus',
+      // @ts-expect-error TODO fix this type
+      currentTime: '00:00:00',
+      progress: 0,
+      percentage: 0,
+      isPaused: playerPaused,
+      isRecording: false,
+      isMicEnabled: false,
+      isCameraEnabled: false,
+    })
   })
   customEvents.on('followingPlayer', (username) => {
     sendMessageToKradle({
@@ -153,6 +178,20 @@ export function setupIframeComms () {
       action: 'followingPlayerLost'
     })
   })
+  // Listen for replay progress updates from serverless packet replay
+  customEvents.on('replayProgress', (data) => {
+    sendMessageToKradle({
+      action: 'replayStatus',
+      // @ts-expect-error TODO fix this type
+      currentTime: data.currentTime,
+      progress: data.progress,
+      percentage: data.percentage,
+      isPaused: data.isPaused,
+      isRecording: storedIsRecording,
+      isMicEnabled: storedIsMicEnabled,
+      isCameraEnabled: storedIsCameraEnabled,
+    })
+  })
   customEvents.on('kradle:sendRecordingMessageList', (data) => {
     console.log('[iframe-rpc] Recording message list received from parent', data)
     if (data?.data && Array.isArray(data.data)) {
@@ -167,17 +206,40 @@ export function setupIframeComms () {
       return
     }
 
-    const formattedCommand = `/${command.replace(/^\//, '')}`
-    console.log('[packet-monitor] Sending command to bot:', formattedCommand)
-    bot.chat(formattedCommand)
+    console.log('[packet-monitor] Command received:', command)
 
-    // Check if this is a seek command and re-establish following after a delay
+    // Check if this is a locally-handled replay command (for serverless replay mode)
+    const isLocalReplayCommand =
+      command === 'replay view pause' ||
+      command === 'replay view unpause' ||
+      command === 'replay view resume' ||
+      command === 'replay view play' ||
+      command === 'replay view restart' ||
+      command.startsWith('replay view speed ') ||
+      command.startsWith('replay view jump to timestamp ') ||
+      command === 'replay recording toggle' ||
+      command === 'replay mic toggle' ||
+      command === 'replay camera toggle'
+
+    // Only send to server (via bot.chat) if it's NOT a locally-handled command
+    // This avoids BigInt errors in serverless replay mode
+    if (!isLocalReplayCommand) {
+      const formattedCommand = `/${command.replace(/^\//, '')}`
+      console.log('[packet-monitor] Sending command to bot:', formattedCommand)
+      bot.chat(formattedCommand)
+    }
+
+    // Check if this is a seek command and handle for serverless replay
     if (command.includes('replay view jump to timestamp')) {
-      // Parse the timestamp from the command (format: "replay view jump to timestamp <ms>")
-      const match = command.match(/replay view jump to timestamp\s+(\d+)/)
+      // Parse the timestamp from the command (format: "replay view jump to timestamp <seconds>s")
+      const match = command.match(/replay view jump to timestamp\s+(\d+)s?/)
       if (match) {
-        const targetMs = parseInt(match[1], 10)
+        const targetSeconds = parseInt(match[1], 10)
+        const targetMs = targetSeconds * 1000
         audioTrackScheduler.setSeekTarget(targetMs)
+        // Set seek target for serverless packet replay
+        packetsReplayState.seekTargetMs = targetMs
+        console.log('[iframe] Seeking to', targetSeconds, 'seconds (', targetMs, 'ms)')
       }
 
       // Wait a bit for the seek to complete and entities to spawn
@@ -186,10 +248,9 @@ export function setupIframeComms () {
       }, 1000)
     }
 
-    console.log('[packet-monitor] Command received:', command)
-
     if (command === 'replay view pause') {
-      // Pause all player animations when replay is paused
+      // Pause the packet replay and all player animations
+      packetsReplayState.isPlaying = false
       void (async () => {
 
         const renderer = getThreeJsRendererMethods()
@@ -211,7 +272,8 @@ export function setupIframeComms () {
     }
 
     if (command === 'replay view unpause' || command === 'replay view resume' || command === 'replay view play') {
-      // Resume all player animations when replay is resumed
+      // Resume the packet replay and all player animations
+      packetsReplayState.isPlaying = true
       void (async () => {
 
         const renderer = getThreeJsRendererMethods()
@@ -232,15 +294,48 @@ export function setupIframeComms () {
       })()
     }
 
+    if (command === 'replay view restart') {
+      // Restart the packet replay from the beginning
+      packetsReplayState.restartRequested = true
+      void (async () => {
+        const renderer = getThreeJsRendererMethods()
+        if (!renderer) return
+
+        playerPaused = false
+        audioTrackScheduler.setPlaying(true)
+
+        const playerObjects = await Promise.all(
+          Object.values(bot.entities).map(entity => renderer.getPlayerObject(entity.id))
+        )
+
+        for (const playerObject of playerObjects) {
+          if (playerObject?.animation) {
+            playerObject.animation.paused = false
+          }
+        }
+      })()
+    }
+
+    // Handle speed command: "replay view speed X"
+    const speedMatch = command.match(/^replay view speed (\d+(?:\.\d+)?)$/)
+    if (speedMatch) {
+      const speed = parseFloat(speedMatch[1])
+      packetsReplayState.speed = speed
+      console.log('[iframe] Set replay speed to', speed)
+    }
+
     if (command === 'replay recording toggle') {
+      console.log('[iframe] Received replay recording toggle command')
       void toggleRecording()
     }
 
     if (command === 'replay mic toggle') {
+      console.log('[iframe] Received replay mic toggle command')
       void toggleMic()
     }
 
     if (command === 'replay camera toggle') {
+      console.log('[iframe] Received replay camera toggle command')
       void toggleCamera()
     }
 
@@ -325,9 +420,7 @@ export function setupIframeComms () {
     let storedPercentage = 0
     let storedCurrentTime = ''
     let storedRecordingName = ''
-    let storedIsRecording = false
-    let storedIsMicEnabled = false
-    let storedIsCameraEnabled = false
+    // Note: storedIsRecording, storedIsMicEnabled, storedIsCameraEnabled are module-level variables
 
     customEvents.on('recordingUpdate', (data) => {
       console.log('[packet-monitor] Custom payload received:', data)
@@ -342,7 +435,7 @@ export function setupIframeComms () {
       }
 
       const replayStatus = {
-        currentTime: storedCurrentTime,
+        currentTime: storedCurrentTime || '00:00:00',
         progress: storedProgress,
         percentage: storedPercentage,
         recordingName: storedRecordingName,
@@ -352,7 +445,8 @@ export function setupIframeComms () {
         isCameraEnabled: storedIsCameraEnabled,
       }
 
-      if (storedCurrentTime && window !== window.parent) {
+      // Always send recording state updates to parent (don't require storedCurrentTime)
+      if (window !== window.parent) {
         sendMessageToKradle({
           action: 'replayStatus',
           ...replayStatus,

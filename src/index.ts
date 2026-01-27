@@ -99,9 +99,15 @@ import createGraphicsBackend from 'renderer/viewer/three/graphicsBackend'
 import { subscribeKey } from 'valtio/utils'
 import { setupIframeComms } from './iframe'
 import { trackFollowerMovement } from './follow'
+import { renderChatOnCanvas, ChatRenderCanvas } from './canvasChatRenderer'
 
 window.debug = debug
 window.beforeRenderFrame = []
+
+// Add canvas chat rendering if enabled
+if (ChatRenderCanvas) {
+  beforeRenderFrame.push(renderChatOnCanvas)
+}
 
 // ACTUAL CODE
 
@@ -148,6 +154,7 @@ function hideCurrentScreens () {
 
 const loadSingleplayer = (serverOverrides = {}, flattenedServerOverrides = {}) => {
   const serverSettingsQsRaw = appQueryParamsArray.serverSetting ?? []
+  // eslint-disable-next-line unicorn/no-array-reduce
   const serverSettingsQs = serverSettingsQsRaw.map(x => x.split(':')).reduce<Record<string, string>>((acc, [key, value]) => {
     acc[key] = JSON.parse(value)
     return acc
@@ -368,9 +375,23 @@ export async function connect (connectOptions: ConnectOptions) {
 
     let finalVersion = connectOptions.botVersion || (singleplayer ? serverOptions.version : undefined)
 
-    if (connectOptions.worldStateFileContents) {
+    if (connectOptions.worldStateFileContents || (connectOptions as any).mcprReplayData) {
       try {
-        localReplaySession = startLocalReplayServer(connectOptions.worldStateFileContents)
+        // Check if this is MCPR data (pre-parsed packets)
+        const mcprData = (connectOptions as any).mcprReplayData
+        if (mcprData) {
+          console.log('Starting MCPR replay with pre-parsed data:', mcprData.packets.length, 'packets')
+          if (mcprData.worldRegionPaths?.length) {
+            console.log('World region files to load:', mcprData.worldRegionPaths.length)
+          }
+          // Store worldRegionPaths in header for later use
+          if (mcprData.worldRegionPaths) {
+            mcprData.header.worldRegionPaths = mcprData.worldRegionPaths
+          }
+          localReplaySession = startLocalReplayServer(mcprData.packets, mcprData.header)
+        } else {
+          localReplaySession = startLocalReplayServer(connectOptions.worldStateFileContents!)
+        }
       } catch (err) {
         console.error(err)
         throw new UserError(`Failed to start local replay server: ${err}`)
@@ -563,6 +584,51 @@ export async function connect (connectOptions: ConnectOptions) {
     }) as unknown as typeof __type_bot
     window.bot = bot
     window.following = bot
+
+    // For replay mode: Set up bot.registry and supportFeature BEFORE emitting events
+    // This must happen before 'mineflayerBotCreated' event as plugins may need registry
+    if (localReplaySession) {
+      console.log('Setting up replay mode, finalVersion:', finalVersion)
+      if (!bot.registry) {
+        // Use the same minecraft-data loading mechanism as the rest of the app
+        const mcData = (window as any).allLoadedMcData?.[finalVersion]
+        console.log('window.allLoadedMcData exists?', !!(window as any).allLoadedMcData)
+        console.log('mcData for version exists?', !!mcData)
+        if (mcData) {
+          bot.registry = mcData
+          console.log('Set bot.registry from allLoadedMcData')
+        } else {
+          console.warn(`minecraft-data not loaded for version ${finalVersion}, using fallback`)
+          try {
+            bot.registry = require('minecraft-data')(finalVersion)
+            console.log('Set bot.registry from require fallback')
+          } catch (err) {
+            console.error('Failed to load minecraft-data:', err)
+          }
+        }
+      }
+      if (!bot.supportFeature) {
+        bot.supportFeature = ((feature) => {
+          return bot.registry?.supportFeature?.(feature) ?? false
+        }) as typeof bot.supportFeature
+      }
+
+      // Initialize dimension data for replay mode
+      // The login plugin expects this to exist
+      if (bot.registry && !(bot.registry as any).dimensionsByName) {
+        console.log('Initializing dimensionsByName for replay mode');
+        (bot.registry as any).dimensionsByName = {}
+      }
+
+      // Log for debugging
+      console.log('Replay mode: bot.registry set?', !!bot.registry)
+      if (bot.registry) {
+        console.log('bot.registry has biomes?', !!bot.registry.biomes)
+        console.log('bot.registry has instruments?', !!bot.registry.instruments)
+        console.log('bot.registry has dimensionsByName?', !!(bot.registry as any).dimensionsByName)
+      }
+    }
+
     if (connectOptions.viewerWsConnect) {
       void handleCustomChannel()
     }
@@ -747,13 +813,18 @@ export async function connect (connectOptions: ConnectOptions) {
     playerState.onlineMode = !!connectOptions.authenticatedAccount
 
     progress.setMessage('Placing blocks (starting viewer)')
-    if (!connectOptions.worldStateFileContents || connectOptions.worldStateFileContents.length < 3 * 1024 * 1024) {
-      localStorage.lastConnectOptions = JSON.stringify(connectOptions)
-      if (process.env.NODE_ENV === 'development' && !localStorage.lockUrl && !Object.keys(window.debugQueryParams).length) {
-        lockUrl()
+    try {
+      if (!connectOptions.worldStateFileContents || connectOptions.worldStateFileContents.length < 3 * 1024 * 1024) {
+        localStorage.lastConnectOptions = JSON.stringify(connectOptions)
+        if (process.env.NODE_ENV === 'development' && !localStorage.lockUrl && !Object.keys(window.debugQueryParams).length) {
+          lockUrl()
+        }
+      } else {
+        localStorage.removeItem('lastConnectOptions')
       }
-    } else {
-      localStorage.removeItem('lastConnectOptions')
+    } catch (err) {
+      console.warn('Failed to save lastConnectOptions (localStorage full):', err)
+      // Continue anyway - this is not critical
     }
     connectOptions.onSuccessfulPlay?.()
     updateDataAfterJoin()
@@ -763,6 +834,37 @@ export async function connect (connectOptions: ConnectOptions) {
 
 
     console.log('bot spawned - starting viewer')
+
+    // Ensure bot.world exists and has columns for replay mode
+    if (bot.world) {
+      if (!(bot.world as any).columns) {
+        (bot.world as any).columns = {}
+      }
+
+      // Patch World prototype methods to handle missing chunks gracefully (affects all code paths)
+      const WorldProto = Object.getPrototypeOf(bot.world)
+      const patchProtoMethod = (methodName: string, defaultValue: any) => {
+        const original = WorldProto[methodName]
+        if (typeof original !== 'function' || (WorldProto)[`_${methodName}_patched`]) return
+        ;(WorldProto)[`_${methodName}_patched`] = true
+        WorldProto[methodName] = function (...args: any[]) {
+          try {
+            if (!this.columns) return defaultValue
+            return original.apply(this, args)
+          } catch {
+            return defaultValue
+          }
+        }
+      }
+      patchProtoMethod('getBlock', null)
+      patchProtoMethod('getBlockType', 0)
+      patchProtoMethod('getBlockData', 0)
+      patchProtoMethod('getBlockLight', 0)
+      patchProtoMethod('getSkyLight', 15)
+      patchProtoMethod('getBiome', 0)
+      patchProtoMethod('getBlockStateId', 0)
+    }
+
     appViewer.startWorld(bot.world, renderDistance)
     appViewer.worldView!.listenToBot(bot)
 

@@ -1274,10 +1274,11 @@ export const toggleCamera = async () => {
 }
 
 export const toggleRecording = async () => {
+  console.log('[recording] toggleRecording called, isRecording:', recordingState.isRecording)
   if (recordingState.isRecording) {
     stopCanvasRecording()
   } else {
-    void startCanvasRecording()
+    await startCanvasRecording()
   }
 }
 
@@ -1344,17 +1345,20 @@ const drawRoundedRect = (
 }
 
 const startCanvasRecording = async () => {
+  console.log('[recording] startCanvasRecording called')
+
   // Prevent double-starting
   if (recordingState.isRecording) {
-    console.warn('Recording already in progress')
+    console.warn('[recording] Recording already in progress')
     return
   }
 
   const gameCanvas = document.getElementById('viewer-canvas') as HTMLCanvasElement
   if (!gameCanvas) {
-    console.warn('Canvas not found for recording')
+    console.warn('[recording] Canvas not found for recording')
     return
   }
+  console.log('[recording] Found viewer-canvas:', gameCanvas.width, 'x', gameCanvas.height)
 
   try {
     // Create recording canvas at 1920x1080
@@ -1376,6 +1380,12 @@ const startCanvasRecording = async () => {
 
       // Draw the game canvas scaled to fill the recording canvas
       ctx.drawImage(gameCanvas, 0, 0, RECORDING_WIDTH, RECORDING_HEIGHT)
+
+      // Draw chat overlay canvas if it exists (for canvas chat rendering)
+      const chatOverlay = document.getElementById('chat-overlay-canvas') as HTMLCanvasElement
+      if (chatOverlay) {
+        ctx.drawImage(chatOverlay, 0, 0, RECORDING_WIDTH, RECORDING_HEIGHT)
+      }
 
       // Draw webcam if available (square, bottom right, with rounded corners)
       // Uses webcamPreviewElement directly so camera can be hot-plugged
@@ -1422,25 +1432,32 @@ const startCanvasRecording = async () => {
 
     // Start the compositing loop
     recordingState.isRecording = true
+    console.log('[recording] Set isRecording = true, emitting recordingUpdate')
     customEvents.emit('recordingUpdate', {
       isRecording: true,
     })
     drawFrame()
 
     // Capture the recording canvas stream at 60fps
+    console.log('[recording] Calling captureStream(60)')
     const recordingStream = recordingCanvas.captureStream(60)
+    console.log('[recording] captureStream successful, tracks:', recordingStream.getTracks().length)
 
     // Set up AudioContext for mic hot-plugging support
     // The audio destination provides a constant audio track that we can connect/disconnect mic to
     // Use high sample rate and playback latency hint for better quality
+    console.log('[recording] Creating AudioContext')
     const audioContext = new AudioContext({
       sampleRate: 48_000,
       latencyHint: 'playback'
     })
+    console.log('[recording] AudioContext created, state:', audioContext.state)
 
     // Ensure AudioContext is running (may be suspended on subsequent recordings)
     if (audioContext.state === 'suspended') {
+      console.log('[recording] AudioContext suspended, resuming...')
       await audioContext.resume()
+      console.log('[recording] AudioContext resumed, state:', audioContext.state)
     }
 
     const audioDestination = audioContext.createMediaStreamDestination()
@@ -1464,6 +1481,7 @@ const startCanvasRecording = async () => {
     }
 
     // Use high quality settings
+    console.log('[recording] Setting up MediaRecorder options')
     const recorderOptions = {
       mimeType: 'video/webm;codecs=vp9',
       videoBitsPerSecond: 25_000_000 // 25 Mbps for high quality 1080p
@@ -1471,8 +1489,10 @@ const startCanvasRecording = async () => {
 
     // Fallback to vp8 if vp9 is not supported
     if (!MediaRecorder.isTypeSupported(recorderOptions.mimeType)) {
+      console.log('[recording] vp9 not supported, falling back to vp8')
       recorderOptions.mimeType = 'video/webm;codecs=vp8'
     }
+    console.log('[recording] Using mimeType:', recorderOptions.mimeType)
 
     // Combine video from recording canvas with audio from destination
     // The destination provides a constant audio track - mic can be connected/disconnected dynamically
@@ -1480,55 +1500,73 @@ const startCanvasRecording = async () => {
       ...recordingStream.getVideoTracks(),
       ...audioDestination.stream.getAudioTracks(),
     ])
+    console.log('[recording] Combined stream created with', combinedStream.getTracks().length, 'tracks')
 
+    console.log('[recording] Creating MediaRecorder')
     const mediaRecorder = new MediaRecorder(combinedStream, recorderOptions)
+    console.log('[recording] MediaRecorder created, state:', mediaRecorder.state)
     recordingState.chunks = []
 
     mediaRecorder.ondataavailable = (event) => {
+      console.log('[recording] ondataavailable, size:', event.data.size)
       if (event.data.size > 0) {
         recordingState.chunks.push(event.data)
       }
     }
 
     mediaRecorder.onstop = () => {
+      console.log('[recording] onstop called, chunks:', recordingState.chunks.length)
       // Only stop video tracks from recording stream (not mic - managed by toggle)
       // eslint-disable-next-line unicorn/no-array-for-each
       recordingStream.getVideoTracks()?.forEach((t) => t.stop())
 
       const blob = new Blob(recordingState.chunks, { type: 'video/webm' })
+      console.log('[recording] Blob created, size:', blob.size)
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
       const date = new Date()
       link.download = `recording ${date.toLocaleString().replaceAll('.', '-').replace(',', '')}.webm`
+      console.log('[recording] Triggering download:', link.download)
       link.click()
       URL.revokeObjectURL(url)
       recordingState.mediaRecorder = null
       recordingState.chunks = []
+      console.log('[recording] Download triggered')
     }
 
     // Start recording with 1 second timeslice to ensure regular data capture
+    console.log('[recording] Starting MediaRecorder')
     mediaRecorder.start(1000)
     recordingState.mediaRecorder = mediaRecorder
     recordingState.startTime = Date.now()
+    console.log('[recording] MediaRecorder started, state:', mediaRecorder.state)
 
     // Create and show indicator
+    console.log('[recording] Creating indicator element')
     recordingState.indicatorElement = createRecordingIndicator()
+    console.log('[recording] Appending indicator to document.body')
     document.body.appendChild(recordingState.indicatorElement)
+    console.log('[recording] Indicator appended successfully')
 
     // Start timer update
     recordingState.timerInterval = setInterval(updateRecordingTime, 1000)
 
-    console.log('Canvas recording started (1920x1080 with webcam overlay)')
+    console.log('[recording] Canvas recording started (1920x1080 with webcam overlay)')
   } catch (error) {
-    console.error('Failed to start canvas recording:', error)
+    console.error('[recording] Failed to start canvas recording:', error)
     // Reset state on error
     recordingState.isRecording = false
+    customEvents.emit('recordingUpdate', {
+      isRecording: false,
+    })
   }
 }
 
 const stopCanvasRecording = () => {
+  console.log('[recording] stopCanvasRecording called')
   if (recordingState.mediaRecorder && recordingState.isRecording) {
+    console.log('[recording] Stopping MediaRecorder')
     recordingState.mediaRecorder.stop()
     recordingState.isRecording = false
     customEvents.emit('recordingUpdate', {
@@ -1567,7 +1605,9 @@ const stopCanvasRecording = () => {
       recordingState.indicatorElement = null
     }
 
-    console.log('Canvas recording stopped')
+    console.log('[recording] Canvas recording stopped')
+  } else {
+    console.log('[recording] stopCanvasRecording: conditions not met, mediaRecorder:', !!recordingState.mediaRecorder, 'isRecording:', recordingState.isRecording)
   }
 }
 

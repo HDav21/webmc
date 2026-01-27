@@ -8,6 +8,8 @@ export const packetsReplayState = proxy({
   isMinimized: false,
   replayName: '',
   isPlaying: false,
+  restartRequested: false,
+  seekTargetMs: null as number | null, // Target timestamp to seek to (in ms)
   progress: {
     current: 0,
     total: 0

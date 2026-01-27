@@ -31,6 +31,17 @@ function cursorBlockDisplay (bot: Bot) {
 export default (bot: Bot) => {
   bot.loadPlugin(createMouse({}))
 
+  // Patch getCursorState to handle raycast errors (e.g., when block.intersect is undefined)
+  const originalGetCursorState = bot.mouse.getCursorState.bind(bot.mouse)
+  bot.mouse.getCursorState = () => {
+    try {
+      return originalGetCursorState()
+    } catch {
+      // Return safe default when raycast fails
+      return { cursorBlock: null, entity: null, cursorBlockDiggable: null, cursorChanged: false }
+    }
+  }
+
   domListeners(bot)
   cursorBlockDisplay(bot)
 

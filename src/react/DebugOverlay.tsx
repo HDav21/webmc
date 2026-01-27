@@ -134,7 +134,12 @@ export default () => {
       setBiomeId(bot.world.getBiome(position))
       setDimension(bot.game.dimension)
       setDay(bot.time.day)
-      setCursorBlock(bot.mouse.getCursorState().cursorBlock)
+      try {
+        setCursorBlock(bot.mouse.getCursorState().cursorBlock)
+      } catch {
+        // Ignore raycast errors (e.g., during replay when block intersect may be undefined)
+        setCursorBlock(null)
+      }
     }, 100)
 
     const notFrequentUpdateInterval = setInterval(async () => {

@@ -47,11 +47,12 @@ export type AppQsParams = {
   replayFilter?: string
   replaySpeed?: string
   replayFileUrl?: string
+  replayUrl?: string
   replayValidateClient?: string
   replayStopOnError?: string
   replaySkipMissingOnTimeout?: string
   replayPacketsSenderDelay?: string
-  isPlayback?: string // Set to 'true' when viewing MCPR replay on server
+  isPlayback?: string
 }
 
 export type AppQsParamsArray = {

@@ -49,6 +49,13 @@ declare const customEvents: import('typed-emitter').default<{
     errorDetails?: string
     canReconnect: boolean
   }): void // report connection status to parent app
+  replayProgress (data: {
+    currentTime: string
+    progress: number
+    percentage: number
+    isPaused: boolean
+    totalDuration: number
+  }): void // emitted periodically during serverless packet replay
 }>
 declare const beforeRenderFrame: Array<() => void>
 

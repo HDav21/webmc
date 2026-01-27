@@ -4,6 +4,7 @@ import { disconnect } from '../flyingSquidUtils'
 import { MessageFormatPart, formatMessage } from '../chatUtils'
 import { showModal, hideModal } from '../globalState'
 import { options } from '../optionsStorage'
+import { appQueryParams } from '../appParams'
 import DeathScreen from './DeathScreen'
 import { useIsModalActive } from './utilsApp'
 
@@ -13,7 +14,13 @@ export default () => {
   const { value: dieReasonMessage } = useSnapshot(dieReasonProxy)
   const isModalActive = useIsModalActive('death-screen')
 
+  // Don't show death screen in replay/playback mode
+  const isPlayback = appQueryParams.isPlayback === 'true'
+
   useEffect(() => {
+    // Skip death screen handling in playback mode
+    if (isPlayback) return
+
     bot._client.on('death_combat_event', (data) => {
       try {
         if (data.playerId !== bot.entity.id) return
@@ -47,12 +54,12 @@ export default () => {
     }
   }, [dieReasonMessage, isModalActive])
 
-  if (!isModalActive || !dieReasonMessage || options.autoRespawn) return null
+  if (!isModalActive || !dieReasonMessage || options.autoRespawn || isPlayback) return null
 
   return <DeathScreen
     dieReasonMessage={dieReasonMessage as MessageFormatPart[]}
     respawnCallback={() => {
-      bot._client.write('client_command', bot.supportFeature('respawnIsPayload') ? { payload: 0 } : { actionId: 0 })
+      bot._client.write('client_command', bot.supportFeature?.('respawnIsPayload') ? { payload: 0 } : { actionId: 0 })
     }}
     disconnectCallback={() => {
       void disconnect()

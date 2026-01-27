@@ -95,11 +95,11 @@ export const watchOptionsAfterViewerInit = () => {
   })
 
   subscribeKey(options, 'newVersionsLighting', () => {
-    appViewer.inWorldRenderingConfig.enableLighting = !bot.supportFeature('blockStateId') || options.newVersionsLighting
+    appViewer.inWorldRenderingConfig.enableLighting = !bot.supportFeature?.('blockStateId') || options.newVersionsLighting
   })
 
   customEvents.on('mineflayerBotCreated', () => {
-    appViewer.inWorldRenderingConfig.enableLighting = !bot.supportFeature('blockStateId') || options.newVersionsLighting
+    appViewer.inWorldRenderingConfig.enableLighting = !bot.supportFeature?.('blockStateId') || options.newVersionsLighting
   })
 
   watchValue(options, o => {
