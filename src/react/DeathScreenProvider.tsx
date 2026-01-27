@@ -52,7 +52,7 @@ export default () => {
   return <DeathScreen
     dieReasonMessage={dieReasonMessage as MessageFormatPart[]}
     respawnCallback={() => {
-      bot._client.write('client_command', bot.supportFeature('respawnIsPayload') ? { payload: 0 } : { actionId: 0 })
+      bot._client.write('client_command', bot.supportFeature?.('respawnIsPayload') ? { payload: 0 } : { actionId: 0 })
     }}
     disconnectCallback={() => {
       void disconnect()
