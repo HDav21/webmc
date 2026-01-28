@@ -44,8 +44,13 @@ type IFrameSendablePayload =
     source: 'minecraft-web-client';
     action: 'followingPlayerLost';
   }
+  | {
+    source: 'minecraft-web-client';
+    action: 'screenshotData';
+    imageData: string; // Base64 data URL string (JPEG)
+  }
 
-type ReceivableActions = 'followPlayer' | 'command' | 'reconnect' | 'setAgentSkins' | 'releasePointerLock' | 'birdsEyeViewFollow'
+type ReceivableActions = 'followPlayer' | 'command' | 'reconnect' | 'setAgentSkins' | 'releasePointerLock' | 'birdsEyeViewFollow' | 'takeScreenshot'
 
 let playerPaused = false
 
@@ -53,6 +58,9 @@ let playerPaused = false
 let storedIsRecording = false
 let storedIsMicEnabled = false
 let storedIsCameraEnabled = false
+
+// Guard to prevent duplicate event listeners on hot-reload
+let iframeCommsSetup = false
 
 export function isGamePaused (): boolean {
   return playerPaused
@@ -123,6 +131,13 @@ export function registerPauseHotkey () {
 registerPauseHotkey()
 
 export function setupIframeComms () {
+  // Prevent duplicate setup on hot-reload
+  if (iframeCommsSetup) {
+    console.log('[iframe-rpc] Iframe comms already setup, skipping')
+    return
+  }
+  iframeCommsSetup = true
+
   // Handle incoming messages from kradle frontend
   window.addEventListener('message', (event) => {
     const { data } = event
@@ -391,6 +406,30 @@ export function setupIframeComms () {
   customEvents.on('kradle:releasePointerLock', () => {
     if (document.pointerLockElement && document.exitPointerLock) {
       document.exitPointerLock()
+    }
+  })
+
+  // Handle screenshot capture request from parent app
+  customEvents.on('kradle:takeScreenshot', () => {
+    const gameCanvas = document.getElementById('viewer-canvas') as HTMLCanvasElement
+    if (!gameCanvas) {
+      console.warn('[iframe-rpc] Screenshot requested but viewer-canvas not found')
+      return
+    }
+
+    try {
+      // Capture canvas as JPEG with 0.8 quality for reasonable file sizes
+      const imageData = gameCanvas.toDataURL('image/jpeg', 0.8)
+
+      // Send screenshot data back to parent
+      sendMessageToKradle({
+        action: 'screenshotData',
+        imageData,
+      })
+
+      console.log('[iframe-rpc] Screenshot captured and sent to parent')
+    } catch (error) {
+      console.error('[iframe-rpc] Failed to capture screenshot:', error)
     }
   })
 
