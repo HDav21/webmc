@@ -101,6 +101,11 @@ export default function FollowerClickOverlay () {
         // Pointer lock released — user hit ESC, return to birds eye view
         customEvents.emit('pointerLockReleased')
 
+        // In playback mode, don't auto-return to birdseye - let the user stay in spectator mode
+        if (appQueryParams.isPlayback === 'true') {
+          return
+        }
+
         // Return to birds eye follow mode
         setSelectedParticipant('birdsEyeViewFollow')
         setShowOverlay(true)

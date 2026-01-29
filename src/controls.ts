@@ -892,9 +892,14 @@ export const onBotCreate = () => {
   const gamemodeCheck = () => {
     if (bot.game.gameMode === 'spectator') {
       allowFlying = true
-      toggleFly(true, false)
+      // Only toggle fly if not already flying to avoid position jumps
+      if (!isFlying()) {
+        console.log('[CameraMode] controls: gamemodeCheck detected spectator mode - enabling flying')
+        toggleFly(true, false)
+      }
       wasSpectatorFlying = true
     } else if (wasSpectatorFlying) {
+      console.log('[CameraMode] controls: gamemodeCheck leaving spectator mode - disabling flying')
       toggleFly(false, false)
       wasSpectatorFlying = false
     }

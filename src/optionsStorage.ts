@@ -11,7 +11,7 @@ const defaultOptions = {
   renderDistance: 3,
   keepChunksDistance: 1,
   multiplayerRenderDistance: 3,
-  closeConfirmation: true,
+  closeConfirmation: false,
   autoFullScreen: false,
   mouseRawInput: true,
   autoExitFullscreen: false,

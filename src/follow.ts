@@ -4,6 +4,9 @@ import { appQueryParams } from './appParams'
 
 // Spectator camera position - independent from bot position
 let spectatorCameraPosition: Vec3 | null = null
+// Spectator camera direction - independent from bot direction (for playback mode)
+let spectatorCameraYaw: number | null = null
+let spectatorCameraPitch: number | null = null
 
 const isPlaybackMode = appQueryParams.isPlayback === 'true'
 
@@ -14,9 +17,32 @@ export function getSpectatorCameraPosition () {
   return spectatorCameraPosition
 }
 
+// Get spectator camera direction (returns bot's if not in spectator mode)
+export function getSpectatorCameraDirection () {
+  if (spectatorCameraYaw !== null && spectatorCameraPitch !== null) {
+    return { yaw: spectatorCameraYaw, pitch: spectatorCameraPitch }
+  }
+  return null
+}
+
+// Update spectator camera direction (called from mouse movement)
+export function updateSpectatorCameraDirection (yaw: number, pitch: number) {
+  if (spectatorCameraPosition) {
+    spectatorCameraYaw = yaw
+    spectatorCameraPitch = pitch
+  }
+}
+
 // Set spectator camera position
-export function setSpectatorCameraPosition (pos: Vec3 | null) {
+export function setSpectatorCameraPosition (pos: Vec3 | null, yaw?: number, pitch?: number) {
   spectatorCameraPosition = pos ? pos.clone() : null
+  if (pos && yaw !== undefined && pitch !== undefined) {
+    spectatorCameraYaw = yaw
+    spectatorCameraPitch = pitch
+  } else if (!pos) {
+    spectatorCameraYaw = null
+    spectatorCameraPitch = null
+  }
 }
 
 enum CameraMode {
@@ -274,7 +300,7 @@ export function trackFollowerMovement () {
 
 async function doFollowPlayer (username: string) {
   // start following player
-  console.log(`Following player '${username}'`)
+  console.log(`[CameraMode] doFollowPlayer called for '${username}' - will set THIRD_PERSON mode`)
 
   let target = bot.players[username]
 
@@ -305,6 +331,7 @@ async function doFollowPlayer (username: string) {
   // set the following player and store username persistently
   window.following = target
   followingUsername = username
+  console.log('[CameraMode] Setting currentCameraMode to THIRD_PERSON (from doFollowPlayer)')
   currentCameraMode = CameraMode.THIRD_PERSON
 
   // Clear spectator camera position when following another player
@@ -352,7 +379,7 @@ export async function setFollowingPlayer (username?: string) {
     void doFollowPlayer(username)
   } else {
     // stop following
-    console.log(`Following self (main bot)`)
+    console.log(`[CameraMode] setFollowingPlayer(undefined) - Following self (main bot), will set FIRST_PERSON mode`)
 
     // set the following player to the main bot
     window.following = bot
@@ -369,11 +396,6 @@ export async function setFollowingPlayer (username?: string) {
 
 // Set camera to birds eye follow mode
 export function setBirdsEyeFollowMode () {
-  console.log('Setting birds eye follow mode')
-  if (isPlaybackMode) {
-    console.log('Cannot set birds eye follow mode in playback mode')
-    return
-  }
   currentCameraMode = CameraMode.BIRDS_EYE_VIEW_FOLLOW
 
   // Clear spectator camera position when switching to birds eye mode

@@ -164,6 +164,8 @@ const IGNORE_SERVER_PACKETS = new Set([
   'unload_chunk', // Don't unload chunks during replay - keeps world visible
   'respawn', // Don't process respawn - can reset world state
   'death_combat_event', // Don't show death screen during replay
+  'position', // Don't update viewer's position from recorded player's position
+  'synchronize_player_position', // Same as above (1.19+ packet name)
 ])
 const ADDITIONAL_DELAY = 500
 
@@ -605,7 +607,6 @@ const mainPacketsReplayer = async (
 
   // For MCPR replays, set KradleWebViewer to spectator mode for free camera movement
   if (isMcprReplay) {
-    console.log('Setting spectator mode for MCPR replay viewer')
     bot._client.emit('abilities', { flags: 6 }) // Allow flying
     bot._client.emit('game_state_change', { reason: 3, gameMode: 3 }) // Spectator mode
     // Also directly set bot.game.gameMode to ensure UI updates
@@ -613,6 +614,8 @@ const mainPacketsReplayer = async (
       bot.game.gameMode = 'spectator'
       bot.emit('game')
     }
+    // Start in birds eye view mode for replays - emit event so overlay shows
+    customEvents.emit('kradle:birdsEyeViewFollow')
   }
 
   // Ensure the client is in PLAY state for packet processing
