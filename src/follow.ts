@@ -35,7 +35,6 @@ export function updateSpectatorCameraDirection (yaw: number, pitch: number) {
 
 // Set spectator camera position
 export function setSpectatorCameraPosition (pos: Vec3 | null, yaw?: number, pitch?: number) {
-  console.log('[CameraMode] setSpectatorCameraPosition called:', pos ? `${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)}` : 'null', new Error().stack?.split('\n').slice(1, 4).join(' <- '))
   spectatorCameraPosition = pos ? pos.clone() : null
   if (pos && yaw !== undefined && pitch !== undefined) {
     spectatorCameraYaw = yaw

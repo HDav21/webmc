@@ -914,7 +914,6 @@ export const onBotCreate = () => {
 
 const standardAirborneAcceleration = 0.02
 export const toggleFly = (newState = !isFlying(), sendAbilities?: boolean) => {
-  console.log('[CameraMode] toggleFly called:', newState, 'allowFlying:', allowFlying, new Error().stack?.split('\n').slice(1, 3).join(' <- '))
   // if (bot.game.gameMode !== 'creative' && bot.game.gameMode !== 'spectator') return
   if (!allowFlying) return
   if (bot.setControlState !== patchedSetControlState) {
