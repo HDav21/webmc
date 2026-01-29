@@ -8,6 +8,8 @@ import { toggleMic, toggleCamera, toggleRecording } from './controls'
 import { audioTrackScheduler } from './sounds/audioTrackScheduler'
 import { packetsReplayState } from './react/state/packetsReplayState'
 
+type DistributiveOmit<T, K extends keyof any> = T extends any ? Omit<T, K> : never
+
 type IFrameSendablePayload =
   | {
     source: 'minecraft-web-client'; // Used to filter messages on the parent side
@@ -27,6 +29,8 @@ type IFrameSendablePayload =
     recordingName?: string; // e.g. "2025-07-04--00-41-17"
     isRecording: boolean;
     isPaused: boolean;
+    isMicEnabled: boolean;
+    isCameraEnabled: boolean;
   }
   | {
     source: 'minecraft-web-client';
@@ -44,8 +48,13 @@ type IFrameSendablePayload =
     source: 'minecraft-web-client';
     action: 'followingPlayerLost';
   }
+  | {
+    source: 'minecraft-web-client';
+    action: 'screenshotData';
+    imageData: string; // Base64 data URL string (JPEG)
+  }
 
-type ReceivableActions = 'followPlayer' | 'command' | 'reconnect' | 'setAgentSkins' | 'releasePointerLock' | 'birdsEyeViewFollow'
+type ReceivableActions = 'followPlayer' | 'command' | 'reconnect' | 'setAgentSkins' | 'releasePointerLock' | 'birdsEyeViewFollow' | 'takeScreenshot'
 
 let playerPaused = false
 
@@ -53,6 +62,9 @@ let playerPaused = false
 let storedIsRecording = false
 let storedIsMicEnabled = false
 let storedIsCameraEnabled = false
+
+// Guard to prevent duplicate event listeners on hot-reload
+let iframeCommsSetup = false
 
 export function isGamePaused (): boolean {
   return playerPaused
@@ -123,6 +135,13 @@ export function registerPauseHotkey () {
 registerPauseHotkey()
 
 export function setupIframeComms () {
+  // Prevent duplicate setup on hot-reload
+  if (iframeCommsSetup) {
+    console.log('[iframe-rpc] Iframe comms already setup, skipping')
+    return
+  }
+  iframeCommsSetup = true
+
   // Handle incoming messages from kradle frontend
   window.addEventListener('message', (event) => {
     const { data } = event
@@ -134,7 +153,7 @@ export function setupIframeComms () {
 
   // Handle outgoing messages to kradle frontend
   function sendMessageToKradle (
-    payload: Omit<IFrameSendablePayload, 'source'>
+    payload: DistributiveOmit<IFrameSendablePayload, 'source'>
   ) {
     if (window !== window.parent) {
       window.parent.postMessage({
@@ -151,7 +170,6 @@ export function setupIframeComms () {
     // Replay starts playing by default (playerPaused = false, packetsReplayState.isPlaying = true)
     sendMessageToKradle({
       action: 'replayStatus',
-      // @ts-expect-error TODO fix this type
       currentTime: '00:00:00',
       progress: 0,
       percentage: 0,
@@ -164,7 +182,6 @@ export function setupIframeComms () {
   customEvents.on('followingPlayer', (username) => {
     sendMessageToKradle({
       action: 'followingPlayer',
-      // @ts-expect-error TODO fix this type
       username
     })
   })
@@ -182,7 +199,6 @@ export function setupIframeComms () {
   customEvents.on('replayProgress', (data) => {
     sendMessageToKradle({
       action: 'replayStatus',
-      // @ts-expect-error TODO fix this type
       currentTime: data.currentTime,
       progress: data.progress,
       percentage: data.percentage,
@@ -391,6 +407,30 @@ export function setupIframeComms () {
   customEvents.on('kradle:releasePointerLock', () => {
     if (document.pointerLockElement && document.exitPointerLock) {
       document.exitPointerLock()
+    }
+  })
+
+  // Handle screenshot capture request from parent app
+  customEvents.on('kradle:takeScreenshot', () => {
+    const gameCanvas = document.getElementById('viewer-canvas') as HTMLCanvasElement
+    if (!gameCanvas) {
+      console.warn('[iframe-rpc] Screenshot requested but viewer-canvas not found')
+      return
+    }
+
+    try {
+      // Capture canvas as JPEG with 0.8 quality for reasonable file sizes
+      const imageData = gameCanvas.toDataURL('image/jpeg', 0.8)
+
+      // Send screenshot data back to parent
+      sendMessageToKradle({
+        action: 'screenshotData',
+        imageData,
+      })
+
+      console.log('[iframe-rpc] Screenshot captured and sent to parent')
+    } catch (error) {
+      console.error('[iframe-rpc] Failed to capture screenshot:', error)
     }
   })
 
