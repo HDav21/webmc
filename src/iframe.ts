@@ -8,6 +8,8 @@ import { toggleMic, toggleCamera, toggleRecording } from './controls'
 import { audioTrackScheduler } from './sounds/audioTrackScheduler'
 import { packetsReplayState } from './react/state/packetsReplayState'
 
+type DistributiveOmit<T, K extends keyof any> = T extends any ? Omit<T, K> : never
+
 type IFrameSendablePayload =
   | {
     source: 'minecraft-web-client'; // Used to filter messages on the parent side
@@ -27,6 +29,8 @@ type IFrameSendablePayload =
     recordingName?: string; // e.g. "2025-07-04--00-41-17"
     isRecording: boolean;
     isPaused: boolean;
+    isMicEnabled: boolean;
+    isCameraEnabled: boolean;
   }
   | {
     source: 'minecraft-web-client';
@@ -149,7 +153,7 @@ export function setupIframeComms () {
 
   // Handle outgoing messages to kradle frontend
   function sendMessageToKradle (
-    payload: Omit<IFrameSendablePayload, 'source'>
+    payload: DistributiveOmit<IFrameSendablePayload, 'source'>
   ) {
     if (window !== window.parent) {
       window.parent.postMessage({
@@ -166,7 +170,6 @@ export function setupIframeComms () {
     // Replay starts playing by default (playerPaused = false, packetsReplayState.isPlaying = true)
     sendMessageToKradle({
       action: 'replayStatus',
-      // @ts-expect-error TODO fix this type
       currentTime: '00:00:00',
       progress: 0,
       percentage: 0,
@@ -179,7 +182,6 @@ export function setupIframeComms () {
   customEvents.on('followingPlayer', (username) => {
     sendMessageToKradle({
       action: 'followingPlayer',
-      // @ts-expect-error TODO fix this type
       username
     })
   })
@@ -197,7 +199,6 @@ export function setupIframeComms () {
   customEvents.on('replayProgress', (data) => {
     sendMessageToKradle({
       action: 'replayStatus',
-      // @ts-expect-error TODO fix this type
       currentTime: data.currentTime,
       progress: data.progress,
       percentage: data.percentage,
