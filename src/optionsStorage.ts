@@ -25,7 +25,7 @@ const defaultOptions = {
   chatOpacityOpened: 0, // hide chat even when opened
   messagesLimit: 200,
   volume: 0,
-  enableMusic: true,
+  enableMusic: false,
   // fov: 70,
   fov: 75,
   guiScale: 3,

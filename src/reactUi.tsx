@@ -230,7 +230,7 @@ const App = () => {
             <PacketsReplayProvider />
             <NotificationProvider />
             <FollowerClickOverlay />
-            <AudioControls />
+            {/* <AudioControls /> */}
           </RobustPortal>
           <RobustPortal to={document.body}>
             <div className='overlay-top-scaled'>

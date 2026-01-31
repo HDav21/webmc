@@ -53,6 +53,7 @@ export type AppQsParams = {
   replaySkipMissingOnTimeout?: string
   replayPacketsSenderDelay?: string
   isPlayback?: string
+  molttown?: boolean
 }
 
 export type AppQsParamsArray = {
