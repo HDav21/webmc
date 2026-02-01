@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { appQueryParams } from '../appParams'
-import molttownBg from '../../assets/molttown/molttown-loading-01.png'
+import molttownBg from '../../assets/loading-bg.jpg'
 
 interface Props {
   title: JSX.Element | string
