@@ -3,7 +3,7 @@ import { isGamePaused } from './iframe'
 
 // Layout types
 export type ChatLayout = 'minecraft' | 'stacked'
-let currentLayout: ChatLayout = 'stacked'
+let currentLayout: ChatLayout = 'minecraft'
 
 export function setChatLayout (layout: ChatLayout): void {
   currentLayout = layout

@@ -46,13 +46,14 @@ export const pointerLock = {
 
     const displayBrowserProblem = () => {
       console.warn('[pointerLock] Browser problem detected (delay or keyboard issue)')
-      showNotification(
-        'Browser Delay Limitation',
-        navigator['keyboard']
-          ? 'Click on screen, enable Auto Fullscreen or F11'
-          : 'Click on screen or use fullscreen in Chrome'
-      )
-      notificationProxy.id = 'pointerlockchange'
+      // Notification disabled - not helpful for users
+      // showNotification(
+      //   'Browser Delay Limitation',
+      //   navigator['keyboard']
+      //     ? 'Click on screen, enable Auto Fullscreen or F11'
+      //     : 'Click on screen or use fullscreen in Chrome'
+      // )
+      // notificationProxy.id = 'pointerlockchange'
     }
 
     if (!(document.fullscreenElement && navigator['keyboard']) && this.justHitEscape) {

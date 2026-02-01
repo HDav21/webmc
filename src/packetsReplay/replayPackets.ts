@@ -88,7 +88,7 @@ export function startLocalReplayServer (contentsOrPackets: string | ParsedReplay
   console.log('startLocalReplayServer - version:', header.minecraftVersion, 'packets:', packets.length)
 
   packetsReplayState.packetsPlayback = []
-  packetsReplayState.isOpen = false
+  packetsReplayState.isOpen = true
   packetsReplayState.isPlaying = true
   packetsReplayState.progress = {
     current: 0,
@@ -643,6 +643,10 @@ const mainPacketsReplayer = async (
     currentSpeed: packetsReplayState.speed
   })
 
+  // Initialize state for React components
+  packetsReplayState.totalDurationMs = totalReplayTime
+  packetsReplayState.currentTimeMs = 0
+
   // ============================================================
   // TIMER-BASED DRIP SYSTEM - mimics real network event delivery
   // ============================================================
@@ -711,15 +715,33 @@ const mainPacketsReplayer = async (
 
       console.log(`Seeking to ${targetMs}ms, packet index ${targetIndex}`)
 
+      // Clear all entities except the player's own entity (same as restart)
+      const entitiesToRemove = Object.values(bot.entities).filter(entity => entity !== bot.entity)
+      console.log(`Clearing ${entitiesToRemove.length} entities for seek`)
+      for (const entity of entitiesToRemove as Entity[]) {
+        bot.emit('entityGone', entity)
+        delete bot.entities[entity.id]
+      }
+
       // Clear chat messages when seeking
       customEvents.emit('clearChat' as any)
 
-      // Update replay position
+      // Fast-forward: replay all packets from 0 to targetIndex immediately (no timing)
+      console.log(`Fast-forwarding ${targetIndex} packets...`)
+      for (let i = 0; i < targetIndex; i++) {
+        const packet = packetsWithTimestamp[i]
+        playServerPacket(packet.name, packet.params)
+      }
+      console.log('Fast-forward complete')
+
+      // Update replay position to continue from target
       currentPacketIndex = targetIndex
       // Adjust replayStartTime so elapsed time matches target
       const speed = Math.max(0.1, packetsReplayState.speed)
-      replayStartTime = performance.now() - (targetMs / speed) - totalPausedTime
+      replayStartTime = performance.now() - (targetMs / speed)
+      totalPausedTime = 0
       packetsReplayState.progress.current = targetIndex
+      packetsReplayState.currentTimeMs = targetMs
       packetsReplayState.isPlaying = true
       pausedAt = 0
       replayFinished = false
@@ -795,6 +817,10 @@ const mainPacketsReplayer = async (
       // Pause the replay (keep entities and world visible)
       packetsReplayState.isPlaying = false
 
+      // Update state for React components
+      packetsReplayState.currentTimeMs = totalReplayTime
+      packetsReplayState.totalDurationMs = totalReplayTime
+
       // Emit final status with 100% progress
       customEvents.emit('replayProgress', {
         currentTime: formatTime(totalReplayTime),
@@ -815,6 +841,9 @@ const mainPacketsReplayer = async (
       const currentTimestamp = packetsWithTimestamp[currentPacketIndex]?.timestamp || 0
       const progress = currentTimestamp / totalReplayTime
       const percentage = Math.round(progress * 100)
+      // Update state for React components
+      packetsReplayState.currentTimeMs = currentTimestamp
+      packetsReplayState.totalDurationMs = totalReplayTime
       customEvents.emit('replayProgress', {
         currentTime: formatTime(currentTimestamp),
         progress,
