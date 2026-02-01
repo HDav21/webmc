@@ -53,6 +53,12 @@ type IFrameSendablePayload =
     action: 'screenshotData';
     imageData: string; // Base64 data URL string (JPEG)
   }
+  | {
+    source: 'minecraft-web-client';
+    action: 'recordingData';
+    blob: Blob; // Video recording blob (WebM)
+    filename: string; // Suggested filename
+  }
 
 type ReceivableActions = 'followPlayer' | 'command' | 'reconnect' | 'setAgentSkins' | 'releasePointerLock' | 'birdsEyeViewFollow' | 'takeScreenshot'
 
@@ -439,6 +445,16 @@ export function setupIframeComms () {
     sendMessageToKradle({
       action: 'connectionStatus',
       ...statusData,
+    })
+  })
+
+  // Handle recording complete - send video blob to parent
+  customEvents.on('recordingComplete', (data: { blob: Blob; filename: string }) => {
+    console.log('[iframe-rpc] Recording complete, sending blob to parent, size:', data.blob.size)
+    sendMessageToKradle({
+      action: 'recordingData',
+      blob: data.blob,
+      filename: data.filename,
     })
   })
 

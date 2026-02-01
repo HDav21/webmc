@@ -4,6 +4,10 @@ import StatsGl from 'stats-gl'
 import * as tween from '@tweenjs/tween.js'
 import { GraphicsBackendConfig, GraphicsInitOptions } from '../../../src/appViewer'
 
+// Minimum render resolution for quality (1080p)
+const MIN_RENDER_WIDTH = 1920
+const MIN_RENDER_HEIGHT = 1080
+
 export class DocumentRenderer {
   readonly canvas = document.createElement('canvas')
   readonly renderer: THREE.WebGLRenderer
@@ -58,13 +62,17 @@ export class DocumentRenderer {
   }
 
   updateSize () {
-    this.renderer.setSize(window.innerWidth, window.innerHeight)
+    // Render at minimum 1080p for recording quality, or native resolution if larger
+    const renderWidth = Math.max(window.innerWidth, MIN_RENDER_WIDTH)
+    const renderHeight = Math.max(window.innerHeight, MIN_RENDER_HEIGHT)
+
+    // Set internal buffer size only (false = don't touch CSS styles)
+    // CSS in styles.css handles display size (100dvw x 100dvh)
+    this.renderer.setSize(renderWidth, renderHeight, false)
   }
 
   private addToPage () {
     this.canvas.id = 'viewer-canvas'
-    this.canvas.style.width = '100%'
-    this.canvas.style.height = '100%'
     document.body.appendChild(this.canvas)
   }
 

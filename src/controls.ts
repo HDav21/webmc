@@ -28,6 +28,7 @@ import { onCameraMove, onControInit } from './cameraRotationControls'
 import { createNotificationProgressReporter } from './core/progressReporter'
 import { appStorage } from './react/appStorageProvider'
 import { switchGameMode } from './packetsReplay/replayPackets'
+import { packetsReplayState } from './react/state/packetsReplayState'
 import { appQueryParams } from './appParams'
 
 
@@ -1489,7 +1490,7 @@ const startCanvasRecording = async () => {
     console.log('[recording] Setting up MediaRecorder options')
     const recorderOptions = {
       mimeType: 'video/webm;codecs=vp9',
-      videoBitsPerSecond: 25_000_000 // 25 Mbps for high quality 1080p
+      videoBitsPerSecond: 10_000_000 // 10 Mbps for high quality 1080p60
     }
 
     // Fallback to vp8 if vp9 is not supported
@@ -1527,17 +1528,16 @@ const startCanvasRecording = async () => {
 
       const blob = new Blob(recordingState.chunks, { type: 'video/webm' })
       console.log('[recording] Blob created, size:', blob.size)
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
       const date = new Date()
-      link.download = `recording ${date.toLocaleString().replaceAll('.', '-').replace(',', '')}.webm`
-      console.log('[recording] Triggering download:', link.download)
-      link.click()
-      URL.revokeObjectURL(url)
+      const filename = `recording ${date.toLocaleString().replaceAll('.', '-').replace(',', '')}.webm`
+
+      // Send recording data to parent via postMessage
+      console.log('[recording] Emitting recordingComplete event')
+      customEvents.emit('recordingComplete', { blob, filename })
+
       recordingState.mediaRecorder = null
       recordingState.chunks = []
-      console.log('[recording] Download triggered')
+      console.log('[recording] Recording complete, data sent to parent')
     }
 
     // Start recording with 1 second timeslice to ensure regular data capture
@@ -1609,6 +1609,14 @@ const stopCanvasRecording = () => {
       recordingState.indicatorElement.remove()
       recordingState.indicatorElement = null
     }
+
+    // Release pointer lock so user can interact with UI
+    if (document.pointerLockElement) {
+      document.exitPointerLock()
+    }
+
+    // Pause playback
+    packetsReplayState.isPlaying = false
 
     console.log('[recording] Canvas recording stopped')
   } else {
