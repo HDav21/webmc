@@ -54,6 +54,7 @@ export type AppQsParams = {
   replayPacketsSenderDelay?: string
   isPlayback?: string
   molttown?: boolean
+  live?: string
 }
 
 export type AppQsParamsArray = {

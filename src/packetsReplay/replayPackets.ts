@@ -11,6 +11,7 @@ import { packetsReplayState } from '../react/state/packetsReplayState'
 import { getFixedFilesize } from '../react/simpleUtils'
 
 import { setLoadingScreenStatus } from '../appStatus'
+import { appQueryParams } from '../appParams'
 
 export const VALID_REPLAY_EXTENSIONS = [
   PACKETS_REPLAY_FILE_EXTENSION,
@@ -95,6 +96,11 @@ export function startLocalReplayServer (contentsOrPackets: string | ParsedReplay
     total: packets.filter(packet => packet.isFromServer).length
   }
   packetsReplayState.speed = 1
+
+  // In live mode, start at 25 seconds (will fast-forward packets)
+  if (appQueryParams.live) {
+    packetsReplayState.seekTargetMs = 25_000
+  }
 
   if (!packetsReplayState.replayName || packetsReplayState.replayName === '') {
     const sizeEstimate = typeof contentsOrPackets === 'string' ? contentsOrPackets.length : packets.length * 100

@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { useSnapshot } from 'valtio'
 import { packetsReplayState } from '../../state/packetsReplayState'
+import { appQueryParams } from '../../../appParams'
 
 const HIDE_DELAY_MS = 2500
 
@@ -114,7 +115,8 @@ export default function ReplayTimeline () {
     }
   }, [isDragging, handleMouseMove, handleMouseUp])
 
-  if (!state.isOpen || state.totalDurationMs === 0) {
+  // Hide timeline in live mode or when not open
+  if (!state.isOpen || state.totalDurationMs === 0 || appQueryParams.live) {
     return null
   }
 

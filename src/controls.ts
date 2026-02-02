@@ -1318,6 +1318,8 @@ if (appQueryParams.isPlayback === 'true') {
   })
 }
 
+const MAX_RECORDING_SECONDS = 60
+
 const updateRecordingTime = () => {
   const elapsed = Math.floor((Date.now() - recordingState.startTime) / 1000)
   const minutes = Math.floor(elapsed / 60)
@@ -1325,6 +1327,12 @@ const updateRecordingTime = () => {
   const timeElement = document.getElementById('recording-time')
   if (timeElement) {
     timeElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`
+  }
+
+  // Auto-stop recording after max duration
+  if (elapsed >= MAX_RECORDING_SECONDS) {
+    console.log('[recording] Max duration reached, stopping recording')
+    stopCanvasRecording()
   }
 }
 
