@@ -1350,7 +1350,7 @@ const drawRoundedRect = (
   ctx.closePath()
 }
 
-const showRecordingCountdown = (): Promise<void> => {
+const showRecordingCountdown = async (): Promise<void> => {
   return new Promise((resolve) => {
     // Create overlay container
     const overlay = document.createElement('div')
