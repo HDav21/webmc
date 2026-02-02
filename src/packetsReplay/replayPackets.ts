@@ -569,8 +569,14 @@ const mainPacketsReplayer = async (
     bot.entity.type = 'player'
   }
 
-  // Ensure entity has a position (required for viewer raycasting)
-  if (!bot.entity.position) {
+  // Ensure entity has a valid position (required for viewer raycasting and camera)
+  // Note: Entity constructor sets position to Vec3(0,0,0) by default, so we need to check
+  // if it's at the origin AND find a better position from packets
+  const isAtDefaultOrigin = bot.entity.position &&
+    bot.entity.position.x === 0 &&
+    bot.entity.position.y === 0 &&
+    bot.entity.position.z === 0
+  if (!bot.entity.position || isAtDefaultOrigin) {
     const { Vec3 } = require('vec3')
     // Find first position packet to get initial position
     const positionPacket = playPackets.find(p => p.isFromServer && (p.name === 'position' || p.name === 'synchronize_player_position'))
@@ -579,8 +585,8 @@ const mainPacketsReplayer = async (
       bot.entity.position = new Vec3(x ?? 0, y ?? 64, z ?? 0)
       console.log('Set initial position from packet:', bot.entity.position)
     } else {
-      bot.entity.position = new Vec3(0, 64, 0)
-      console.log('Set default position:', bot.entity.position)
+      // No position packet found, keep at origin but log it
+      console.log('No position packet found, keeping default position:', bot.entity.position)
     }
   }
 

@@ -80,7 +80,25 @@ function handleMovement () {
     return
   }
 
-  // handle losing the entity
+  // Handle following the bot itself (first person mode)
+  if (following === bot) {
+    // In replay mode, bot.entity may not exist yet - skip camera update
+    if (!bot.entity) {
+      return
+    }
+    // Skip world position update if bot position is at default origin (likely uninitialized)
+    // This prevents unloading all chunks when switching to first person mode in replay
+    const isAtDefaultOrigin = bot.entity.position.x === 0 &&
+      bot.entity.position.y === 0 &&
+      bot.entity.position.z === 0
+    setThirdPersonCamera()
+    if (!isAtDefaultOrigin) {
+      void appViewer.worldView?.updatePosition(bot.entity.position)
+    }
+    return
+  }
+
+  // handle losing the entity (when following another player)
   if (following && !following?.entity?.position) {
     // Try to recover using persistent username
     const usernameToRecover = followingUsername || following?.username
@@ -149,8 +167,13 @@ export function getBirdsEyeCameraPosition () {
   const players: Vec3[] = []
   const excludedNames = new Set(['KradleWebViewer', 'watcher'])
 
+  // Helper to check if a position is at the default origin (likely uninitialized in replay mode)
+  const isAtDefaultOrigin = (pos: Vec3 | undefined) =>
+    pos && pos.x === 0 && pos.y === 0 && pos.z === 0
+
   // Add the bot itself first (it's also a player) - unless it's one of the excluded
-  if (bot.entity?.position && !excludedNames.has(bot.username || '')) {
+  // Skip if position is at default origin (likely not properly initialized in replay mode)
+  if (bot.entity?.position && !excludedNames.has(bot.username || '') && !isAtDefaultOrigin(bot.entity.position)) {
     players.push(bot.entity.position)
   }
 
@@ -158,25 +181,35 @@ export function getBirdsEyeCameraPosition () {
   for (const entity of Object.values(bot.entities)) {
     if (entity.type === 'player' && entity.position && entity.username) {
       // Skip KradleWebViewer and watcher - they're not real players
-      if (!excludedNames.has(entity.username)) {
+      // Skip positions at default origin
+      if (!excludedNames.has(entity.username) && !isAtDefaultOrigin(entity.position)) {
         players.push(entity.position)
       }
     }
   }
 
   if (players.length === 0) {
-    // Return last valid position if we have one
+    // Return last valid position if we have one - this is the safest fallback
     if (lastValidBirdsEyePosition) {
       return lastValidBirdsEyePosition
     }
 
     // Only use fallback if we've never had a valid position
+    // Prefer a sensible default height rather than potentially wrong coordinates
     const fallbackY = bot.entity?.position?.y || 70
-    return {
-      position: new Vec3(bot.entity?.position?.x || 0, fallbackY + 12, (bot.entity?.position?.z || 0) + 12),
+    const fallbackX = bot.entity?.position?.x || 0
+    const fallbackZ = bot.entity?.position?.z || 0
+    // If position looks uninitialized (at origin), don't cache this as a valid position
+    const result = {
+      position: new Vec3(fallbackX, fallbackY + 12, fallbackZ + 12),
       yaw: 0,
       pitch: -Math.PI / 4 // 45 degrees looking down (negative for down)
     }
+    // Don't cache origin-based fallbacks as they're likely wrong
+    if (!isAtDefaultOrigin(bot.entity?.position)) {
+      lastValidBirdsEyePosition = result
+    }
+    return result
   }
 
   // Calculate center point of all players
@@ -236,6 +269,10 @@ export function setThirdPersonCamera (directionOnly = false) {
 
   // if the bot itself is being followed, just use first person camera normally
   if (following === bot) {
+    // In replay mode, bot.entity may not exist - skip camera update
+    if (!bot.entity) {
+      return
+    }
     // Check if we're in flying/spectator mode with a separate camera position
     const spectatorPos = getSpectatorCameraPosition()
     if (bot.physics.gravity === 0 && spectatorPos) {
