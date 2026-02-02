@@ -1749,7 +1749,7 @@ const stopCanvasRecording = () => {
 
     // Release pointer lock so user can interact with UI
     if (document.pointerLockElement) {
-      document.exitPointerLock()
+      document.exitPointerLock?.()
     }
 
     // Pause playback
@@ -1781,6 +1781,14 @@ window.addEventListener('beforeunload', () => {
 document.addEventListener('pointerlockchange', () => {
   if (!document.pointerLockElement && recordingState.isRecording) {
     console.log('[recording] Pointer lock released, stopping recording')
+    stopCanvasRecording()
+  }
+})
+
+// Stop recording when Escape key is pressed (in case pointer lock doesn't catch it)
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && recordingState.isRecording) {
+    console.log('[recording] Escape pressed, stopping recording')
     stopCanvasRecording()
   }
 })

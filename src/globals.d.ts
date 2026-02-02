@@ -44,6 +44,7 @@ declare const customEvents: import('typed-emitter').default<{
   'kradle:sendRecordingMessageList' (data?: any): void // request from kradle to set recording message list
   agentSkinsUpdated (): void // emitted when agent skins map is updated
   recordingUpdate (data: any): void // emitted when recording state changes
+  recordingComplete (data: { blob: Blob; filename: string }): void // emitted when recording is complete
   connectionStatus (statusData: {
     status: 'connected' | 'connecting' | 'disconnected' | 'error' | 'kicked'
     message: string
