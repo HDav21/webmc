@@ -84,6 +84,12 @@ function startsWithBracket (parts: Array<{ text: string }>): boolean {
   return fullText.startsWith('[')
 }
 
+// Check if message text starts with "Teleported " (teleport confirmations to filter out)
+function startsWithTeleported (parts: Array<{ text: string }>): boolean {
+  const fullText = parts.map(p => p.text || '').join('').trim()
+  return fullText.startsWith('Teleported ')
+}
+
 function isPlayerChatMessage (jsonMsg: any): boolean {
   const translate = jsonMsg?.translate || jsonMsg?.json?.translate
 
@@ -138,8 +144,8 @@ export default () => {
       }
 
       // Only show player chat messages on canvas (not system messages)
-      // Also filter out messages starting with [ (system/watcher messages)
-      const isPlayerChat = isPlayerChatMessage(jsonMsg) && !startsWithBracket(parts)
+      // Also filter out messages starting with [ (system/watcher messages) or "Teleported " (teleport confirmations)
+      const isPlayerChat = isPlayerChatMessage(jsonMsg) && !startsWithBracket(parts) && !startsWithTeleported(parts)
       if (ChatRenderCanvas && isPlayerChat) {
         addCanvasChatMessage(parts)
       }
