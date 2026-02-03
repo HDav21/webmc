@@ -78,6 +78,12 @@ const EXCLUDED_TRANSLATE_PREFIXES = [
   'multiplayer.player.left', // player left
 ]
 
+// Check if message text starts with [ (bracketed messages to filter out)
+function startsWithBracket (parts: Array<{ text: string }>): boolean {
+  const fullText = parts.map(p => p.text || '').join('').trim()
+  return fullText.startsWith('[')
+}
+
 function isPlayerChatMessage (jsonMsg: any): boolean {
   const translate = jsonMsg?.translate || jsonMsg?.json?.translate
 
@@ -132,7 +138,8 @@ export default () => {
       }
 
       // Only show player chat messages on canvas (not system messages)
-      const isPlayerChat = isPlayerChatMessage(jsonMsg)
+      // Also filter out messages starting with [ (system/watcher messages)
+      const isPlayerChat = isPlayerChatMessage(jsonMsg) && !startsWithBracket(parts)
       if (ChatRenderCanvas && isPlayerChat) {
         addCanvasChatMessage(parts)
       }
