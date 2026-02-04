@@ -48,6 +48,7 @@ export interface SerializedGeometry {
   t_uvs?: number[]
   indices: number[]
   indicesCount: number
+  transparentIndicesStart: number
   using32Array: boolean
   tiles: Record<string, any>
   heads: Record<string, any>
@@ -229,6 +230,7 @@ class ChunkGeometryCache {
       t_uvs: geometry.t_uvs,
       indices: [...geometry.indices],
       indicesCount: geometry.indicesCount,
+      transparentIndicesStart: geometry.transparentIndicesStart,
       using32Array: geometry.using32Array,
       tiles: geometry.tiles,
       heads: geometry.heads,
@@ -266,6 +268,7 @@ class ChunkGeometryCache {
         ? new Uint32Array(serialized.indices)
         : new Uint16Array(serialized.indices),
       indicesCount: serialized.indicesCount,
+      transparentIndicesStart: serialized.transparentIndicesStart,
       using32Array: serialized.using32Array,
       tiles: serialized.tiles,
       heads: serialized.heads,
