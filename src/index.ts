@@ -99,15 +99,13 @@ import createGraphicsBackend from 'renderer/viewer/three/graphicsBackend'
 import { subscribeKey } from 'valtio/utils'
 import { setupIframeComms } from './iframe'
 import { trackFollowerMovement } from './follow'
-import { renderChatOnCanvas, ChatRenderCanvas } from './canvasChatRenderer'
+import { renderChatOnCanvas } from './canvasChatRenderer'
 
 window.debug = debug
 window.beforeRenderFrame = []
 
-// Add canvas chat rendering if enabled
-if (ChatRenderCanvas) {
-  beforeRenderFrame.push(renderChatOnCanvas)
-}
+// Add canvas chat rendering (disabled via ?chat=false)
+beforeRenderFrame.push(renderChatOnCanvas)
 
 // ACTUAL CODE
 

@@ -3,7 +3,7 @@ import { useSnapshot } from 'valtio'
 import { appQueryParams } from '../appParams'
 import { formatMessage } from '../chatUtils'
 import { addCanvasChatMessage, clearCanvasChatMessages } from '../canvasChatMessages'
-import { ChatRenderCanvas } from '../canvasChatRenderer'
+import { isChatCanvasEnabled } from '../canvasChatRenderer'
 import { getBuiltinCommandsList, tryHandleBuiltinCommand } from '../builtinCommands'
 import { gameAdditionalState, hideCurrentModal, miscUiState } from '../globalState'
 import { options } from '../optionsStorage'
@@ -146,7 +146,7 @@ export default () => {
       // Only show player chat messages on canvas (not system messages)
       // Also filter out messages starting with [ (system/watcher messages) or "Teleported " (teleport confirmations)
       const isPlayerChat = isPlayerChatMessage(jsonMsg) && !startsWithBracket(parts) && !startsWithTeleported(parts)
-      if (ChatRenderCanvas && isPlayerChat) {
+      if (isChatCanvasEnabled() && isPlayerChat) {
         addCanvasChatMessage(parts)
       }
 

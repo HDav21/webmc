@@ -1,10 +1,13 @@
 import { getColorShadow, messageFormatStylesMap } from './react/MessageFormatted'
 import { getCanvasChatMessages, getMessageOpacity, getChatLayout, updateMessageAnimation, CanvasChatMessage } from './canvasChatMessages'
 import type { MessageFormatPart } from './chatUtils'
+import { appQueryParams } from './appParams'
 
 
-// Config flag - set to true to render chat on canvas for recordings
-export const ChatRenderCanvas = true
+// Check if canvas chat is enabled (defaults to true, can be disabled with ?chat=false)
+export function isChatCanvasEnabled (): boolean {
+  return appQueryParams.chat !== 'false'
+}
 
 // Rendering constants
 const BASE_FONT_SIZE = 16
@@ -620,6 +623,15 @@ function renderStackedLayout (
 }
 
 export function renderChatOnCanvas (): void {
+  // Check if chat canvas is disabled via appParams
+  if (!isChatCanvasEnabled()) {
+    // Clear the overlay canvas if it exists (in case it was just disabled)
+    if (overlayCanvas && overlayCtx) {
+      overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height)
+    }
+    return
+  }
+
   const overlay = getOrCreateOverlayCanvas()
   if (!overlay) return
 
