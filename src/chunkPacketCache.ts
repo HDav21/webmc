@@ -15,6 +15,11 @@
  *    - {x, z, cacheHit: true} - client should use cached data
  *    - {x, z, hash: "..."} - server will send map_chunk, client should cache it
  * 3. For cache hits, client emits cached map_chunk packet data locally
+ *
+ * ## Server Scoping:
+ * - Memory cache is cleared on server change via setServerInfo()
+ * - Disk cache is server-scoped: /data/chunk-cache/{serverAddress}/
+ * - Each server's cache is completely isolated to prevent cross-server data conflicts
  */
 
 import fs from 'fs'

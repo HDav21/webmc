@@ -707,11 +707,6 @@ const registerChunkCacheChannel = () => {
   // Track whether server supports the channel (detected via custom_payload)
   let serverSupportsChannel = false
 
-  // Cleanup pending hashes on disconnect to prevent memory leaks
-  bot.once('end', () => {
-    pendingChunkHashes.clear()
-  })
-
   // Periodic cleanup of stale pending hashes
   const cleanupInterval = setInterval(() => {
     const now = Date.now()
@@ -723,9 +718,13 @@ const registerChunkCacheChannel = () => {
     }
   }, 10_000) // Check every 10 seconds
 
-  // Stop cleanup interval when bot ends
+  // Single cleanup handler on disconnect to prevent memory leaks
+  // (combining interval cleanup and pending hashes clear)
   bot.once('end', () => {
     clearInterval(cleanupInterval)
+    pendingChunkHashes.clear()
+    void chunkGeometryCache.flush()
+    void chunkPacketCache.flush()
   })
 
   // Initialize caches with server support = false by default
@@ -784,17 +783,22 @@ const registerChunkCacheChannel = () => {
           // The packet data needs to be deserialized and emitted
           // We emit it through the client's packet handling
           const packetBuffer = Buffer.from(cached.packetData)
-          bot._client.emit('packet', deserializeMapChunkPacket(packetBuffer), { name: 'map_chunk' })
+          const deserialized = deserializeMapChunkPacket(packetBuffer)
+          // Validate deserialized packet has required fields
+          if (deserialized.x === undefined || deserialized.z === undefined) {
+            throw new Error('Invalid deserialized packet: missing x or z coordinates')
+          }
+          bot._client.emit('packet', deserialized, { name: 'map_chunk' })
           console.debug(`Emitted cached map_chunk for ${chunkKey}`)
         } catch (error) {
-          console.warn(`Failed to emit cached chunk ${chunkKey}:`, error)
+          console.warn(`Cache corrupt for ${chunkKey}:`, error)
           // Invalidate and request fresh chunk from server
           await chunkPacketCache.invalidate(data.x, data.z)
           requestChunkResend(data.x, data.z)
         }
       } else {
         // Cache miss despite server thinking we have it - request resend
-        console.warn(`Cache hit but no cached data for ${chunkKey} - requesting resend`)
+        console.warn(`Cache miss for ${chunkKey} - requesting resend`)
         await chunkPacketCache.invalidate(data.x, data.z)
         requestChunkResend(data.x, data.z)
       }

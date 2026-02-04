@@ -6,6 +6,11 @@
  *
  * Storage structure: /data/geometry-cache/{serverAddress}/{x},{y},{z}.bin
  * Metadata stored in: /data/geometry-cache/{serverAddress}/metadata.json
+ *
+ * ## Server Scoping:
+ * - Memory cache is cleared on server change via setServerSupportsChannel()
+ * - Disk cache is server-scoped: /data/geometry-cache/{serverAddress}/
+ * - Each server's cache is completely isolated to prevent cross-server data conflicts
  */
 
 import fs from 'fs'
@@ -237,8 +242,14 @@ class ChunkGeometryCache {
 
   /**
    * Deserialize geometry from storage
+   * @throws {Error} If serialized data is missing required fields
    */
   deserializeGeometry (serialized: SerializedGeometry): MesherGeometryOutput {
+    // Validate required fields exist
+    if (!serialized.positions || !serialized.indices) {
+      throw new Error('Serialized geometry missing required fields (positions or indices)')
+    }
+
     return {
       sx: serialized.sx,
       sy: serialized.sy,

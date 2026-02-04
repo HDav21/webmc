@@ -6,6 +6,26 @@
  * - Computing block hashes for cache keys
  * - Checking cache before requesting geometry from workers
  * - Saving generated geometry to cache
+ *
+ * ## Cache Flow:
+ * 1. **Chunk Load**: When a chunk is loaded, hash the block data and store in sectionHashes
+ * 2. **Section Dirty**: When a section needs rendering, check geometryCache for a hash match
+ *    - If cache hit: skip worker computation, use cached geometry directly
+ *    - If cache miss: send to mesher worker for geometry generation
+ * 3. **Geometry Received**: When worker returns geometry, store in geometryCache with hash
+ * 4. **Block Update**: When a block changes, invalidate the affected section's cache entry
+ *
+ * ## Server Protocol (when supported via minecraft-web-client:chunk-cache channel):
+ * - Client sends list of cached chunk hashes to server on login
+ * - Server responds with hit/miss for each chunk:
+ *   - Cache hit: Server sends only a confirmation, client uses local cached packet data
+ *   - Cache miss: Server sends full map_chunk packet, client caches it for future sessions
+ * - This saves significant network bandwidth for unchanged chunks
+ *
+ * ## Server Scoping:
+ * - Memory cache is cleared when connecting to a different server (via setServerSupportsChannel)
+ * - Disk cache is server-scoped: /data/geometry-cache/{serverAddress}/ and /data/chunk-cache/{serverAddress}/
+ * - Each server has isolated cache storage to prevent data conflicts
  */
 
 import type { MesherGeometryOutput } from './mesher/shared'
