@@ -56,6 +56,7 @@ export type AppQsParams = {
   isPlayback?: string
   kradleverse?: boolean
   live?: string
+  allowRecording?: string
 }
 
 export type AppQsParamsArray = {

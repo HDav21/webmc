@@ -1288,22 +1288,44 @@ export const toggleRecording = async () => {
   }
 }
 
-// E key to toggle camera
+// Helper to send unauthorized message to parent and release pointer lock
+const sendUnauthorizedMessage = (feature: 'recording' | 'camera' | 'voice') => {
+  document.exitPointerLock?.()
+  if (window !== window.parent) {
+    window.parent.postMessage({
+      source: 'minecraft-web-client',
+      action: 'unauthorized',
+      feature
+    }, '*')
+  }
+}
+
+// C key to toggle camera
 if (appQueryParams.isPlayback === 'true') {
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'KeyE' && !e.repeat && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+    if (e.code === 'KeyC' && !e.repeat && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       // Don't toggle if user is typing in an input
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return
+      // Check authorization
+      if (appQueryParams.allowRecording !== 'true') {
+        sendUnauthorizedMessage('camera')
+        return
+      }
       void toggleCamera()
     }
   })
 
-  // M key to toggle mic
+  // V key to toggle voice/mic
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'KeyM' && !e.repeat && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+    if (e.code === 'KeyV' && !e.repeat && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       e.preventDefault()
       // Don't toggle if user is typing in an input
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return
+      // Check authorization
+      if (appQueryParams.allowRecording !== 'true') {
+        sendUnauthorizedMessage('voice')
+        return
+      }
       void toggleMic()
     }
   })
@@ -1313,6 +1335,11 @@ if (appQueryParams.isPlayback === 'true') {
     if (e.code === 'KeyR' && !e.repeat && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
       // Don't toggle if user is typing in an input
       if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return
+      // Check authorization
+      if (appQueryParams.allowRecording !== 'true') {
+        sendUnauthorizedMessage('recording')
+        return
+      }
       void toggleRecording()
     }
   })

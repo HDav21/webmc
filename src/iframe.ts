@@ -6,6 +6,7 @@ import { musicSystem } from './sounds/musicSystem'
 import { reestablishFollowing } from './follow'
 import { toggleMic, toggleCamera, toggleRecording } from './controls'
 import { audioTrackScheduler } from './sounds/audioTrackScheduler'
+import { appQueryParams } from './appParams'
 import { packetsReplayState } from './react/state/packetsReplayState'
 
 type DistributiveOmit<T, K extends keyof any> = T extends any ? Omit<T, K> : never
@@ -63,6 +64,11 @@ type IFrameSendablePayload =
     source: 'minecraft-web-client';
     action: 'chatMessages';
     messages: Array<{ parts: Array<{ text: string; color?: string; bold?: boolean; italic?: boolean }>; id: number }>;
+  }
+  | {
+    source: 'minecraft-web-client';
+    action: 'unauthorized';
+    feature: 'recording' | 'camera' | 'voice';
   }
 
 type ReceivableActions = 'followPlayer' | 'command' | 'reconnect' | 'setAgentSkins' | 'releasePointerLock' | 'birdsEyeViewFollow' | 'takeScreenshot'
@@ -353,16 +359,31 @@ export function setupIframeComms () {
 
     if (command === 'replay recording toggle') {
       console.log('[iframe] Received replay recording toggle command')
+      if (appQueryParams.allowRecording !== 'true') {
+        document.exitPointerLock?.()
+        sendMessageToKradle({ action: 'unauthorized', feature: 'recording' })
+        return
+      }
       void toggleRecording()
     }
 
     if (command === 'replay mic toggle') {
       console.log('[iframe] Received replay mic toggle command')
+      if (appQueryParams.allowRecording !== 'true') {
+        document.exitPointerLock?.()
+        sendMessageToKradle({ action: 'unauthorized', feature: 'voice' })
+        return
+      }
       void toggleMic()
     }
 
     if (command === 'replay camera toggle') {
       console.log('[iframe] Received replay camera toggle command')
+      if (appQueryParams.allowRecording !== 'true') {
+        document.exitPointerLock?.()
+        sendMessageToKradle({ action: 'unauthorized', feature: 'camera' })
+        return
+      }
       void toggleCamera()
     }
 
