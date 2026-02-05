@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { appQueryParams } from '../appParams'
-import molttownBg from '../../assets/loading-bg.jpg'
+import kradleverseBg from '../../assets/loading-bg.jpg'
 
 interface Props {
   title: JSX.Element | string
@@ -48,13 +48,13 @@ export const loadingPhrases = [
 
 
 export default ({ title, children, backdrop = true, style, className = '', titleSelectable, titleMarginTop }: Props) => {
-  const isMolttown = appQueryParams.molttown === true || appQueryParams.molttown === 'true' as any
+  const isKradleverse = appQueryParams.kradleverse === true || appQueryParams.kradleverse === 'true' as any
   const loadingPhrase = useMemo(() => loadingPhrases[Math.floor(Math.random() * loadingPhrases.length)], [])
 
   const renderBackdrop = () => {
     if (!backdrop) return null
 
-    if (isMolttown) {
+    if (isKradleverse) {
       return createPortal(
         <div
           style={{
@@ -71,7 +71,7 @@ export default ({ title, children, backdrop = true, style, className = '', title
             <div>{loadingPhrase}</div>
           </div>
           <img
-            src={molttownBg}
+            src={kradleverseBg}
             alt=""
             style={{
               width: '100%',

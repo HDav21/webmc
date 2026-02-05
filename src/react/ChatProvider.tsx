@@ -15,7 +15,7 @@ import { updateLoadedServerData } from './serversStorage'
 import { lastConnectOptions } from './AppStatusProvider'
 import { packetsReplayState } from './state/packetsReplayState'
 
-// Track all chat messages for molttown mode
+// Track all chat messages for kradleverse mode
 const allChatMessages: Array<{ parts: Array<{ text: string; color?: string; bold?: boolean; italic?: boolean }>; id: number }> = []
 
 // Track seen message content hashes to prevent duplicates
@@ -44,7 +44,7 @@ function sanitizeParts (parts: any[]): Array<{ text: string; color?: string; bol
 }
 
 function sendChatToParent () {
-  if (appQueryParams.molttown && window !== window.parent) {
+  if (appQueryParams.kradleverse && window !== window.parent) {
     window.parent.postMessage({
       source: 'minecraft-web-client',
       action: 'chatMessages',
@@ -54,7 +54,7 @@ function sendChatToParent () {
 }
 
 // Synchronous clear function that can be called directly before fast-forwarding
-export function clearMolttownChat () {
+export function clearKradleverseChat () {
   allChatMessages.length = 0
   seenMessageHashes.clear()
   clearCanvasChatMessages()
@@ -162,7 +162,7 @@ export default () => {
           setMessages(m => [...m])
         })
 
-        // Track and send chat to parent in molttown mode (only player chat messages)
+        // Track and send chat to parent in kradleverse mode (only player chat messages)
         if (isPlayerChat) {
           const hash = getMessageHash(parts)
           // Skip duplicate messages

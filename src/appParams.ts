@@ -54,7 +54,7 @@ export type AppQsParams = {
   replaySkipMissingOnTimeout?: string
   replayPacketsSenderDelay?: string
   isPlayback?: string
-  molttown?: boolean
+  kradleverse?: boolean
   live?: string
 }
 
