@@ -636,7 +636,7 @@ export async function connect (connectOptions: ConnectOptions) {
       const VIEWER_IGNORE_PACKETS = new Set(['position', 'synchronize_player_position'])
       let firstPositionReceived = false
       const origEmit = bot._client.emit.bind(bot._client)
-      //@ts-expect-error
+      
       bot._client.emit = (event: string, ...args: any[]) => {
         if (VIEWER_IGNORE_PACKETS.has(event)) {
           if (!firstPositionReceived) {
