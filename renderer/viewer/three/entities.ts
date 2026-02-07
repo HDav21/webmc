@@ -707,7 +707,10 @@ export class Entities {
       } else {
         mesh = getEntityMesh(entity, this.worldRenderer, this.entitiesOptions, overrides)
       }
-      if (!mesh) return
+      if (!mesh) {
+        console.warn('[Entity Debug] Failed to create mesh for entity:', entity.name, entity.type, 'id:', entity.id)
+        return
+      }
       mesh.name = 'mesh'
       // set initial position so there are no weird jumps update after
       group.position.set(entity.pos.x, entity.pos.y, entity.pos.z)
@@ -738,6 +741,8 @@ export class Entities {
       }
       this.setDebugMode(this.debugMode, group)
       this.setRendering(this.currentlyRendering, group)
+      // Explicitly set visibility on creation (fixes entities not appearing when joining mid-game)
+      group.visible = true
     } else {
       mesh = e.children.find(c => c.name === 'mesh')
     }
