@@ -615,7 +615,7 @@ export class Entities {
     const justAdded = !this.entities[entity.id]
 
     // Debug logging for mid-game join issues
-    if (justAdded && typeof window !== 'undefined' && (window as any).DEBUG_ENTITIES) {
+    if (justAdded) {
       console.log('[Entity Debug] Creating entity:', {
         id: entity.id,
         name: entity.name,
@@ -719,13 +719,11 @@ export class Entities {
         mesh = getEntityMesh(entity, this.worldRenderer, this.entitiesOptions, overrides)
       }
       if (!mesh) {
-        if (typeof window !== 'undefined' && (window as any).DEBUG_ENTITIES) {
-          console.warn('[Entity Debug] Failed to create mesh for entity:', {
-            id: entity.id,
-            name: entity.name,
-            type: entity.type
-          })
-        }
+        console.warn('[Entity Debug] Failed to create mesh for entity:', {
+          id: entity.id,
+          name: entity.name,
+          type: entity.type
+        })
         return
       }
       mesh.name = 'mesh'
@@ -762,14 +760,12 @@ export class Entities {
       // Explicitly set visibility on creation to ensure entities appear when joining mid-game
       group.visible = true
 
-      if (typeof window !== 'undefined' && (window as any).DEBUG_ENTITIES) {
-        console.log('[Entity Debug] Entity created successfully:', {
-          id: entity.id,
-          name: entity.name,
-          inScene: this.worldRenderer.scene.children.includes(group),
-          visible: group.visible
-        })
-      }
+      console.log('[Entity Debug] Entity created successfully:', {
+        id: entity.id,
+        name: entity.name,
+        inScene: this.worldRenderer.scene.children.includes(group),
+        visible: group.visible
+      })
     } else {
       mesh = e.children.find(c => c.name === 'mesh')
     }
