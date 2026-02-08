@@ -801,14 +801,12 @@ export class Entities {
 
     // Debug: Log mesh children visibility
     if (justAdded) {
-      console.log('[Entity Debug] Mesh children visibility:', {
-        id: entity.id,
-        name: entity.name,
-        isInvisible: !!isInvisible,
-        metadata0: entity.metadata?.[0],
-        meshChildrenCount: mesh?.children?.length ?? 0,
-        meshChildrenVisible: mesh?.children?.map(c => ({ name: c.name, visible: c.visible })) ?? []
-      })
+      const childrenInfo = mesh?.children?.map(c => `${c.name}:${c.visible}`).join(', ') ?? 'none'
+      console.log(`[Entity Debug] ID ${entity.id} (${entity.name}) mesh children: [${childrenInfo}], isInvisible=${!!isInvisible}, metadata0=${entity.metadata?.[0]}`)
+      // Also log if entity group scale is 0 (hidden via scale hack)
+      if (e.scale.x === 0 || e.scale.y === 0 || e.scale.z === 0) {
+        console.warn(`[Entity Debug] ID ${entity.id} has ZERO SCALE! scale=(${e.scale.x}, ${e.scale.y}, ${e.scale.z})`)
+      }
     }
     // ---
     // set baby size
