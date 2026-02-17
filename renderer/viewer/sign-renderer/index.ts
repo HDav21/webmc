@@ -135,7 +135,10 @@ export const renderComponent = (
   const textWidths: number[] = []
 
   const renderText = (component: Message, parentFormatting?: Formatting | undefined) => {
-    const { text } = component
+    if (component.text != null && typeof component.text !== 'string') {
+      console.warn('renderText received non-string text value:', typeof component.text, component.text)
+    }
+    const text = component.text != null ? String(component.text) : undefined
     const formatting = {
       color: component.color ?? parentFormatting?.color,
       underlined: component.underlined ?? parentFormatting?.underlined,
