@@ -482,7 +482,6 @@ const openWindow = (type: string | undefined, title: string | any = undefined) =
       oldOnInventoryEvent(type, containing, windowIndex, inventoryIndex, item)
     }
   }
-  let jeiClickInProgress = false
   lastWindow.pwindow.onJeiClick = (slotItem, _index, isRightclick) => {
     if (!slotItem) {
       console.warn('onJeiClick called with undefined slotItem')
@@ -517,6 +516,7 @@ const openWindow = (type: string | undefined, title: string | any = undefined) =
         slot: freeSlot,
         item: PrismarineItem.toNotch(item)
       })
+      //@ts-expect-error
       bot._setSlot(freeSlot, item)
     } else {
       modelViewerState.model = undefined
