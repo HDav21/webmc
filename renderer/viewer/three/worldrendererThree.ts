@@ -24,7 +24,7 @@ import { Entities } from './entities'
 import { ThreeJsSound } from './threeJsSound'
 import { CameraShake } from './cameraShake'
 import { ThreeJsMedia } from './threeJsMedia'
-import { Fountain } from './threeJsParticles'
+import { Fountain, RainParticles } from './threeJsParticles'
 import { WaypointsRenderer } from './waypoints'
 import { DEFAULT_TEMPERATURE, SkyboxRenderer } from './skyboxRenderer'
 import { FireworksManager } from './fireworks'
@@ -80,6 +80,7 @@ export class WorldRendererThree extends WorldRendererCommon {
   DEBUG_RAYCAST = false
   skyboxRenderer: SkyboxRenderer
   fireworks: FireworksManager
+  rain: RainParticles
 
   private currentPosTween?: tweenJs.Tween<THREE.Vector3>
   private currentRotTween?: tweenJs.Tween<{ pitch: number, yaw: number }>
@@ -116,6 +117,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     this.media = new ThreeJsMedia(this)
     this.waypoints = new WaypointsRenderer(this)
     this.fireworks = new FireworksManager(this.scene)
+    this.rain = new RainParticles(this.scene)
 
     // this.fountain = new Fountain(this.scene, this.scene, {
     //   position: new THREE.Vector3(0, 10, 0),
@@ -792,6 +794,10 @@ export class WorldRendererThree extends WorldRendererCommon {
     const cameraPos = this.getCameraPosition()
     this.skyboxRenderer.update(cameraPos, this.viewDistance)
 
+    // Update rain position to follow camera
+    this.rain.updateCameraPosition(cameraPos)
+    this.rain.render()
+
     const sizeOrFovChanged = sizeChanged || this.displayOptions.inWorldRenderingConfig.fov !== this.camera.fov
     if (sizeOrFovChanged) {
       const size = this.renderer.getSize(new THREE.Vector2())
@@ -1045,6 +1051,7 @@ export class WorldRendererThree extends WorldRendererCommon {
     super.destroy()
     this.skyboxRenderer.dispose()
     this.fireworks.dispose()
+    this.rain.dispose()
   }
 
   shouldObjectVisible (object: THREE.Object3D) {
@@ -1108,6 +1115,16 @@ export class WorldRendererThree extends WorldRendererCommon {
 
   reloadWorld () {
     this.entities.reloadEntities()
+  }
+
+  toggleRain (): boolean {
+    const newState = !this.rain.isEnabled()
+    this.rain.setEnabled(newState)
+    return newState
+  }
+
+  setRain (enabled: boolean): void {
+    this.rain.setEnabled(enabled)
   }
 }
 
