@@ -198,7 +198,7 @@
   "pnpm": {
     "overrides": {
       "mineflayer": "github:zardoy/mineflayer#gen-the-master",
-      "@nxg-org/mineflayer-physics-util": "1.8.10",
+      "@nxg-org/mineflayer-physics-util": "1.8.19",
       "buffer": "^6.0.3",
       "vec3": "0.1.10",
       "three": "0.154.0",
@@ -222,8 +222,7 @@
     "patchedDependencies": {
       "pixelarticons@1.8.1": "patches/pixelarticons@1.8.1.patch",
       "mineflayer-item-map-downloader@1.2.0": "patches/mineflayer-item-map-downloader@1.2.0.patch",
-      "minecraft-protocol": "patches/minecraft-protocol.patch",
-      "@nxg-org/mineflayer-physics-util": "patches/@nxg-org__mineflayer-physics-util.patch"
+      "minecraft-protocol": "patches/minecraft-protocol.patch"
     },
     "ignoredBuiltDependencies": [
       "canvas",
