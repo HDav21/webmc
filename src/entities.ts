@@ -141,13 +141,16 @@ customEvents.on('gameLoaded', () => {
   bot.on('end', () => {
     if (onFireTimeout) {
       clearTimeout(onFireTimeout)
+      onFireTimeout = undefined
     }
   })
 
   bot.on('respawn', () => {
     if (onFireTimeout) {
       clearTimeout(onFireTimeout)
+      onFireTimeout = undefined
     }
+    appViewer.playerState.reactive.onFire = false
   })
 
   const updateCamera = (entity: Entity) => {
@@ -338,9 +341,11 @@ const updateEntityStates = (entityId: number, onFire: boolean, timeout?: boolean
   appViewer.playerState.reactive.onFire = onFire
   if (onFireTimeout) {
     clearTimeout(onFireTimeout)
+    onFireTimeout = undefined
   }
   if (timeout) {
     onFireTimeout = setTimeout(() => {
+      onFireTimeout = undefined
       updateEntityStates(entityId, false, false)
     }, 5000)
   }
@@ -356,7 +361,9 @@ function handleEntityMetadata (packet: { entityId: number, metadata: Array<{ key
 
   // Update fire state if flags were found
   if (flagsData) {
-    const wasOnFire = appViewer.playerState.reactive.onFire
-    appViewer.playerState.reactive.onFire = (flagsData.value & ENTITY_FLAGS.ON_FIRE) !== 0
+    const newOnFire = (flagsData.value & ENTITY_FLAGS.ON_FIRE) !== 0
+    if (appViewer.playerState.reactive.onFire !== newOnFire) {
+      appViewer.playerState.reactive.onFire = newOnFire
+    }
   }
 }
